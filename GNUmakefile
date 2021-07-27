@@ -64,12 +64,6 @@ FLAGS = \
 	-std=c99 \
 	-fPIC
 
-ifdef DEBUG
-FLAGS := $(FLAGS) -O0 -g
-else
-FLAGS := $(FLAGS) -O3 -g0 -fvisibility=hidden
-endif
-
 ############
 ### WASM ###
 ############
@@ -201,15 +195,28 @@ INCLUDES := $(INCLUDES) -Isrc/unix/apple -Isrc/unix/apple/$(TARGET)
 endif
 endif
 
+ifdef DEBUG
+FLAGS := $(FLAGS) -O0 -g
+else
+DEFS  := $(DEFS) -DMTY_EXPORT='__attribute__((visibility("default")))'
+FLAGS := $(FLAGS) -O3 -g0 -fvisibility=hidden
+endif
+
 CFLAGS = $(INCLUDES) $(DEFS) $(FLAGS)
 OCFLAGS = $(CFLAGS) -fobjc-arc
 
-all: clean-build clear $(SHADERS)
-	make objs -j4
+all: static
 
-objs: $(OBJS)
+prepare: clean-build clear $(SHADERS) $(OBJS)
 	mkdir -p bin/$(TARGET)/$(ARCH)
+
+static: prepare
 	$(AR) -crs bin/$(TARGET)/$(ARCH)/$(NAME).a $(OBJS)
+
+ifeq ($(TARGET), linux)
+shared: prepare
+	$(CC) -shared -o bin/$(TARGET)/$(ARCH)/$(NAME).so $(OBJS)
+endif
 
 ###############
 ### ANDROID ###

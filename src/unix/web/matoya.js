@@ -1241,11 +1241,22 @@ const MTY_WASI_API = {
 	},
 	fd_fdstat_set_flags: function () {
 	},
+	fd_filestat_set_size: function (fd, size) {
+	},
 	fd_readdir: function () {
 		return 8;
 	},
 	fd_seek: function (fd, offset, whence, offset_out) {
 		return 0;
+	},
+	fd_tell: function (fd) {
+		const finfo = MTY.fds[fd];
+
+		if (finfo && localStorage[finfo.path]) {
+			return mty_b64_to_buf(localStorage[finfo.path]).length;
+		}
+		
+		reutrn -1;
 	},
 	fd_read: function (fd, iovs, iovs_len, nread) {
 		const finfo = MTY.fds[fd];
@@ -1329,9 +1340,10 @@ const MTY_WASI_API = {
 	},
 	proc_exit: function () {
 	},
-	environ_get: function () {
+	environ_get: function(environ, environ_buf) {
 	},
-	environ_sizes_get: function () {
+	environ_sizes_get: function() {
+		return 0;
 	},
 };
 

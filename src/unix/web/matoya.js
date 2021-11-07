@@ -282,7 +282,7 @@ const MTY_GL_API = {
 			mty_gl_get_texture(type, data));
 	},
 	glTexSubImage2D: function (target, level, xoffset, yoffset, width, height, format, type, pixels) {
-		MTY.gl.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, 
+		MTY.gl.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type,
 			mty_gl_get_texture(type, pixels));
 	},
 	glDrawElements: function (mode, count, type, indices) {
@@ -729,7 +729,7 @@ function mty_poll_gamepads(app, controller) {
 
 	//Some browsers completely disable the function on non-secure contexts
 	if (!navigator.getGamepads)
-		return; 
+		return;
 
 	const gps = navigator.getGamepads();
 
@@ -1205,8 +1205,7 @@ const MTY_WASI_API = {
 			// We only need to return the size
 			const buf = mty_b64_to_buf(localStorage[path]);
 			MTY_SetUint64(filestat_out + 32, buf.byteLength);
-		}
-		else {
+		} else {
 			MTY_SetUint64(filestat_out + 32, 0);
 		}
 
@@ -1263,8 +1262,8 @@ const MTY_WASI_API = {
 		if (finfo && localStorage[finfo.path]) {
 			return mty_b64_to_buf(localStorage[finfo.path]).length;
 		}
-		
-		reutrn -1;
+
+		return -1;
 	},
 	fd_read: function (fd, iovs, iovs_len, nread) {
 		const finfo = MTY.fds[fd];
@@ -1352,7 +1351,7 @@ const MTY_WASI_API = {
 			time = performance.now()
 
 		MTY_SetUint64(time_out, Math.round(time * 1000.0 * 1000.0));
-		
+
 		return 0;
 	},
 	poll_oneoff: function (sin, sout, nsubscriptions, nevents) {

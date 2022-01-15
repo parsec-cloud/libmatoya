@@ -78,7 +78,7 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	IDXGISwapChain1 *swap_chain1 = NULL;
 
 	DXGI_SWAP_CHAIN_DESC1 sd = {0};
-	sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	sd.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; // TODO: Need to make this an input parameter
 	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	sd.SampleDesc.Count = 1;

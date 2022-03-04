@@ -27,8 +27,8 @@ struct d3d11_psvars {
 	uint32_t filter;
 	uint32_t effect;
 	uint32_t format;
-	uint32_t rotation;
-	uint32_t __pad[1]; // Constant buffers must be in increments of 16 bytes
+	uint32_t colorspace;
+	uint32_t rotation; // Constant buffers must be in increments of 16 bytes
 };
 
 struct d3d11_res {
@@ -425,6 +425,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	cb.filter = desc->filter;
 	cb.effect = desc->effect;
 	cb.format = ctx->format;
+	cb.colorspace = desc->colorspace;
 	cb.rotation = desc->rotation;
 
 	D3D11_MAPPED_SUBRESOURCE res = {0};

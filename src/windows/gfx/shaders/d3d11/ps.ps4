@@ -16,6 +16,7 @@ cbuffer VS_CONSTANT_BUFFER : register(b0) {
 	uint filter;
 	uint effect;
 	uint format;
+	uint colorspace;
 	uint rotation;
 	uint __pad[1];
 };
@@ -118,6 +119,22 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		float v = tex0.Sample(ss, uv).b;
 
 		rgba = yuv_to_rgba(y, u, v);
+
+	// RGBA16F, scRGB linear
+	} else if (format == 9 && colorspace == 2) {
+		rgba = tex0.Sample(ss, uv);
+
+	// RGB10A2, either sRGB or HDR10
+	} else if (format == 10 && (colorspace == 1 || colorspace == 3)) {
+		if (colorspace == 1) {
+			// sRGB - do nothing different
+			rgba = tex0.Sample(ss, uv);
+		} else {
+			// HDR10
+			// TODO: Do we need to do a st 2084 encoding/decoding?
+			// TODO: Do we need to do any tonemapping?
+			rgba = tex0.Sample(ss, uv);
+		}		
 
 	// BGRA
 	} else {

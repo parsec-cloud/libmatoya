@@ -58,21 +58,31 @@ typedef enum {
 
 /// @brief Raw image color formats.
 typedef enum {
-	MTY_COLOR_FORMAT_UNKNOWN  = 0, ///< Unknown color format.
-	MTY_COLOR_FORMAT_BGRA     = 1, ///< 8-bits per channel BGRA.
-	MTY_COLOR_FORMAT_NV12     = 2, ///< 4:2:0 full W/H Y plane followed by an interleaved half
-	                               ///<   W/H UV plane.
-	MTY_COLOR_FORMAT_I420     = 3, ///< 4:2:0 full W/H Y plane followed by a half W/H U plane
-	                               ///<   followed by a half W/H V plane.
-	MTY_COLOR_FORMAT_I444     = 4, ///< 4:4:4 full W/H consecutive Y, U, V planes.
-	MTY_COLOR_FORMAT_NV16     = 5, ///< 4:2:2 full W/H Y plane followed by an interleaved half W
-	                               ///<   full H UV plane.
-	MTY_COLOR_FORMAT_BGR565   = 6, ///< 5-bits blue, 6-bits green, 5-bits red.
-	MTY_COLOR_FORMAT_BGRA5551 = 7, ///< 5-bits per BGR channels, 1-bit alpha.
-	MTY_COLOR_FORMAT_AYUV     = 8, ///< 4:4:4 full W/H interleaved Y, U, V.
-	MTY_COLOR_FORMAT_RGBA16F  = 9, ///< 16-bits floating-point precision per channel RGBA.
-	MTY_COLOR_FORMAT_MAKE_32 = INT32_MAX,
+	MTY_COLOR_FORMAT_UNKNOWN  = 0,  ///< Unknown color format.
+	MTY_COLOR_FORMAT_BGRA     = 1,  ///< 8-bits per channel BGRA.
+	MTY_COLOR_FORMAT_NV12     = 2,  ///< 4:2:0 full W/H Y plane followed by an interleaved half
+	                                ///<   W/H UV plane.
+	MTY_COLOR_FORMAT_I420     = 3,  ///< 4:2:0 full W/H Y plane followed by a half W/H U plane
+	                                ///<   followed by a half W/H V plane.
+	MTY_COLOR_FORMAT_I444     = 4,  ///< 4:4:4 full W/H consecutive Y, U, V planes.
+	MTY_COLOR_FORMAT_NV16     = 5,  ///< 4:2:2 full W/H Y plane followed by an interleaved half W
+	                                ///<   full H UV plane.
+	MTY_COLOR_FORMAT_BGR565   = 6,  ///< 5-bits blue, 6-bits green, 5-bits red.
+	MTY_COLOR_FORMAT_BGRA5551 = 7,  ///< 5-bits per BGR channels, 1-bit alpha.
+	MTY_COLOR_FORMAT_AYUV     = 8,  ///< 4:4:4 full W/H interleaved Y, U, V.
+	MTY_COLOR_FORMAT_RGBA16F  = 9,  ///< 16-bits floating-point precision per channel RGBA.
+	MTY_COLOR_FORMAT_RGB10A2  = 10, ///< 10-bits per RGB channels, 2-bit alpha.
+	MTY_COLOR_FORMAT_MAKE_32  = INT32_MAX,
 } MTY_ColorFormat;
+
+/// @brief Defines the color encoding of the raw image. Note that certain color spaces and color formats are tightly coupled with each other.
+typedef enum {
+	MTY_COLOR_SPACE_UNKNOWN      = 0, ///< Unknown color space.
+	MTY_COLOR_SPACE_SRGB         = 1, ///< sRGB/rec709 primaries and a non-linear transfer function (approx gamma curve of 2.2). Supported by all color formats.
+	MTY_COLOR_SPACE_SCRGB_LINEAR = 2, ///< Microsoft's scRGB wide gamut color space which is based on sRGB/rec709 primaries and has a linear transfer function. Only supported by color format MTY_COLOR_FORMAT_RGBA16F.
+	MTY_COLOR_SPACE_HDR10        = 3, ///< Uses the rec2020 color primaries and the rec2100 non-linear transfer function (ST 2084 perceptual quantizer, aka PQ). Only supported by color format MTY_COLOR_FORMAT_RGB10A2.
+	MTY_COLOR_SPACE_MAKE_32 = INT32_MAX,
+} MTY_ColorSpace;
 
 /// @brief Quad texture filtering.
 typedef enum {
@@ -102,21 +112,22 @@ typedef enum {
 
 /// @brief Description of a render operation.
 typedef struct {
-	MTY_ColorFormat format; ///< The color format of a raw image.
-	MTY_Rotation rotation;  ///< Rotation applied to the image.
-	MTY_Filter filter;      ///< Filter applied to the image.
-	MTY_Effect effect;      ///< Effect applied to the image.
-	uint32_t imageWidth;    ///< The width in pixels of the image.
-	uint32_t imageHeight;   ///< The height in pixels of the image.
-	uint32_t cropWidth;     ///< Desired crop width of the image from the top left corner.
-	uint32_t cropHeight;    ///< Desired crop height of the image from the top left corner.
-	uint32_t viewWidth;     ///< The width of the viewport.
-	uint32_t viewHeight;    ///< The height of the viewport.
-	float aspectRatio;      ///< Desired aspect ratio of the image. The renderer will letterbox
-	                        ///<   the image to maintain the specified aspect ratio.
-	float scale;            ///< Multiplier applied to the dimensions of the image, producing an
-	                        ///<   minimized or magnified image. This can be set to 0
-	                        ///<   if unnecessary.
+	MTY_ColorFormat format;    ///< The color format of a raw image.
+	MTY_ColorSpace colorspace; ///< Defines the color encoding of the image.
+	MTY_Rotation rotation;     ///< Rotation applied to the image.
+	MTY_Filter filter;         ///< Filter applied to the image.
+	MTY_Effect effect;         ///< Effect applied to the image.
+	uint32_t imageWidth;       ///< The width in pixels of the image.
+	uint32_t imageHeight;      ///< The height in pixels of the image.
+	uint32_t cropWidth;        ///< Desired crop width of the image from the top left corner.
+	uint32_t cropHeight;       ///< Desired crop height of the image from the top left corner.
+	uint32_t viewWidth;        ///< The width of the viewport.
+	uint32_t viewHeight;       ///< The height of the viewport.
+	float aspectRatio;         ///< Desired aspect ratio of the image. The renderer will letterbox
+	                           ///<   the image to maintain the specified aspect ratio.
+	float scale;               ///< Multiplier applied to the dimensions of the image, producing an
+	                           ///<   minimized or magnified image. This can be set to 0
+	                           ///<   if unnecessary.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.

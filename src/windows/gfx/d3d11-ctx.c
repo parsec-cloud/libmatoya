@@ -10,6 +10,7 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 #define COBJMACROS
 #include <d3d11.h>
 #include <dxgi1_3.h>
+#include <dxgi1_4.h>
 
 #define DXGI_FATAL(e) ( \
 	(e) == DXGI_ERROR_DEVICE_REMOVED || \
@@ -29,10 +30,15 @@ struct d3d11_ctx {
 	uint32_t width;
 	uint32_t height;
 	MTY_Renderer *renderer;
+	DXGI_FORMAT format;
+	DXGI_FORMAT format_new;
+	DXGI_COLOR_SPACE_TYPE colorspace;
+	DXGI_COLOR_SPACE_TYPE colorspace_new;
 	ID3D11Device *device;
 	ID3D11DeviceContext *context;
 	ID3D11Texture2D *back_buffer;
 	IDXGISwapChain2 *swap_chain2;
+	IDXGISwapChain3 *swap_chain3;
 	HANDLE waitable;
 };
 
@@ -43,6 +49,57 @@ static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t 
 
 	*width = rect.right - rect.left;
 	*height = rect.bottom - rect.top;
+}
+
+static void mty_validate_format_colorspace(struct d3d11_ctx *ctx, MTY_ColorFormat format, MTY_ColorSpace colorspace, DXGI_FORMAT *format_out, DXGI_COLOR_SPACE_TYPE *colorspace_out)
+{
+	DXGI_FORMAT format_new = DXGI_FORMAT_R8G8B8A8_UNORM;
+	DXGI_COLOR_SPACE_TYPE colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+
+	// Use the last known value if unspecified
+	if (format == MTY_COLOR_FORMAT_UNKNOWN) {
+		format_new = ctx->format;
+	}
+	if (colorspace == MTY_COLOR_SPACE_UNKNOWN) {
+		colorspace_new = ctx->colorspace;
+	}
+
+	switch (format) {
+		case MTY_COLOR_FORMAT_RGBA16F:
+			format_new = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			break;
+		case MTY_COLOR_FORMAT_RGB10A2:
+			format_new = DXGI_FORMAT_R10G10B10A2_UNORM;
+			break;
+	}
+
+	switch (colorspace) {
+		case MTY_COLOR_SPACE_SRGB:
+			colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+			break;
+		case MTY_COLOR_SPACE_SCRGB_LINEAR:
+			colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709;
+			break;
+		case MTY_COLOR_SPACE_HDR10:
+			colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
+			break;
+	}
+
+	// Ensure that the format and colorspace are a valid pairing
+	// TODO: An improvement would be to log an error as well instead of only forcing the values
+	switch (colorspace_new) {
+		case DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709:
+			format_new = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			break;
+		case DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020:
+			format_new = DXGI_FORMAT_R10G10B10A2_UNORM;
+			break;
+		default:
+			break;
+	}
+
+	*format_out = format_new;
+	*colorspace_out = colorspace_new;
 }
 
 static void d3d11_ctx_free(struct d3d11_ctx *ctx)
@@ -56,6 +113,9 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	if (ctx->swap_chain2)
 		IDXGISwapChain2_Release(ctx->swap_chain2);
 
+	if (ctx->swap_chain3)
+		IDXGISwapChain3_Release(ctx->swap_chain3);
+
 	if (ctx->context)
 		ID3D11DeviceContext_Release(ctx->context);
 
@@ -65,6 +125,7 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	ctx->back_buffer = NULL;
 	ctx->waitable = NULL;
 	ctx->swap_chain2 = NULL;
+	ctx->swap_chain3 = NULL;
 	ctx->context = NULL;
 	ctx->device = NULL;
 }
@@ -77,8 +138,12 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	IDXGIFactory2 *factory2 = NULL;
 	IDXGISwapChain1 *swap_chain1 = NULL;
 
+	ctx->format = MTY_COLOR_FORMAT_BGRA;
+	ctx->colorspace = MTY_COLOR_SPACE_SRGB;
+
 	DXGI_SWAP_CHAIN_DESC1 sd = {0};
-	sd.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; // TODO: Need to make this an input parameter
+	sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // TODO: Sync this with ctx->format initial value
+	// sd.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; // TODO: Need to make this an input parameter
 	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	sd.SampleDesc.Count = 1;
@@ -124,6 +189,12 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	}
 
 	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain2, &ctx->swap_chain2);
+	if (e != S_OK) {
+		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain3, &ctx->swap_chain3);
 	if (e != S_OK) {
 		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e);
 		goto except;
@@ -227,11 +298,32 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 
 	if (ctx->width != width || ctx->height != height) {
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
-			DXGI_FORMAT_UNKNOWN, D3D11_SWFLAGS);
+			DXGI_FORMAT_UNKNOWN, D3D11_SWFLAGS);  // unknown format will resize without changing the existing format
 
 		if (e == S_OK) {
 			ctx->width = width;
 			ctx->height = height;
+		}
+
+		if (DXGI_FATAL(e)) {
+			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
+			d3d11_ctx_free(ctx);
+			d3d11_ctx_init(ctx);
+		}
+	}
+
+	DXGI_FORMAT format = ctx->format_new;
+	DXGI_COLOR_SPACE_TYPE colorspace = ctx->colorspace_new;
+
+	if (ctx->format != format || ctx->colorspace != colorspace) {
+		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
+			format, D3D11_SWFLAGS);
+		// TODO: Need to query for display capabilities via CheckColorSpaceSupport before calling SetColorSpace1
+		e = IDXGISwapChain3_SetColorSpace1(ctx->swap_chain3, colorspace);
+
+		if (e == S_OK) {
+			ctx->format = format;
+			ctx->colorspace = colorspace;
 		}
 
 		if (DXGI_FATAL(e)) {
@@ -289,6 +381,12 @@ void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
+	DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	DXGI_COLOR_SPACE_TYPE colorspace = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+	mty_validate_format_colorspace(ctx, desc->format, desc->colorspace, &format, &colorspace);
+	ctx->format_new = format;
+	ctx->colorspace_new = colorspace;
+
 	mty_d3d11_ctx_get_surface(gfx_ctx);
 
 	if (ctx->back_buffer) {
@@ -304,6 +402,8 @@ void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 void mty_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
+	// TODO: Always render the UI in SDR and composite it on top of the quad
 
 	mty_d3d11_ctx_get_surface(gfx_ctx);
 

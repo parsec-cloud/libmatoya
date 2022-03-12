@@ -43,6 +43,41 @@ inline float4 yuv_to_rgba(float y, float u, float v)
 	return float4(r, g, b, 1.0);
 }
 
+inline float4 yuv_to_rgba_rec2020(float y, float u, float v)
+{
+	// Using "RGB to YCbCr color conversion for UHDTV" (ITU-R BT.2020)
+
+	// y = (y - 0.0625) * 1.164;
+	// u = u - 0.5;
+	// v = v - 0.5;
+
+	// Thanks to colour-science (TODO: Add proper link)
+	const float Y_min = 0.06256109f;
+	const float Y_max = 0.91886608f;
+	const float Y_minmax_dt = Y_max - Y_min;
+	const float C_min = 0.06256109f;
+	const float C_max = 0.93841642f;
+	const float C_minmax_2 = (C_min + C_max) * 0.5f; // TODO: Should we just set this to 0.5f, like in yuv_to_rgba?
+	const float C_minmax_dt = C_max - C_min;
+	
+	y = y - Y_min;
+	u = u - C_minmax_2;
+	v = v - C_minmax_2;
+
+	y = y * 1.0f / Y_minmax_dt;
+	u = u * 1.0f / C_minmax_dt;
+	v = v * 1.0f / C_minmax_dt;
+
+	static const float K_r = 0.2627f;
+	static const float K_b = 0.0593f;
+
+	float r = y + (2.0f - 2.0f * K_r) * v;
+	float b = y + (2.0f - 2.0f * K_b) * u;
+	float g = (y - K_r * r - K_b * b) / (1.0f - K_r - K_b);
+
+	return float4(r, g, b, 1.0);
+}
+
 inline void gaussian(uint type, float w, float h, inout float2 uv)
 {
 	float2 res = float2(w, h);
@@ -102,7 +137,11 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		float u = tex1.Sample(ss, uv).r;
 		float v = tex1.Sample(ss, uv).g;
 
-		rgba = yuv_to_rgba(y, u, v);
+		if (colorspace == 3) {
+			rgba = yuv_to_rgba_rec2020(y, u, v);
+		} else {
+			rgba = yuv_to_rgba(y, u, v);
+		}
 
 	// I420, I444
 	} else if (format == 3 || format == 4) {
@@ -110,7 +149,11 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		float u = tex1.Sample(ss, uv).r;
 		float v = tex2.Sample(ss, uv).r;
 
-		rgba = yuv_to_rgba(y, u, v);
+		if (colorspace == 3) {
+			rgba = yuv_to_rgba_rec2020(y, u, v);
+		} else {
+			rgba = yuv_to_rgba(y, u, v);
+		}
 
 	// AYUV
 	} else if (format == 8) {
@@ -118,7 +161,11 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		float u = tex0.Sample(ss, uv).g;
 		float v = tex0.Sample(ss, uv).b;
 
-		rgba = yuv_to_rgba(y, u, v);
+		if (colorspace == 3) {
+			rgba = yuv_to_rgba_rec2020(y, u, v);
+		} else {
+			rgba = yuv_to_rgba(y, u, v);
+		}
 
 	// RGBA16F, scRGB linear
 	} else if (format == 9 && colorspace == 2) {

@@ -305,8 +305,8 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 			// - https://docs.microsoft.com/en-us/windows/win32/medfound/10-bit-and-16-bit-yuv-video-formats#p016-and-p010
 			const bool nv12 = desc->format == MTY_COLOR_FORMAT_NV12;
 			const uint8_t bpp = nv12 ? 1 : 2;
-			const DXGI_FORMAT format_y  = nv12 ? DXGI_FORMAT_R8_UNORM   : DXGI_FORMAT_R8G8_UNORM;
-			const DXGI_FORMAT format_uv = nv12 ? DXGI_FORMAT_R8G8_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
+			const DXGI_FORMAT format_y  = nv12 ? DXGI_FORMAT_R8_UNORM   : DXGI_FORMAT_R16_UNORM;
+			const DXGI_FORMAT format_uv = nv12 ? DXGI_FORMAT_R8G8_UNORM : DXGI_FORMAT_R16G16_UNORM;
 
 			// Y
 			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, format_y, desc->cropWidth, desc->cropHeight);
@@ -319,7 +319,7 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 			e = d3d11_refresh_resource(&ctx->staging[1], device, format_uv, desc->cropWidth / 2, desc->cropHeight / 2);
 			if (e != S_OK) return e;
 
-			e = d3d11_crop_copy(context, ctx->staging[1].resource, (uint8_t *) image + desc->imageWidth * desc->imageHeight, desc->cropWidth / 2, desc->cropHeight / 2, desc->imageWidth / 2, bpp * 2);
+			e = d3d11_crop_copy(context, ctx->staging[1].resource, (uint8_t *) image + desc->imageWidth * desc->imageHeight * bpp, desc->cropWidth / 2, desc->cropHeight / 2, desc->imageWidth / 2, bpp * 2);
 			if (e != S_OK) return e;
 			break;
 		}
@@ -327,7 +327,7 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 		case MTY_COLOR_FORMAT_I444:
 		case MTY_COLOR_FORMAT_I444_16: {
 			const uint32_t div = desc->format == MTY_COLOR_FORMAT_I420 ? 2 : 1;
-			const DXGI_FORMAT format = desc->format == MTY_COLOR_FORMAT_I444_16 ? DXGI_FORMAT_R8G8_UNORM : DXGI_FORMAT_R8_UNORM;
+			const DXGI_FORMAT format = desc->format == MTY_COLOR_FORMAT_I444_16 ? DXGI_FORMAT_R16_UNORM : DXGI_FORMAT_R8_UNORM;
 			const uint8_t bpp = desc->format == MTY_COLOR_FORMAT_I444_16 ? 2 : 1;
 
 			// Y

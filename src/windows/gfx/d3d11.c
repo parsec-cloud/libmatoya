@@ -280,11 +280,13 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 		case MTY_COLOR_FORMAT_AYUV:
 		case MTY_COLOR_FORMAT_BGR565:
 		case MTY_COLOR_FORMAT_BGRA5551:
+		case MTY_COLOR_FORMAT_RGB10A2:
 		case MTY_COLOR_FORMAT_RGBA16F: {
 			DXGI_FORMAT format = desc->format == MTY_COLOR_FORMAT_BGR565 ? DXGI_FORMAT_B5G6R5_UNORM :
 				desc->format == MTY_COLOR_FORMAT_BGRA5551 ? DXGI_FORMAT_B5G5R5A1_UNORM :
+				desc->format == MTY_COLOR_FORMAT_RGB10A2 ? DXGI_FORMAT_R10G10B10A2_UNORM :
 				desc->format == MTY_COLOR_FORMAT_RGBA16F ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_B8G8R8A8_UNORM;
-			uint8_t bpp = (desc->format == MTY_COLOR_FORMAT_BGRA || desc->format == MTY_COLOR_FORMAT_AYUV) ? 4 : 2;
+			uint8_t bpp = (desc->format == MTY_COLOR_FORMAT_BGRA || desc->format == MTY_COLOR_FORMAT_RGB10A2 || desc->format == MTY_COLOR_FORMAT_AYUV) ? 4 : 2;
 			if (format == DXGI_FORMAT_R16G16B16A16_FLOAT)
 				bpp = 8;
 
@@ -296,47 +298,59 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 			if (e != S_OK) return e;
 			break;
 		}
-		case MTY_COLOR_FORMAT_NV12: {
+		case MTY_COLOR_FORMAT_NV12:
+		case MTY_COLOR_FORMAT_P016: {
+			// See the following resources to understand memory layout of these formats:
+			// - https://docs.microsoft.com/en-us/windows/win32/medfound/recommended-8-bit-yuv-formats-for-video-rendering#nv12
+			// - https://docs.microsoft.com/en-us/windows/win32/medfound/10-bit-and-16-bit-yuv-video-formats#p016-and-p010
+			const bool nv12 = desc->format == MTY_COLOR_FORMAT_NV12;
+			const uint8_t bpp = nv12 ? 1 : 2;
+			const DXGI_FORMAT format_y  = nv12 ? DXGI_FORMAT_R8_UNORM   : DXGI_FORMAT_R8G8_UNORM;
+			const DXGI_FORMAT format_uv = nv12 ? DXGI_FORMAT_R8G8_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
+
 			// Y
-			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, format_y, desc->cropWidth, desc->cropHeight);
 			if (e != S_OK) return e;
 
-			e = d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
+			e = d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, bpp);
 			if (e != S_OK) return e;
 
 			// UV
-			e = d3d11_refresh_resource(&ctx->staging[1], device, DXGI_FORMAT_R8G8_UNORM, desc->cropWidth / 2, desc->cropHeight / 2);
+			e = d3d11_refresh_resource(&ctx->staging[1], device, format_uv, desc->cropWidth / 2, desc->cropHeight / 2);
 			if (e != S_OK) return e;
 
-			e = d3d11_crop_copy(context, ctx->staging[1].resource, (uint8_t *) image + desc->imageWidth * desc->imageHeight, desc->cropWidth / 2, desc->cropHeight / 2, desc->imageWidth / 2, 2);
+			e = d3d11_crop_copy(context, ctx->staging[1].resource, (uint8_t *) image + desc->imageWidth * desc->imageHeight, desc->cropWidth / 2, desc->cropHeight / 2, desc->imageWidth / 2, bpp * 2);
 			if (e != S_OK) return e;
 			break;
 		}
 		case MTY_COLOR_FORMAT_I420:
-		case MTY_COLOR_FORMAT_I444: {
-			uint32_t div = desc->format == MTY_COLOR_FORMAT_I420 ? 2 : 1;
+		case MTY_COLOR_FORMAT_I444:
+		case MTY_COLOR_FORMAT_I444_16: {
+			const uint32_t div = desc->format == MTY_COLOR_FORMAT_I420 ? 2 : 1;
+			const DXGI_FORMAT format = desc->format == MTY_COLOR_FORMAT_I444_16 ? DXGI_FORMAT_R8G8_UNORM : DXGI_FORMAT_R8_UNORM;
+			const uint8_t bpp = desc->format == MTY_COLOR_FORMAT_I444_16 ? 2 : 1;
 
 			// Y
-			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, format, desc->cropWidth, desc->cropHeight);
 			if (e != S_OK) return e;
 
-			e = d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
+			e = d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, bpp);
 			if (e != S_OK) return e;
 
 			// U
-			uint8_t *p = (uint8_t *) image + desc->imageWidth * desc->imageHeight;
-			e = d3d11_refresh_resource(&ctx->staging[1], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth / div, desc->cropHeight / div);
+			uint8_t *p = (uint8_t *) image + desc->imageWidth * desc->imageHeight * bpp;
+			e = d3d11_refresh_resource(&ctx->staging[1], device, format, desc->cropWidth / div, desc->cropHeight / div);
 			if (e != S_OK) return e;
 
-			e = d3d11_crop_copy(context, ctx->staging[1].resource, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
+			e = d3d11_crop_copy(context, ctx->staging[1].resource, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, bpp);
 			if (e != S_OK) return e;
 
 			// V
-			p += (desc->imageWidth / div) * (desc->imageHeight / div);
-			e = d3d11_refresh_resource(&ctx->staging[2], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth / div, desc->cropHeight / div);
+			p += (desc->imageWidth / div) * (desc->imageHeight / div) * bpp;
+			e = d3d11_refresh_resource(&ctx->staging[2], device, format, desc->cropWidth / div, desc->cropHeight / div);
 			if (e != S_OK) return e;
 
-			e = d3d11_crop_copy(context, ctx->staging[2].resource, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
+			e = d3d11_crop_copy(context, ctx->staging[2].resource, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, bpp);
 			if (e != S_OK) return e;
 			break;
 		}

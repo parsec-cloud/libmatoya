@@ -131,25 +131,25 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 	if (filter == 3 || filter == 4)
 		gaussian(filter, width, height, uv);
 
-	// NV12, NV16
-	if (format == 2 || format == 5) {
+	// NV12, NV16, P016
+	if (format == 2 || format == 5 || format == 9) {
 		float y = tex0.Sample(ss, uv).r;
 		float u = tex1.Sample(ss, uv).r;
 		float v = tex1.Sample(ss, uv).g;
 
-		if (colorspace == 3) {
+		if (format == 9 && colorspace == 3) {
 			rgba = yuv_to_rgba_rec2020(y, u, v);
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
 		}
 
-	// I420, I444
-	} else if (format == 3 || format == 4) {
+	// I420, I444, I444_16
+	} else if (format == 3 || format == 4 || format == 10) {
 		float y = tex0.Sample(ss, uv).r;
 		float u = tex1.Sample(ss, uv).r;
 		float v = tex2.Sample(ss, uv).r;
 
-		if (colorspace == 3) {
+		if (format == 10 && colorspace == 3) {
 			rgba = yuv_to_rgba_rec2020(y, u, v);
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
@@ -161,18 +161,10 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		float u = tex0.Sample(ss, uv).g;
 		float v = tex0.Sample(ss, uv).b;
 
-		if (colorspace == 3) {
-			rgba = yuv_to_rgba_rec2020(y, u, v);
-		} else {
-			rgba = yuv_to_rgba(y, u, v);
-		}
-
-	// RGBA16F, scRGB linear
-	} else if (format == 9 && colorspace == 2) {
-		rgba = tex0.Sample(ss, uv);
+		rgba = yuv_to_rgba(y, u, v);
 
 	// RGB10A2, either sRGB or HDR10
-	} else if (format == 10 && (colorspace == 1 || colorspace == 3)) {
+	} else if (format == 11 && (colorspace == 1 || colorspace == 3)) {
 		if (colorspace == 1) {
 			// sRGB - do nothing different
 			rgba = tex0.Sample(ss, uv);
@@ -182,6 +174,10 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			// TODO: Do we need to do any tonemapping?
 			rgba = tex0.Sample(ss, uv);
 		}		
+
+	// RGBA16F, scRGB linear
+	} else if (format == 12 && colorspace == 2) {
+		rgba = tex0.Sample(ss, uv);
 
 	// BGRA
 	} else {

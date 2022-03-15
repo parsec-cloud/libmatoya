@@ -46,18 +46,14 @@ inline float4 yuv_to_rgba(float y, float u, float v)
 inline float4 yuv_to_rgba_rec2020(float y, float u, float v)
 {
 	// Using "RGB to YCbCr color conversion for UHDTV" (ITU-R BT.2020)
+	// Thanks to https://github.com/colour-science/colour/blob/c3735e5d0ad67443022ece0b42b575e040eb61d1/colour/models/rgb/ycbcr.py#L472
 
-	// y = (y - 0.0625) * 1.164;
-	// u = u - 0.5;
-	// v = v - 0.5;
-
-	// Thanks to colour-science (TODO: Add proper link)
 	const float Y_min = 0.06256109f;
 	const float Y_max = 0.91886608f;
 	const float Y_minmax_dt = Y_max - Y_min;
 	const float C_min = 0.06256109f;
 	const float C_max = 0.93841642f;
-	const float C_minmax_2 = (C_min + C_max) * 0.5f; // TODO: Should we just set this to 0.5f, like in yuv_to_rgba?
+	const float C_minmax_2 = (C_min + C_max) * 0.5f;
 	const float C_minmax_dt = C_max - C_min;
 	
 	y = y - Y_min;
@@ -68,12 +64,12 @@ inline float4 yuv_to_rgba_rec2020(float y, float u, float v)
 	u = u * 1.0f / C_minmax_dt;
 	v = v * 1.0f / C_minmax_dt;
 
-	static const float K_r = 0.2627f;
-	static const float K_b = 0.0593f;
+	const float K_r = 0.2627f;
+	const float K_b = 0.0593f;
 
-	float r = y + (2.0f - 2.0f * K_r) * v;
-	float b = y + (2.0f - 2.0f * K_b) * u;
-	float g = (y - K_r * r - K_b * b) / (1.0f - K_r - K_b);
+	const float r = y + (2.0f - 2.0f * K_r) * v;
+	const float b = y + (2.0f - 2.0f * K_b) * u;
+	const float g = (y - K_r * r - K_b * b) / (1.0f - K_r - K_b);
 
 	return float4(r, g, b, 1.0);
 }

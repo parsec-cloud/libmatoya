@@ -185,6 +185,7 @@ typedef struct {
 	uint32_t idxTotalLength; ///< Total number of indices in all command lists.
 	uint32_t vtxTotalLength; ///< Total number of vertices in all command lists.
 	bool clear;              ///< Surface should be cleared before drawing.
+	bool hdr;                ///< UI in SDR will be composited on top of an HDR quad.
 } MTY_DrawData;
 
 /// @brief Create an MTY_Renderer capable of executing drawing commands.

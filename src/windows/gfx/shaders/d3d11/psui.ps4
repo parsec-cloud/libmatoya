@@ -10,11 +10,30 @@ struct PS_INPUT {
 	float2 uv  : TEXCOORD0;
 };
 
+cbuffer VS_CONSTANT_BUFFER : register(b0) {
+	uint hdr;
+	float hdr_brighten_factor;
+};
+
 sampler sampler0;
 Texture2D texture0;
 
+float3 srgb_to_linear(float3 color)
+{
+	// Fast approximation of sRGB's transfer function
+	return pow(abs(saturate(color)), 2.2f);
+}
+
 float4 main(PS_INPUT input) : SV_Target
 {
-	// TODO: We will probably need to convert the sRGB UI into linear space as part of compositing UI on top of HDR frame
-	return input.col * texture0.Sample(sampler0, input.uv);
+	float4 ui = input.col * texture0.Sample(sampler0, input.uv);
+
+	if (hdr) {
+		float3 ui_rgb = ui.rgb;
+		ui_rgb = srgb_to_linear(ui_rgb); // UI texture is encoded non-linearly in sRGB whereas the render target is in scRGB linear, so we need to linearize the UI
+		ui_rgb *= hdr_brighten_factor; // 1.0 in scRGB is 80 nits which is the reference SDR luminance but most SDR displays will actually render 1.0 at around 200-300 nits for improved viewing; we mimic this by brightening the UI texture by a configurable constant
+		ui.rgb = ui_rgb;
+	}
+
+	return ui;
 }

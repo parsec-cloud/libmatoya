@@ -40,6 +40,7 @@ struct d3d11_ctx {
 	IDXGISwapChain2 *swap_chain2;
 	IDXGISwapChain3 *swap_chain3;
 	HANDLE waitable;
+	bool hdr;
 };
 
 static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
@@ -142,16 +143,19 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	ctx->colorspace = MTY_COLOR_SPACE_SRGB;
 
 	DXGI_SWAP_CHAIN_DESC1 sd = {0};
-	sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // TODO: Sync this with ctx->format initial value
-	// sd.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; // TODO: Need to make this an input parameter
+	sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	sd.SampleDesc.Count = 1;
 	sd.BufferCount = 2;
 	sd.Flags = D3D11_SWFLAGS;
-
+	
 	D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
-	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, levels,
+	UINT flags = 0;
+	#ifdef DEBUG
+		flags |= D3D11_CREATE_DEVICE_DEBUG;
+	#endif
+	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, levels,
 		sizeof(levels) / sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, &ctx->device, NULL, &ctx->context);
 	if (e != S_OK) {
 		MTY_Log("'D3D11CreateDevice' failed with HRESULT 0x%X", e);
@@ -312,21 +316,35 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 		}
 	}
 
-	DXGI_FORMAT format = ctx->format_new;
-	DXGI_COLOR_SPACE_TYPE colorspace = ctx->colorspace_new;
+	bool hdr = ctx->format_new == DXGI_FORMAT_R16G16B16A16_FLOAT || ctx->colorspace_new == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
 
-	if (ctx->format != format || ctx->colorspace != colorspace) {
+	// TODO: CheckColorSpaceSupport is a finnicky query....it can send false even if color space is supported......we probably should not use it OR figure another option to query...worst case scenario, we just ambitiously try to set HDR and if it fails, just assume SDR
+	// // Verify display capabilities
+	// UINT r_cs = 0;
+	// HRESULT e_cs = IDXGISwapChain3_CheckColorSpaceSupport(ctx->swap_chain3, DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, &r_cs); // although we are maintaining an scRGB linear back buffer, we need to query for HDR10 (rec2020 + rec2100 PQ) support in order for HDR support to be known
+	// if (e_cs == S_OK) {
+	// 	hdr = hdr && r_cs > 0;
+	// } else {
+	// 	// Can't determine support, so assume there is none
+	// 	hdr = false;
+	// }
+
+	if (ctx->hdr != hdr) {
+		// If in HDR mode, we keep swap chain in FP16 scRGB linear; otherwise in SDR mode, it's the standard RGBA8 sRGB
+		DXGI_FORMAT format = hdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_B8G8R8A8_UNORM;
+		DXGI_COLOR_SPACE_TYPE colorspace = hdr ? DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
 			format, D3D11_SWFLAGS);
-		// TODO: Need to query for display capabilities via CheckColorSpaceSupport before calling SetColorSpace1
 		e = IDXGISwapChain3_SetColorSpace1(ctx->swap_chain3, colorspace);
 
 		if (e == S_OK) {
-			ctx->format = format;
-			ctx->colorspace = colorspace;
-		}
+			ctx->hdr = hdr;
+			ctx->format = ctx->format_new;
+			ctx->colorspace = ctx->colorspace_new;
 
-		if (DXGI_FATAL(e)) {
+		} else if (DXGI_FATAL(e)) {
+			// TODO: Restructure the code so that the FATAL msg is logged upon EVERY update to e.
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
 			d3d11_ctx_free(ctx);
 			d3d11_ctx_init(ctx);
@@ -403,13 +421,14 @@ void mty_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
-	// TODO: Always render the UI in SDR and composite it on top of the quad
+	MTY_DrawData dd_mutated = *dd;
+	dd_mutated.hdr = ctx->hdr; // TODO: Flawed....ideally this comes from the caller so we can reset
 
 	mty_d3d11_ctx_get_surface(gfx_ctx);
 
 	if (ctx->back_buffer)
 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
-			(MTY_Context *) ctx->context, dd, (MTY_Surface *) ctx->back_buffer);
+			(MTY_Context *) ctx->context, &dd_mutated, (MTY_Surface *) ctx->back_buffer);
 }
 
 bool mty_d3d11_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,

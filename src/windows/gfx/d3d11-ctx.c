@@ -11,6 +11,7 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 #include <d3d11.h>
 #include <dxgi1_3.h>
 #include <dxgi1_4.h>
+#include <dxgi1_5.h>
 
 #define DXGI_FATAL(e) ( \
 	(e) == DXGI_ERROR_DEVICE_REMOVED || \
@@ -39,8 +40,10 @@ struct d3d11_ctx {
 	ID3D11Texture2D *back_buffer;
 	IDXGISwapChain2 *swap_chain2;
 	IDXGISwapChain3 *swap_chain3;
+	IDXGISwapChain4 *swap_chain4;
 	HANDLE waitable;
 	bool hdr;
+	MTY_HDRDesc hdr_desc;
 };
 
 static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
@@ -117,6 +120,9 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	if (ctx->swap_chain3)
 		IDXGISwapChain3_Release(ctx->swap_chain3);
 
+	if (ctx->swap_chain4)
+		IDXGISwapChain4_Release(ctx->swap_chain4);
+
 	if (ctx->context)
 		ID3D11DeviceContext_Release(ctx->context);
 
@@ -127,6 +133,7 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	ctx->waitable = NULL;
 	ctx->swap_chain2 = NULL;
 	ctx->swap_chain3 = NULL;
+	ctx->swap_chain4 = NULL;
 	ctx->context = NULL;
 	ctx->device = NULL;
 }
@@ -199,6 +206,12 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	}
 
 	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain3, &ctx->swap_chain3);
+	if (e != S_OK) {
+		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain4, &ctx->swap_chain4);
 	if (e != S_OK) {
 		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e);
 		goto except;
@@ -350,6 +363,28 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 			d3d11_ctx_init(ctx);
 		}
 	}
+
+	if (ctx->hdr) {
+		// Update to the latest known HDR metadata
+		DXGI_HDR_METADATA_HDR10 hdr_desc = {0};
+		hdr_desc.RedPrimary[0] = (UINT16) (ctx->hdr_desc.color_primary_red[0] * 50000); // primaries and white point are normalized to 50000
+		hdr_desc.RedPrimary[1] = (UINT16) (ctx->hdr_desc.color_primary_red[1] * 50000);
+		hdr_desc.GreenPrimary[0] = (UINT16) (ctx->hdr_desc.color_primary_green[0] * 50000);
+		hdr_desc.GreenPrimary[1] = (UINT16) (ctx->hdr_desc.color_primary_green[1] * 50000);
+		hdr_desc.BluePrimary[0] = (UINT16) (ctx->hdr_desc.color_primary_blue[0] * 50000);
+		hdr_desc.BluePrimary[1] = (UINT16) (ctx->hdr_desc.color_primary_blue[1] * 50000);
+		hdr_desc.WhitePoint[0] = (UINT16) (ctx->hdr_desc.white_point[0] * 50000);
+		hdr_desc.WhitePoint[1] = (UINT16) (ctx->hdr_desc.white_point[1] * 50000);
+		hdr_desc.MinMasteringLuminance = (UINT) ctx->hdr_desc.min_luminance * 10000; // MinMasteringLuminance is specified as 1/10000th of a nit
+		hdr_desc.MaxMasteringLuminance = (UINT) ctx->hdr_desc.max_luminance;
+		hdr_desc.MaxContentLightLevel = (UINT16) ctx->hdr_desc.max_content_light_level;
+		hdr_desc.MaxFrameAverageLightLevel = (UINT16) ctx->hdr_desc.max_frame_average_light_level;
+
+		HRESULT e = IDXGISwapChain4_SetHDRMetaData(ctx->swap_chain4, DXGI_HDR_METADATA_TYPE_HDR10, sizeof(hdr_desc), &hdr_desc);
+		if (e != S_OK) {
+			MTY_Log("Unable to set HDR metadata: 'IDXGISwapChain4_SetHDRMetaData' failed with HRESULT 0x%X", e);
+		}
+	}
 }
 
 MTY_Surface *mty_d3d11_ctx_get_surface(struct gfx_ctx *gfx_ctx)
@@ -404,6 +439,9 @@ void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 	mty_validate_format_colorspace(ctx, desc->format, desc->colorspace, &format, &colorspace);
 	ctx->format_new = format;
 	ctx->colorspace_new = colorspace;
+
+	if (desc->hdrDescSpecified)
+		ctx->hdr_desc = desc->hdrDesc;
 
 	mty_d3d11_ctx_get_surface(gfx_ctx);
 

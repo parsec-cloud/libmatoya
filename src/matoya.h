@@ -113,6 +113,18 @@ typedef enum {
 	MTY_ROTATION_MAKE_32 = INT32_MAX,
 } MTY_Rotation;
 
+/// @brief HDR metadata associated with an image being rendered.
+typedef struct {
+	float color_primary_red[2];          ///< xy coordinates for the red primary of the image's color space according to the CIE 1931 color space chromaticity diagram.
+	float color_primary_green[2];        ///< xy coordinates for the green primary of the image's color space according to the CIE 1931 color space chromaticity diagram.
+	float color_primary_blue[2];         ///< xy coordinates for the blue primary of the image's color space according to the CIE 1931 color space chromaticity diagram.
+	float white_point[2];                ///< xy coordinates for the white point of the image's color space according to the CIE 1931 color space chromaticity diagram.
+	float min_luminance;                 ///< Min luminance supported by the display that is the source of the image.
+	float max_luminance;                 ///< Max luminance supported by the display that is the source of the image.
+	float max_content_light_level;       ///< MaxCLL. This is the nit value of the brightest possible pixel that could ever occur in an image. If unknown, you can set it to max_luminance.
+	float max_frame_average_light_level; ///< MaxFALL. This is the highest nit value that an image's average luminance is expected to have. If unknown, you can set it to MaxCLL.
+} MTY_HDRDesc;
+
 /// @brief Description of a render operation.
 typedef struct {
 	MTY_ColorFormat format;    ///< The color format of a raw image.
@@ -131,6 +143,8 @@ typedef struct {
 	float scale;               ///< Multiplier applied to the dimensions of the image, producing an
 	                           ///<   minimized or magnified image. This can be set to 0
 	                           ///<   if unnecessary.
+	bool hdrDescSpecified;     ///< Is HDR metadata provided. Only relevant if format + colorspace indicate an HDR image.
+	MTY_HDRDesc hdrDesc;       ///< HDR metadata for the image. Only relevant if format + colorspace indicate an HDR image.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.

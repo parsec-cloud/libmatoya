@@ -43,6 +43,7 @@ struct d3d11_ctx {
 	IDXGISwapChain4 *swap_chain4;
 	HANDLE waitable;
 	bool hdr;
+	bool composite_ui;
 	MTY_HDRDesc hdr_desc;
 };
 
@@ -90,14 +91,21 @@ static void mty_validate_format_colorspace(struct d3d11_ctx *ctx, MTY_ColorForma
 	}
 
 	// Ensure that the format and colorspace are a valid pairing
-	// TODO: An improvement would be to log an error as well instead of only forcing the values
 	switch (colorspace_new) {
-		case DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709:
-			format_new = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		case DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709: {
+			if (format_new != DXGI_FORMAT_R16G16B16A16_FLOAT) {
+				MTY_Log("Format 0x%X is not meant for colorspace 0x%X. Forcing format to 0x%X.", format_new, DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709, DXGI_FORMAT_R16G16B16A16_FLOAT);
+				format_new = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			}
 			break;
-		case DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020:
-			format_new = DXGI_FORMAT_R10G10B10A2_UNORM;
+		}
+		case DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020: {
+			if (format_new != DXGI_FORMAT_R10G10B10A2_UNORM) {
+				MTY_Log("Format 0x%X is not meant for colorspace 0x%X. Forcing format to 0x%X.", format_new, DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, DXGI_FORMAT_R10G10B10A2_UNORM);
+				format_new = DXGI_FORMAT_R10G10B10A2_UNORM;
+			}
 			break;
+		}
 		default:
 			break;
 	}
@@ -331,33 +339,26 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 
 	bool hdr = ctx->format_new == DXGI_FORMAT_R16G16B16A16_FLOAT || ctx->colorspace_new == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
 
-	// TODO: CheckColorSpaceSupport is a finnicky query....it can send false even if color space is supported......we probably should not use it OR figure another option to query...worst case scenario, we just ambitiously try to set HDR and if it fails, just assume SDR
-	// // Verify display capabilities
-	// UINT r_cs = 0;
-	// HRESULT e_cs = IDXGISwapChain3_CheckColorSpaceSupport(ctx->swap_chain3, DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, &r_cs); // although we are maintaining an scRGB linear back buffer, we need to query for HDR10 (rec2020 + rec2100 PQ) support in order for HDR support to be known
-	// if (e_cs == S_OK) {
-	// 	hdr = hdr && r_cs > 0;
-	// } else {
-	// 	// Can't determine support, so assume there is none
-	// 	hdr = false;
-	// }
-
 	if (ctx->hdr != hdr) {
 		// If in HDR mode, we keep swap chain in FP16 scRGB linear; otherwise in SDR mode, it's the standard RGBA8 sRGB
 		DXGI_FORMAT format = hdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_B8G8R8A8_UNORM;
 		DXGI_COLOR_SPACE_TYPE colorspace = hdr ? DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
-		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
-			format, D3D11_SWFLAGS);
-		e = IDXGISwapChain3_SetColorSpace1(ctx->swap_chain3, colorspace);
-
+		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0, format, D3D11_SWFLAGS);
 		if (e == S_OK) {
-			ctx->hdr = hdr;
-			ctx->format = ctx->format_new;
-			ctx->colorspace = ctx->colorspace_new;
+			e = IDXGISwapChain3_SetColorSpace1(ctx->swap_chain3, colorspace);
 
+			if (e == S_OK) {
+				ctx->hdr = hdr;
+				ctx->format = ctx->format_new;
+				ctx->colorspace = ctx->colorspace_new;
+
+			} else if (DXGI_FATAL(e)) {
+				MTY_Log("'IDXGISwapChain3_SetColorSpace1' failed with HRESULT 0x%X", e);
+				d3d11_ctx_free(ctx);
+				d3d11_ctx_init(ctx);
+			}
 		} else if (DXGI_FATAL(e)) {
-			// TODO: Restructure the code so that the FATAL msg is logged upon EVERY update to e.
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
 			d3d11_ctx_free(ctx);
 			d3d11_ctx_init(ctx);
@@ -417,6 +418,8 @@ void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 		ID3D11Texture2D_Release(ctx->back_buffer);
 		ctx->back_buffer = NULL;
 
+		ctx->composite_ui = false;
+
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_Present' failed with HRESULT 0x%X", e);
 			d3d11_ctx_free(ctx);
@@ -452,6 +455,8 @@ void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 
 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
 			(MTY_Context *) ctx->context, image, &mutated, (MTY_Surface *) ctx->back_buffer);
+
+		ctx->composite_ui = ctx->hdr;
 	}
 }
 
@@ -460,7 +465,10 @@ void mty_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
 	MTY_DrawData dd_mutated = *dd;
-	dd_mutated.hdr = ctx->hdr; // TODO: Flawed....ideally this comes from the caller so we can reset
+	dd_mutated.hdr = ctx->composite_ui;
+
+	ctx->format_new = dd_mutated.hdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM;
+	ctx->colorspace_new = dd_mutated.hdr ? DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
 	mty_d3d11_ctx_get_surface(gfx_ctx);
 

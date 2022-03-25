@@ -12,6 +12,7 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 #include <dxgi1_3.h>
 #include <dxgi1_4.h>
 #include <dxgi1_5.h>
+#include <dxgi1_6.h>
 
 #define DXGI_FATAL(e) ( \
 	(e) == DXGI_ERROR_DEVICE_REMOVED || \
@@ -41,7 +42,9 @@ struct d3d11_ctx {
 	IDXGISwapChain2 *swap_chain2;
 	IDXGISwapChain3 *swap_chain3;
 	IDXGISwapChain4 *swap_chain4;
+	IDXGIFactory1 *factory1;
 	HANDLE waitable;
+	bool hdr_supported;
 	bool hdr;
 	bool composite_ui;
 	MTY_HDRDesc hdr_desc;
@@ -114,6 +117,94 @@ static void mty_validate_format_colorspace(struct d3d11_ctx *ctx, MTY_ColorForma
 	*colorspace_out = colorspace_new;
 }
 
+static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
+{
+	bool r = false;
+
+	// Courtesy of MSDN https://docs.microsoft.com/en-us/windows/win32/direct3darticles/high-dynamic-range
+
+	// Iterate through the DXGI outputs associated with the DXGI adapter,
+	// and find the output whose bounds have the greatest overlap with the
+	// app window (i.e. the output for which the intersection area is the
+	// greatest).
+
+	// Must create the factory afresh each time, otherwise you'll get a stale value at the end
+	if (ctx->factory1) {
+		IDXGIFactory1_Release(ctx->factory1);
+		ctx->factory1 = NULL;
+	}
+	HRESULT e = CreateDXGIFactory1(&IID_IDXGIFactory1, &ctx->factory1);
+	if (e != S_OK) {
+		MTY_Log("'CreateDXGIFactory1' failed with HRESULT 0x%X", e);
+		return r;
+	}
+
+	// Go through the outputs of each and every adapter
+	IDXGIOutput *current_output = NULL;
+	IDXGIOutput *best_output = NULL;
+	float best_intersect_area = -1;
+	IDXGIAdapter1 *adapter1 = NULL;
+	for (UINT j = 0; IDXGIFactory1_EnumAdapters1(ctx->factory1, j, &adapter1) != DXGI_ERROR_NOT_FOUND; j++) {
+
+		for (UINT i = 0; IDXGIAdapter1_EnumOutputs(adapter1, i, &current_output) != DXGI_ERROR_NOT_FOUND; i++) {
+
+			// Get the retangle bounds of the app window
+			RECT window_bounds = {0};
+			GetClientRect(ctx->hwnd, &window_bounds);
+			LONG ax1 = window_bounds.left;
+			LONG ay1 = window_bounds.top;
+			LONG ax2 = window_bounds.right;
+			LONG ay2 = window_bounds.bottom;
+
+			// Get the rectangle bounds of current output
+			DXGI_OUTPUT_DESC desc = {0};
+			e = IDXGIOutput_GetDesc(current_output, &desc);
+			if (e != S_OK) {
+				MTY_Log("'IDXGIOutput_GetDesc' failed with HRESULT 0x%X", e);
+			} else {
+				RECT output_bounds = desc.DesktopCoordinates;
+				LONG bx1 = output_bounds.left;
+				LONG by1 = output_bounds.top;
+				LONG bx2 = output_bounds.right;
+				LONG by2 = output_bounds.bottom;
+
+				// Compute the intersection and see if its the best fit
+				LONG intersect_area = max(0, min(ax2, bx2) - max(ax1, bx1)) * max(0, min(ay2, by2) - max(ay1, by1)); // courtesy of https://github.com/microsoft/DirectX-Graphics-Samples/blob/c79f839da1bb2db77d2306be5e4e664a5d23a36b/Samples/Desktop/D3D12HDR/src/D3D12HDR.cpp#L1046
+				if (intersect_area > best_intersect_area) {
+					best_output = current_output;
+					best_intersect_area = (float) intersect_area; // not sure why but the MSDN sample stores this as float when its all integer math...it works though!
+				} else {
+					IDXGIOutput_Release(current_output);
+				}
+			}
+		}
+
+		IDXGIAdapter1_Release(adapter1);
+	}
+
+	// Having determined the output (display) upon which the app is primarily being 
+	// rendered, retrieve the HDR capabilities of that display by checking the color space.
+	IDXGIOutput6 *output6 = NULL;
+	e = IDXGIOutput_QueryInterface(best_output, &IID_IDXGIOutput6, &output6);
+	if (e != S_OK) {
+		MTY_Log("'IDXGIOutput_QueryInterface' failed with HRESULT 0x%X", e);
+	} else {
+		DXGI_OUTPUT_DESC1 desc1 = {0};
+		e = IDXGIOutput6_GetDesc1(output6, &desc1);
+		if (e != S_OK) {
+			MTY_Log("'IDXGIOutput6_GetDesc1' failed with HRESULT 0x%X", e);
+		} else {
+			r = desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020; // this is the canonical check according to MSDN and NVIDIA
+		}
+
+		IDXGIOutput6_Release(output6);
+	}
+
+	IDXGIOutput_Release(best_output);
+
+	return r;
+}
+
 static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 {
 	if (ctx->back_buffer)
@@ -131,6 +222,9 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	if (ctx->swap_chain4)
 		IDXGISwapChain4_Release(ctx->swap_chain4);
 
+	if (ctx->factory1)
+		IDXGIFactory1_Release(ctx->factory1);
+
 	if (ctx->context)
 		ID3D11DeviceContext_Release(ctx->context);
 
@@ -142,6 +236,7 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	ctx->swap_chain2 = NULL;
 	ctx->swap_chain3 = NULL;
 	ctx->swap_chain4 = NULL;
+	ctx->factory1 = NULL;
 	ctx->context = NULL;
 	ctx->device = NULL;
 }
@@ -201,6 +296,12 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 		goto except;
 	}
 
+	e = IDXGIFactory2_QueryInterface(factory2, &IID_IDXGIFactory1, &ctx->factory1);
+	if (e != S_OK) {
+		MTY_Log("'IDXGIFactory2_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
 	e = IDXGIFactory2_CreateSwapChainForHwnd(factory2, unknown, ctx->hwnd, &sd, NULL, NULL, &swap_chain1);
 	if (e != S_OK) {
 		MTY_Log("'IDXGIFactory2_CreateSwapChainForHwnd' failed with HRESULT 0x%X", e);
@@ -248,6 +349,8 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	DWORD we = WaitForSingleObjectEx(ctx->waitable, D3D11_CTX_WAIT, TRUE);
 	if (we != WAIT_OBJECT_0)
 		MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
+
+	ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
 
 	except:
 
@@ -501,8 +604,10 @@ bool mty_d3d11_ctx_make_current(struct gfx_ctx *gfx_ctx, bool current)
 bool mty_d3d11_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+	
+	if (!ctx->factory1 || !IDXGIFactory1_IsCurrent(ctx->factory1)) {
+		ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
+	}
 
-	// TODO: Query the output6 that intersects with the window. But only do this if IsCurrent is false
-
-	return true;
+	return ctx->hdr_supported;
 }

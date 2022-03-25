@@ -497,3 +497,12 @@ bool mty_d3d11_ctx_make_current(struct gfx_ctx *gfx_ctx, bool current)
 {
 	return false;
 }
+
+bool mty_d3d11_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
+{
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
+	// TODO: Query the output6 that intersects with the window. But only do this if IsCurrent is false
+
+	return true;
+}

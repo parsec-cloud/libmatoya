@@ -107,7 +107,6 @@ inline float4 rec2020_pq_to_scrgb_linear(float4 rgba)
 
 	color = rec2020_pq_to_rec2020_linear(color, SDR_MAX_NITS); // the HDR10 frame has already been encoded using the ST2084 PQ curve, so we need to decode it in order to get back linear colors
 	color = mul(REC2020_TO_SRGB_obs, color);
-	color = clamp(color, -0.5f, 7.4999f); // range of scRGB according to https://www.color.org/chardata/rgb/scrgb.xalter
 
 	return float4(color, rgba.a);
 }

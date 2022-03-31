@@ -38,7 +38,7 @@ float3 rec2020_linear_to_rec2020_pq(float3 color, float sdr_max_nits)
 	// Apply the inverse of the PQ EOTF (SMPTE ST 2084-2014) in order to encode the signal as PQ
 	// Courtesy of https://github.com/colour-science/colour/blob/38782ac059e8ddd91939f3432bf06811c16667f0/colour/models/rgb/transfer_functions/st_2084.py#L56
 
-    float3 Y_p = spow3(saturate(color / HDR10_MAX_NITS) * sdr_max_nits, PQ_m_1);
+    float3 Y_p = spow3(max(0.0f, (color / HDR10_MAX_NITS) * sdr_max_nits), PQ_m_1);
 
     float3 N = spow3((PQ_c_1 + PQ_c_2 * Y_p) / (PQ_c_3 * Y_p + 1.0f), PQ_m_2);
 

@@ -306,7 +306,7 @@ bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	// Update pixel shader constant buffer data
 	struct d3d11_ui_cbps cbps = {0};
 	cbps.hdr = (uint32_t) dd->hdr;
-	cbps.hdr_brighten_factor = 2.5f; // XXX: this is something that we should allow the user to configure via client settings
+	cbps.hdr_brighten_factor = 3.75f; // XXX: this is something that we should allow the user to configure via client settings
 
 	D3D11_MAPPED_SUBRESOURCE cbps_map = {0};
 	e = ID3D11DeviceContext_Map(_context, ctx->cbps_res, 0, D3D11_MAP_WRITE_DISCARD, 0, &cbps_map);

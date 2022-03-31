@@ -463,9 +463,9 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 	bool hdr = ctx->format_new == DXGI_FORMAT_R16G16B16A16_FLOAT || ctx->colorspace_new == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
 
 	if (ctx->hdr != hdr) {
-		// If in HDR mode, we keep swap chain in FP16 scRGB linear; otherwise in SDR mode, it's the standard RGBA8 sRGB
-		DXGI_FORMAT format = hdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_B8G8R8A8_UNORM;
-		DXGI_COLOR_SPACE_TYPE colorspace = hdr ? DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+		// If in HDR mode, we keep swap chain in HDR10 (rec2020 10-bit RGB + ST2084 PQ); otherwise in SDR mode, it's the standard RGBA8 sRGB
+		DXGI_FORMAT format = hdr ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
+		DXGI_COLOR_SPACE_TYPE colorspace = hdr ? DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0, format, D3D11_SWFLAGS);
 		if (e == S_OK) {

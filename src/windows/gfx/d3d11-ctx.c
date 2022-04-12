@@ -139,6 +139,14 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 		return r;
 	}
 
+	// Get the retangle bounds of the app window
+	RECT window_bounds = {0};
+	GetWindowRect(ctx->hwnd, &window_bounds);
+	LONG ax1 = window_bounds.left;
+	LONG ay1 = window_bounds.top;
+	LONG ax2 = window_bounds.right;
+	LONG ay2 = window_bounds.bottom;
+
 	// Go through the outputs of each and every adapter
 	IDXGIOutput *current_output = NULL;
 	IDXGIOutput *best_output = NULL;
@@ -147,14 +155,6 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 	for (UINT j = 0; IDXGIFactory1_EnumAdapters1(ctx->factory1, j, &adapter1) != DXGI_ERROR_NOT_FOUND; j++) {
 
 		for (UINT i = 0; IDXGIAdapter1_EnumOutputs(adapter1, i, &current_output) != DXGI_ERROR_NOT_FOUND; i++) {
-
-			// Get the retangle bounds of the app window
-			RECT window_bounds = {0};
-			GetClientRect(ctx->hwnd, &window_bounds);
-			LONG ax1 = window_bounds.left;
-			LONG ay1 = window_bounds.top;
-			LONG ax2 = window_bounds.right;
-			LONG ay2 = window_bounds.bottom;
 
 			// Get the rectangle bounds of current output
 			DXGI_OUTPUT_DESC desc = {0};

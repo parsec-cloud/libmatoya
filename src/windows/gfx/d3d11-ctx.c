@@ -48,6 +48,7 @@ struct d3d11_ctx {
 	bool hdr;
 	bool composite_ui;
 	MTY_HDRDesc hdr_desc;
+	RECT window_bounds;
 };
 
 static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
@@ -117,6 +118,25 @@ static void mty_validate_format_colorspace(struct d3d11_ctx *ctx, MTY_ColorForma
 	*colorspace_out = colorspace_new;
 }
 
+static bool d3d11_ctx_refresh_window_bounds(struct d3d11_ctx *ctx)
+{
+	bool changed = false;
+
+	RECT window_bounds_new = {0};
+	GetWindowRect(ctx->hwnd, &window_bounds_new);
+
+	LONG dt_left = window_bounds_new.left - ctx->window_bounds.left;
+	LONG dt_top = window_bounds_new.top - ctx->window_bounds.top;
+	LONG dt_right = window_bounds_new.right - ctx->window_bounds.right;
+	LONG dt_bottom = window_bounds_new.bottom - ctx->window_bounds.bottom;
+
+	changed = labs(dt_left) || labs(dt_top) || labs(dt_right) || labs(dt_bottom);
+
+	ctx->window_bounds = window_bounds_new;
+
+	return changed;
+}
+
 static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 {
 	bool r = false;
@@ -140,12 +160,10 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 	}
 
 	// Get the retangle bounds of the app window
-	RECT window_bounds = {0};
-	GetWindowRect(ctx->hwnd, &window_bounds);
-	LONG ax1 = window_bounds.left;
-	LONG ay1 = window_bounds.top;
-	LONG ax2 = window_bounds.right;
-	LONG ay2 = window_bounds.bottom;
+	const LONG ax1 = ctx->window_bounds.left;
+	const LONG ay1 = ctx->window_bounds.top;
+	const LONG ax2 = ctx->window_bounds.right;
+	const LONG ay2 = ctx->window_bounds.bottom;
 
 	// Go through the outputs of each and every adapter
 	IDXGIOutput *current_output = NULL;
@@ -162,14 +180,14 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 			if (e != S_OK) {
 				MTY_Log("'IDXGIOutput_GetDesc' failed with HRESULT 0x%X", e);
 			} else {
-				RECT output_bounds = desc.DesktopCoordinates;
-				LONG bx1 = output_bounds.left;
-				LONG by1 = output_bounds.top;
-				LONG bx2 = output_bounds.right;
-				LONG by2 = output_bounds.bottom;
+				const RECT output_bounds = desc.DesktopCoordinates;
+				const LONG bx1 = output_bounds.left;
+				const LONG by1 = output_bounds.top;
+				const LONG bx2 = output_bounds.right;
+				const LONG by2 = output_bounds.bottom;
 
 				// Compute the intersection and see if its the best fit
-				LONG intersect_area = max(0, min(ax2, bx2) - max(ax1, bx1)) * max(0, min(ay2, by2) - max(ay1, by1)); // courtesy of https://github.com/microsoft/DirectX-Graphics-Samples/blob/c79f839da1bb2db77d2306be5e4e664a5d23a36b/Samples/Desktop/D3D12HDR/src/D3D12HDR.cpp#L1046
+				const LONG intersect_area = max(0, min(ax2, bx2) - max(ax1, bx1)) * max(0, min(ay2, by2) - max(ay1, by1)); // courtesy of https://github.com/microsoft/DirectX-Graphics-Samples/blob/c79f839da1bb2db77d2306be5e4e664a5d23a36b/Samples/Desktop/D3D12HDR/src/D3D12HDR.cpp#L1046
 				if (intersect_area > best_intersect_area) {
 					best_output = current_output;
 					best_intersect_area = (float) intersect_area; // not sure why but the MSDN sample stores this as float when its all integer math...it works though!
@@ -349,6 +367,8 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	DWORD we = WaitForSingleObjectEx(ctx->waitable, D3D11_CTX_WAIT, TRUE);
 	if (we != WAIT_OBJECT_0)
 		MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
+
+	d3d11_ctx_refresh_window_bounds(ctx);
 
 	ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
 
@@ -605,7 +625,11 @@ bool mty_d3d11_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 	
-	if (!ctx->factory1 || !IDXGIFactory1_IsCurrent(ctx->factory1)) {
+	if (
+		d3d11_ctx_refresh_window_bounds(ctx) // check whether window was moved to another screen
+		|| !ctx->factory1
+		|| !IDXGIFactory1_IsCurrent(ctx->factory1) // display adapter reset for a variety of reasons
+	) {
 		ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
 	}
 

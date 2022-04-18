@@ -9,9 +9,6 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 
 #define COBJMACROS
 #include <d3d11.h>
-#include <dxgi1_3.h>
-#include <dxgi1_4.h>
-#include <dxgi1_5.h>
 #include <dxgi1_6.h>
 
 #define DXGI_FATAL(e) ( \
@@ -44,6 +41,7 @@ struct d3d11_ctx {
 	IDXGISwapChain4 *swap_chain4;
 	IDXGIFactory1 *factory1;
 	HANDLE waitable;
+	bool hdr_init;
 	bool hdr_supported;
 	bool hdr;
 	bool composite_ui;
@@ -223,8 +221,22 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 	return r;
 }
 
+static void d3d11_ctx_free_hdr(struct d3d11_ctx *ctx)
+{
+	if (ctx->swap_chain4)
+		IDXGISwapChain4_Release(ctx->swap_chain4);
+
+	if (ctx->swap_chain3)
+		IDXGISwapChain3_Release(ctx->swap_chain3);
+
+	ctx->swap_chain4 = NULL;
+	ctx->swap_chain3 = NULL;
+}
+
 static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 {
+	d3d11_ctx_free_hdr(ctx);
+
 	if (ctx->back_buffer)
 		ID3D11Texture2D_Release(ctx->back_buffer);
 
@@ -233,12 +245,6 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 
 	if (ctx->swap_chain2)
 		IDXGISwapChain2_Release(ctx->swap_chain2);
-
-	if (ctx->swap_chain3)
-		IDXGISwapChain3_Release(ctx->swap_chain3);
-
-	if (ctx->swap_chain4)
-		IDXGISwapChain4_Release(ctx->swap_chain4);
 
 	if (ctx->factory1)
 		IDXGIFactory1_Release(ctx->factory1);
@@ -252,8 +258,6 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	ctx->back_buffer = NULL;
 	ctx->waitable = NULL;
 	ctx->swap_chain2 = NULL;
-	ctx->swap_chain3 = NULL;
-	ctx->swap_chain4 = NULL;
 	ctx->factory1 = NULL;
 	ctx->context = NULL;
 	ctx->device = NULL;
@@ -332,18 +336,6 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 		goto except;
 	}
 
-	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain3, &ctx->swap_chain3);
-	if (e != S_OK) {
-		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e);
-		goto except;
-	}
-
-	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain4, &ctx->swap_chain4);
-	if (e != S_OK) {
-		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e);
-		goto except;
-	}
-
 	ctx->waitable = IDXGISwapChain2_GetFrameLatencyWaitableObject(ctx->swap_chain2);
 	if (!ctx->waitable) {
 		e = !S_OK;
@@ -368,9 +360,28 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	if (we != WAIT_OBJECT_0)
 		MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
 
-	d3d11_ctx_refresh_window_bounds(ctx);
+	// HDR init
 
+	HRESULT e_hdr = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain3, &ctx->swap_chain3);
+	if (e_hdr != S_OK) {
+		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e_hdr);
+		goto except_hdr;
+	}
+
+	e_hdr = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain4, &ctx->swap_chain4);
+	if (e_hdr != S_OK) {
+		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e_hdr);
+		goto except_hdr;
+	}
+
+	ctx->hdr_init = true;
+	d3d11_ctx_refresh_window_bounds(ctx);
 	ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
+
+	except_hdr:
+
+	if (e_hdr != S_OK)
+		d3d11_ctx_free_hdr(ctx);
 
 	except:
 
@@ -625,11 +636,13 @@ bool mty_d3d11_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 	
-	if (
-		d3d11_ctx_refresh_window_bounds(ctx) // check whether window was moved to another screen
-		|| !ctx->factory1
-		|| !IDXGIFactory1_IsCurrent(ctx->factory1) // display adapter reset for a variety of reasons
-	) {
+	if (!ctx->hdr_init) {
+		ctx->hdr_supported = false;
+	} else if (
+			d3d11_ctx_refresh_window_bounds(ctx) // check whether window was moved to another screen
+			|| !ctx->factory1
+			|| !IDXGIFactory1_IsCurrent(ctx->factory1) // display adapter reset for a variety of reasons
+		) {
 		ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
 	}
 

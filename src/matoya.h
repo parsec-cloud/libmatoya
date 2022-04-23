@@ -70,11 +70,12 @@ typedef enum {
 	MTY_COLOR_FORMAT_BGR565   = 6,  ///< 5-bits blue, 6-bits green, 5-bits red.
 	MTY_COLOR_FORMAT_BGRA5551 = 7,  ///< 5-bits per BGR channels, 1-bit alpha.
 	MTY_COLOR_FORMAT_AYUV     = 8,  ///< 4:4:4 full W/H interleaved Y, U, V.
-	MTY_COLOR_FORMAT_P016     = 9,  ///< 4:2:0 full W/H Y plane followed by a half W/H U plane
+	MTY_COLOR_FORMAT_Y410     = 9,  ///< 4:4:4 full W/H interleaved Y, U, V. 10-bit YUV, 2-bit alpha.
+	MTY_COLOR_FORMAT_P016     = 10, ///< 4:2:0 full W/H Y plane followed by a half W/H U plane
 	                                ///<   followed by a half W/H V plane. Supports 10-bit to 16-bit data.
-	MTY_COLOR_FORMAT_I444_16  = 10, ///< 4:4:4 full W/H consecutive Y, U, V planes. Supports 10-bit to 16-bit data.
-	MTY_COLOR_FORMAT_RGB10A2  = 11, ///< 10-bits per RGB channels, 2-bit alpha.
-	MTY_COLOR_FORMAT_RGBA16F  = 12, ///< 16-bits floating-point precision per channel RGBA.
+	MTY_COLOR_FORMAT_I444_16  = 11, ///< 4:4:4 full W/H consecutive Y, U, V planes. Supports 10-bit to 16-bit data.
+	MTY_COLOR_FORMAT_RGB10A2  = 12, ///< 10-bits per RGB channels, 2-bit alpha.
+	MTY_COLOR_FORMAT_RGBA16F  = 13, ///< 16-bits floating-point precision per channel RGBA.
 	MTY_COLOR_FORMAT_MAKE_32  = INT32_MAX,
 } MTY_ColorFormat;
 

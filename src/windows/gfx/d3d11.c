@@ -278,6 +278,7 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 	switch (desc->format) {
 		case MTY_COLOR_FORMAT_BGRA:
 		case MTY_COLOR_FORMAT_AYUV:
+		case MTY_COLOR_FORMAT_Y410:
 		case MTY_COLOR_FORMAT_BGR565:
 		case MTY_COLOR_FORMAT_BGRA5551:
 		case MTY_COLOR_FORMAT_RGB10A2:
@@ -290,6 +291,7 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 				case MTY_COLOR_FORMAT_BGRA5551:
 					format = DXGI_FORMAT_B5G5R5A1_UNORM;
 					break;
+				case MTY_COLOR_FORMAT_Y410: // according to MSDN, the view format of Y410 is RGB10A2, just like how that of AYUV is BGRA8
 				case MTY_COLOR_FORMAT_RGB10A2:
 					format = DXGI_FORMAT_R10G10B10A2_UNORM;
 					break;
@@ -297,7 +299,7 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 					format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 					break;
 			}
-			uint8_t bpp = (desc->format == MTY_COLOR_FORMAT_BGRA || desc->format == MTY_COLOR_FORMAT_RGB10A2 || desc->format == MTY_COLOR_FORMAT_AYUV) ? 4 : 2;
+			uint8_t bpp = (desc->format == MTY_COLOR_FORMAT_BGRA || desc->format == MTY_COLOR_FORMAT_RGB10A2 || desc->format == MTY_COLOR_FORMAT_AYUV || desc->format == MTY_COLOR_FORMAT_Y410) ? 4 : 2;
 			if (format == DXGI_FORMAT_R16G16B16A16_FLOAT)
 				bpp = 8;
 

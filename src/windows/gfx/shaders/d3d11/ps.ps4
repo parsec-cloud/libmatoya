@@ -132,22 +132,10 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		gaussian(filter, width, height, uv);
 
 	// NV12, NV16, P016
-	if (format == 2 || format == 5 || format == 9) {
+	if (format == 2 || format == 5 || format == 10) {
 		float y = tex0.Sample(ss, uv).r;
 		float u = tex1.Sample(ss, uv).r;
 		float v = tex1.Sample(ss, uv).g;
-
-		if (format == 9 && colorspace == 3) {
-			rgba = yuv_to_rgba_rec2020(y, u, v);
-		} else {
-			rgba = yuv_to_rgba(y, u, v);
-		}
-
-	// I420, I444, I444_16
-	} else if (format == 3 || format == 4 || format == 10) {
-		float y = tex0.Sample(ss, uv).r;
-		float u = tex1.Sample(ss, uv).r;
-		float v = tex2.Sample(ss, uv).r;
 
 		if (format == 10 && colorspace == 3) {
 			rgba = yuv_to_rgba_rec2020(y, u, v);
@@ -155,17 +143,34 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			rgba = yuv_to_rgba(y, u, v);
 		}
 
-	// AYUV
-	} else if (format == 8) {
+	// I420, I444, I444_16
+	} else if (format == 3 || format == 4 || format == 11) {
+		float y = tex0.Sample(ss, uv).r;
+		float u = tex1.Sample(ss, uv).r;
+		float v = tex2.Sample(ss, uv).r;
+
+		if (format == 11 && colorspace == 3) {
+			rgba = yuv_to_rgba_rec2020(y, u, v);
+		} else {
+			rgba = yuv_to_rgba(y, u, v);
+		}
+
+	// AYUV, Y410
+	} else if (format == 8 || format == 9) {
 		float y = tex0.Sample(ss, uv).r;
 		float u = tex0.Sample(ss, uv).g;
 		float v = tex0.Sample(ss, uv).b;
 
-		rgba = yuv_to_rgba(y, u, v);
+		if (format == 9 && colorspace == 3) {
+			// Note the reordering of yuv components here...RGBA maps to UYVA according to https://docs.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
+			rgba = yuv_to_rgba_rec2020(u, y, v);
+		} else {
+			rgba = yuv_to_rgba(y, u, v);
+		}
 
 	// TODO: This section is a bit obsolete I think....re-evaluate if its needed
 	// RGB10A2, either sRGB or HDR10
-	} else if (format == 11 && (colorspace == 1 || colorspace == 3)) {
+	} else if (format == 12 && (colorspace == 1 || colorspace == 3)) {
 		if (colorspace == 1) {
 			// sRGB - do nothing different
 			rgba = tex0.Sample(ss, uv);
@@ -177,7 +182,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		}		
 
 	// RGBA16F, scRGB linear
-	} else if (format == 12 && colorspace == 2) {
+	} else if (format == 13 && colorspace == 2) {
 		rgba = tex0.Sample(ss, uv);
 
 	// BGRA

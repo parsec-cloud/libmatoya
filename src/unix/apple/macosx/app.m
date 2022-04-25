@@ -648,7 +648,6 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 {
 	MTY_Event evt = window_event(window, MTY_EVENT_KEY);
 	evt.key.key = keymap_keycode_to_key(key_code);
-
 	evt.key.mod = keymap_modifier_flags_to_keymod(flags);
 	evt.key.pressed = pressed;
 

@@ -338,10 +338,11 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 		}
 		case MTY_COLOR_FORMAT_I420:
 		case MTY_COLOR_FORMAT_I444:
+		case MTY_COLOR_FORMAT_I444_10:
 		case MTY_COLOR_FORMAT_I444_16: {
 			const uint32_t div = desc->format == MTY_COLOR_FORMAT_I420 ? 2 : 1;
-			const DXGI_FORMAT format = desc->format == MTY_COLOR_FORMAT_I444_16 ? DXGI_FORMAT_R16_UNORM : DXGI_FORMAT_R8_UNORM;
-			const uint8_t bpp = desc->format == MTY_COLOR_FORMAT_I444_16 ? 2 : 1;
+			const DXGI_FORMAT format = desc->format == MTY_COLOR_FORMAT_I444_10 || desc->format == MTY_COLOR_FORMAT_I444_16 ? DXGI_FORMAT_R16_UNORM : DXGI_FORMAT_R8_UNORM;
+			const uint8_t bpp = format == DXGI_FORMAT_R16_UNORM ? 2 : 1;
 
 			// Y
 			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, format, desc->cropWidth, desc->cropHeight);

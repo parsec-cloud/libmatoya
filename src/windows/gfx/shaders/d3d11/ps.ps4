@@ -143,13 +143,22 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			rgba = yuv_to_rgba(y, u, v);
 		}
 
-	// I420, I444, I444_16
-	} else if (format == 3 || format == 4 || format == 11) {
+	// I420, I444, I444_10, I444_16
+	} else if (format == 3 || format == 4 || format == 11 || format == 12) {
 		float y = tex0.Sample(ss, uv).r;
 		float u = tex1.Sample(ss, uv).r;
 		float v = tex2.Sample(ss, uv).r;
 
-		if (format == 11 && colorspace == 3) {
+		// I444_10 data contain 10-bits per planar pixel but stored in 16-bit UNORM textures.
+		// DXGI will normalize these 10-bit values by dividing by 2^16 but this is wrong - we need them to be divided by 2^10 instead.
+		// We correct for this by renormalizing the values here. Note that 2^16 / 2^10 = 64.
+		if (format == 11) {
+			y = y * 64.0f;
+			u = u * 64.0f;
+			v = v * 64.0f;
+		}
+
+		if ((format == 11 || format == 12) && colorspace == 3) {
 			rgba = yuv_to_rgba_rec2020(y, u, v);
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
@@ -170,7 +179,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 
 	// TODO: This section is a bit obsolete I think....re-evaluate if its needed
 	// RGB10A2, either sRGB or HDR10
-	} else if (format == 12 && (colorspace == 1 || colorspace == 3)) {
+	} else if (format == 13 && (colorspace == 1 || colorspace == 3)) {
 		if (colorspace == 1) {
 			// sRGB - do nothing different
 			rgba = tex0.Sample(ss, uv);
@@ -182,7 +191,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		}		
 
 	// RGBA16F, scRGB linear
-	} else if (format == 13 && colorspace == 2) {
+	} else if (format == 14 && colorspace == 2) {
 		rgba = tex0.Sample(ss, uv);
 
 	// BGRA

@@ -210,6 +210,33 @@ static HRESULT d3d9_crop_copy(IDirect3DDevice9 *device, IDirect3DTexture9 *textu
 	return D3D_OK;
 }
 
+static void d3d9_fill_d3d_data(MTY_ColorFormat format, D3DFORMAT *d3d_format, uint8_t *bpp)
+{
+	switch (format) {
+		default:
+		case MTY_COLOR_FORMAT_BGRA:
+			*d3d_format = D3DFMT_A8R8G8B8;
+			*bpp = 4;
+			break;
+		case MTY_COLOR_FORMAT_RGBA:
+			*d3d_format = D3DFMT_A8B8G8R8;
+			*bpp = 4;
+			break;
+		case MTY_COLOR_FORMAT_BGR565:
+			*d3d_format = D3DFMT_R5G6B5;
+			*bpp = 2;
+			break;
+		case MTY_COLOR_FORMAT_BGRA5551:
+			*d3d_format = D3DFMT_X1R5G5B5;
+			*bpp = 2;
+			break;
+		case MTY_COLOR_FORMAT_AYUV:
+			*d3d_format = D3DFMT_A8R8G8B8;
+			*bpp = 4;
+			break;
+	}
+}
+
 static HRESULT d3d9_reload_textures(struct d3d9 *ctx, IDirect3DDevice9 *device,
 	const void *image, const MTY_RenderDesc *desc)
 {
@@ -219,16 +246,10 @@ static HRESULT d3d9_reload_textures(struct d3d9 *ctx, IDirect3DDevice9 *device,
 		case MTY_COLOR_FORMAT_AYUV:
 		case MTY_COLOR_FORMAT_BGR565:
 		case MTY_COLOR_FORMAT_BGRA5551: {
-			D3DFORMAT format =
-				desc->format == MTY_COLOR_FORMAT_RGBA     ? D3DFMT_A8B8G8R8 :
-				desc->format == MTY_COLOR_FORMAT_BGR565   ? D3DFMT_R5G6B5   :
-				desc->format == MTY_COLOR_FORMAT_BGRA5551 ? D3DFMT_X1R5G5B5 :
-				D3DFMT_A8R8G8B8;
-			uint8_t bpp =
-				desc->format == MTY_COLOR_FORMAT_BGRA ? 4 :
-				desc->format == MTY_COLOR_FORMAT_RGBA ? 4 :
-				desc->format == MTY_COLOR_FORMAT_AYUV ? 4 :
-				2;
+			D3DFORMAT format = D3DFMT_A8R8G8B8;
+			uint8_t bpp = 4;
+
+			d3d9_fill_d3d_data(desc->format, &format, &bpp);
 
 			// BGRA
 			HRESULT e = d3d9_refresh_resource(&ctx->staging[0], device, format, desc->cropWidth, desc->cropHeight);

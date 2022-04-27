@@ -618,6 +618,7 @@ typedef enum {
 	MTY_CONTEXT_STATE_MAKE_32 = INT32_MAX,
 } MTY_ContextState;
 
+/// @brief Cursor motion attributes.
 typedef enum {
 	MTY_MOTION_FLAG_START    = 0x01, ///< Motion event has started.
 	MTY_MOTION_FLAG_TOUCH    = 0x02, ///< Motion event comes from a touch event.

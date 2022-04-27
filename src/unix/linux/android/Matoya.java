@@ -288,6 +288,9 @@ public class Matoya extends SurfaceView implements
 		if (isMouseEvent(event))
 			return;
 
+		//While a long press gesture is in progress, other events will not fire until
+		//the finger is release. We manually cancel it to force the detector to start
+		//processing touch events again as soon as possible.
 		MotionEvent cancel = MotionEvent.obtain(event);
 		cancel.setAction(MotionEvent.ACTION_CANCEL);
 		this.detector.onTouchEvent(cancel);

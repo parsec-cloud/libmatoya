@@ -9,8 +9,8 @@ struct MTY_Cursor {
 	void *image;
 	uint32_t width;
 	uint32_t height;
-	uint16_t hotX;
-	uint16_t hotY;
+	uint16_t hot_x;
+	uint16_t hot_y;
 	int32_t x;
 	int32_t y;
 	float scale;
@@ -47,8 +47,8 @@ void MTY_CursorEnable(MTY_Cursor *ctx, bool enable)
 
 void MTY_CursorSetHotspot(MTY_Cursor *ctx, uint16_t hotX, uint16_t hotY)
 {
-	ctx->hotX = hotX;
-	ctx->hotY = hotY;
+	ctx->hot_x = hotX;
+	ctx->hot_y = hotY;
 }
 
 void MTY_CursorSetImage(MTY_Cursor *ctx, const void *data, size_t size)
@@ -93,8 +93,8 @@ void MTY_CursorDraw(MTY_Cursor *ctx, MTY_Window window)
 
 	desc.type = MTY_POSITION_FIXED;
 	desc.scale = ctx->scale;
-	desc.imageX = (int32_t) (ctx->x - (ctx->hotX * desc.scale));
-	desc.imageY = (int32_t) (ctx->y - (ctx->hotY * desc.scale));
+	desc.imageX = (int32_t) (ctx->x - (ctx->hot_x * desc.scale));
+	desc.imageY = (int32_t) (ctx->y - (ctx->hot_y * desc.scale));
 
 	MTY_WindowDrawQuad(ctx->app, window, ctx->image, &desc);
 }

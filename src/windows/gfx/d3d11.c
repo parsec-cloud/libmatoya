@@ -277,6 +277,7 @@ static void d3d11_fill_dxgi_data(MTY_ColorFormat format, DXGI_FORMAT *dxgi_forma
 	switch (format) {
 		default:
 		case MTY_COLOR_FORMAT_BGRA:
+		case MTY_COLOR_FORMAT_AYUV:
 			*dxgi_format = DXGI_FORMAT_B8G8R8A8_UNORM;
 			*bpp = 4;
 			break;
@@ -291,10 +292,6 @@ static void d3d11_fill_dxgi_data(MTY_ColorFormat format, DXGI_FORMAT *dxgi_forma
 		case MTY_COLOR_FORMAT_BGRA5551:
 			*dxgi_format = DXGI_FORMAT_B5G5R5A1_UNORM;
 			*bpp = 2;
-			break;
-		case MTY_COLOR_FORMAT_AYUV:
-			*dxgi_format = DXGI_FORMAT_B8G8R8A8_UNORM;
-			*bpp = 4;
 			break;
 	}
 }

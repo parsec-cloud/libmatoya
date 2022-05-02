@@ -215,6 +215,7 @@ static void d3d9_fill_d3d_data(MTY_ColorFormat format, D3DFORMAT *d3d_format, ui
 	switch (format) {
 		default:
 		case MTY_COLOR_FORMAT_BGRA:
+		case MTY_COLOR_FORMAT_AYUV:
 			*d3d_format = D3DFMT_A8R8G8B8;
 			*bpp = 4;
 			break;
@@ -229,10 +230,6 @@ static void d3d9_fill_d3d_data(MTY_ColorFormat format, D3DFORMAT *d3d_format, ui
 		case MTY_COLOR_FORMAT_BGRA5551:
 			*d3d_format = D3DFMT_X1R5G5B5;
 			*bpp = 2;
-			break;
-		case MTY_COLOR_FORMAT_AYUV:
-			*d3d_format = D3DFMT_A8R8G8B8;
-			*bpp = 4;
 			break;
 	}
 }

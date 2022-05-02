@@ -112,7 +112,7 @@ typedef struct {
 	MTY_Rotation rotation;  ///< Rotation applied to the image.
 	MTY_Filter filter;      ///< Filter applied to the image.
 	MTY_Effect effect;      ///< Effect applied to the image.
-	MTY_Position type;      ///< Type of positioning configuration.
+	MTY_Position position;  ///< Type of positioning configuration.
 	int32_t imageX;         ///< The horizontal position in pixels of the image.
 	int32_t imageY;         ///< The vertical position in pixels of the image.
 	uint32_t imageWidth;    ///< The width in pixels of the image.

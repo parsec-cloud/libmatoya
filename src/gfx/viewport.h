@@ -26,10 +26,10 @@ static void mty_viewport(const MTY_RenderDesc *desc, float *vp_x, float *vp_y, f
 	float scaled_w = roundf(desc->scale * w);
 	float scaled_h = roundf(desc->scale * h);
 
-	switch (desc->type)	{
+	switch (desc->position) {
 		default:
 		case MTY_POSITION_AUTO:
-			if (scaled_w == 0 || scaled_h == 0 || view_w < scaled_w || view_h < scaled_h)
+			if (scaled_w == 0.0f || scaled_h == 0.0f || view_w < scaled_w || view_h < scaled_h)
 				scaled_w = view_w;
 
 			*vp_w = scaled_w;
@@ -52,8 +52,8 @@ static void mty_viewport(const MTY_RenderDesc *desc, float *vp_x, float *vp_y, f
 			*vp_w = scaled_w;
 			*vp_h = scaled_h;
 
-			*vp_x = (float)desc->imageX;
-			*vp_y = (float)desc->imageY;
+			*vp_x = (float) desc->imageX;
+			*vp_y = (float) desc->imageY;
 
 			if (transform_origin)
 				*vp_y = desc->displayHeight - scaled_h - *vp_y;

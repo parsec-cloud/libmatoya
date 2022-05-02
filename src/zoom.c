@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <math.h>
 
 // XXX Required because clicks does not always fire on the edges
 #define EDGE_PADDING 1.0f
@@ -68,26 +69,26 @@ static bool mty_zoom_context_initialized(MTY_Zoom *ctx)
 
 static float mty_zoom_tranform_x(MTY_Zoom *ctx, float value)
 {
-	float offset_x = - ctx->image.x / ctx->scale_screen + ctx->image_min.x;
-	float zoom_w   = ctx->window_w / ctx->scale_screen;
-	float ratio_x  = (float) value / ctx->window_w;
+	float offset_x = -ctx->image.x / ctx->scale_screen + ctx->image_min.x;
+	float zoom_w   = (float) ctx->window_w / ctx->scale_screen;
+	float ratio_x  = value / (float) ctx->window_w;
 
 	return offset_x + zoom_w * ratio_x;
 }
 
 static float mty_zoom_tranform_y(MTY_Zoom *ctx, float value)
 {
-	float offset_y = - ctx->image.y / ctx->scale_screen + ctx->image_min.y;
-	float zoom_h   = ctx->window_h / ctx->scale_screen;
-	float ratio_y  = (float) value / ctx->window_h;
+	float offset_y = -ctx->image.y / ctx->scale_screen + ctx->image_min.y;
+	float zoom_h   = (float) ctx->window_h / ctx->scale_screen;
+	float ratio_y  = value / (float) ctx->window_h;
 
 	return offset_y + zoom_h * ratio_y;
 }
 
 static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 {
-	float image_scaled_w = ctx->image_w * ctx->scale_image;
-	float image_scaled_h = ctx->image_h * ctx->scale_image;
+	float image_scaled_w = (float) ctx->image_w * ctx->scale_image;
+	float image_scaled_h = (float) ctx->image_h * ctx->scale_image;
 
 	if (ctx->image.x > ctx->image_min.x)
 		ctx->image.x = ctx->image_min.x;
@@ -117,16 +118,16 @@ void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, 
 	ctx->image_h = imageHeight;
 
 	ctx->scale_screen = 1;
-	float scale_w = (float) ctx->window_w / ctx->image_w;
-	float scale_h = (float) ctx->window_h / ctx->image_h;
+	float scale_w = (float) ctx->window_w / (float) ctx->image_w;
+	float scale_h = (float) ctx->window_h / (float) ctx->image_h;
 	ctx->scale_image = scale_w < scale_h ? scale_w : scale_h;
 
 	ctx->image.x = 0;
 	ctx->image.y = 0;
 	if (scale_w > scale_h) 
-		ctx->image.x = (ctx->window_w - ctx->image_w * ctx->scale_image) / 2.0f;
+		ctx->image.x = ((float) ctx->window_w - (float) ctx->image_w * ctx->scale_image) / 2.0f;
 	if (scale_w < scale_h) 
-		ctx->image.y = (ctx->window_h - ctx->image_h * ctx->scale_image) / 2.0f;
+		ctx->image.y = ((float) ctx->window_h - (float) ctx->image_h * ctx->scale_image) / 2.0f;
 
 	ctx->image_min.x = ctx->image.x;
 	ctx->image_min.y = ctx->image.y;
@@ -136,10 +137,10 @@ void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, 
 	ctx->scale_image_min = ctx->scale_image * ctx->scale_screen_min;
 	ctx->scale_image_max = ctx->scale_image * ctx->scale_screen_max;
 
-	ctx->cursor.x = ctx->window_w / 2.0f;
-	ctx->cursor.y = ctx->window_h / 2.0f;
+	ctx->cursor.x = (float) ctx->window_w / 2.0f;
+	ctx->cursor.y = (float) ctx->window_h / 2.0f;
 
-	ctx->margin = (ctx->window_w < ctx->window_h ? ctx->window_w : ctx->window_h) * 0.2f;
+	ctx->margin = (float) (ctx->window_w < ctx->window_h ? ctx->window_w : ctx->window_h) * 0.2f;
 
 	ctx->focus.x = 0;
 	ctx->focus.y = 0;
@@ -255,12 +256,12 @@ int32_t MTY_ZoomTranformX(MTY_Zoom *ctx, int32_t value)
 	assert(ctx, value);
 
 	if (ctx->relative)
-		return (int32_t) (value / ctx->scale_screen);
+		return lrint(value / ctx->scale_screen);
 
 	if (ctx->mode == MTY_INPUT_MODE_TRACKPAD)
-		return (int32_t) ctx->cursor.x;
+		return lrint(ctx->cursor.x);
 
-	return (int32_t) mty_zoom_tranform_x(ctx, (float) value);
+	return lrint(mty_zoom_tranform_x(ctx, (float) value));
 }
 
 int32_t MTY_ZoomTranformY(MTY_Zoom *ctx, int32_t value)
@@ -268,12 +269,12 @@ int32_t MTY_ZoomTranformY(MTY_Zoom *ctx, int32_t value)
 	assert(ctx, value);
 
 	if (ctx->relative)
-		return (int32_t) (value / ctx->scale_screen);
+		return lrint(value / ctx->scale_screen);
 
 	if (ctx->mode == MTY_INPUT_MODE_TRACKPAD)
-		return (int32_t) ctx->cursor.y;
+		return lrint(ctx->cursor.y);
 
-	return (int32_t) mty_zoom_tranform_y(ctx, (float) value);
+	return lrint(mty_zoom_tranform_y(ctx, (float) value));
 }
 
 float MTY_ZoomGetScale(MTY_Zoom *ctx)
@@ -287,14 +288,14 @@ int32_t MTY_ZoomGetImageX(MTY_Zoom *ctx)
 {
 	assert(ctx, 0);
 
-	return (int32_t) ctx->image.x;
+	return lrint(ctx->image.x);
 }
 
 int32_t MTY_ZoomGetImageY(MTY_Zoom *ctx)
 {
 	assert(ctx, 0);
 
-	return (int32_t) ctx->image.y;
+	return lrint(ctx->image.y);
 }
 
 int32_t MTY_ZoomGetCursorX(MTY_Zoom *ctx)
@@ -304,7 +305,7 @@ int32_t MTY_ZoomGetCursorX(MTY_Zoom *ctx)
 	float left  = mty_zoom_tranform_x(ctx, 0);
 	float right = mty_zoom_tranform_x(ctx, (float) ctx->window_w);
 
-	return (int32_t) (ctx->window_w * (ctx->cursor.x - left) / (right - left));
+	return lrint(ctx->window_w * (ctx->cursor.x - left) / (right - left));
 }
 
 int32_t MTY_ZoomGetCursorY(MTY_Zoom *ctx)
@@ -314,7 +315,7 @@ int32_t MTY_ZoomGetCursorY(MTY_Zoom *ctx)
 	float top    = mty_zoom_tranform_y(ctx, 0);
 	float bottom = mty_zoom_tranform_y(ctx, (float) ctx->window_h);
 
-	return (int32_t) (ctx->window_h * (ctx->cursor.y - top) / (bottom - top));
+	return lrint(ctx->window_h * (ctx->cursor.y - top) / (bottom - top));
 }
 
 bool MTY_ZoomIsScaling(MTY_Zoom *ctx)

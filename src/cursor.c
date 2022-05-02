@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <math.h>
 
 struct MTY_Cursor {
 	MTY_App *app;
@@ -9,10 +10,10 @@ struct MTY_Cursor {
 	void *image;
 	uint32_t width;
 	uint32_t height;
-	uint16_t hot_x;
-	uint16_t hot_y;
-	int32_t x;
-	int32_t y;
+	float hot_x;
+	float hot_y;
+	float x;
+	float y;
 	float scale;
 };
 
@@ -47,8 +48,8 @@ void MTY_CursorEnable(MTY_Cursor *ctx, bool enable)
 
 void MTY_CursorSetHotspot(MTY_Cursor *ctx, uint16_t hotX, uint16_t hotY)
 {
-	ctx->hot_x = hotX;
-	ctx->hot_y = hotY;
+	ctx->hot_x = (float) hotX;
+	ctx->hot_y = (float) hotY;
 }
 
 void MTY_CursorSetImage(MTY_Cursor *ctx, const void *data, size_t size)
@@ -62,8 +63,8 @@ void MTY_CursorSetImage(MTY_Cursor *ctx, const void *data, size_t size)
 void MTY_CursorMove(MTY_Cursor *ctx, int32_t x, int32_t y, float scale)
 {
 	ctx->scale = scale;
-	ctx->x = x;
-	ctx->y = y;
+	ctx->x = (float) x;
+	ctx->y = (float) y;
 }
 
 void MTY_CursorMoveFromZoom(MTY_Cursor *ctx, MTY_Zoom *zoom)
@@ -91,10 +92,10 @@ void MTY_CursorDraw(MTY_Cursor *ctx, MTY_Window window)
 	desc.aspectRatio = (float) ctx->width / (float) ctx->height;
 	desc.blend = true;
 
-	desc.type = MTY_POSITION_FIXED;
+	desc.position = MTY_POSITION_FIXED;
 	desc.scale = ctx->scale;
-	desc.imageX = (int32_t) (ctx->x - (ctx->hot_x * desc.scale));
-	desc.imageY = (int32_t) (ctx->y - (ctx->hot_y * desc.scale));
+	desc.imageX = lrint(ctx->x - (ctx->hot_x * desc.scale));
+	desc.imageY = lrint(ctx->y - (ctx->hot_y * desc.scale));
 
 	MTY_WindowDrawQuad(ctx->app, window, ctx->image, &desc);
 }

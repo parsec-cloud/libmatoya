@@ -1853,6 +1853,71 @@ void MTY_WindowGetPosition(MTY_App *app, MTY_Window window, int32_t *x, int32_t 
 	}
 }
 
+bool MTY_WindowSetPosition(MTY_App *app, MTY_Window window, int32_t x, int32_t y)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	return SetWindowPos(ctx->hwnd, HWND_TOP, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+}
+
+bool MTY_WindowSetSize(MTY_App *app, MTY_Window window, int32_t width, int32_t height)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+		
+	return SetWindowPos(ctx->hwnd, HWND_TOP, 0, 0, width, height, SWP_NOZORDER | SWP_NOMOVE);
+}
+
+bool MTY_WindowSetState(MTY_App *app, MTY_Window window, MTY_WindowState state)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+	
+	int32_t command = 0;
+	switch (state) {
+		case MTY_WINDOWSTATE_NORMAL: command = SW_NORMAL; break;
+		case MTY_WINDOWSTATE_MAXIMIZED: command = SW_MAXIMIZE; break;
+		case MTY_WINDOWSTATE_MINIMIZED: command = SW_MINIMIZE; break;
+	};
+	
+	return ShowWindow(ctx->hwnd, command);
+}
+
+bool MTY_WindowGetState(MTY_App *app, MTY_Window window, MTY_WindowState *state)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+		
+	WINDOWPLACEMENT p = {0};
+	p.length = sizeof(WINDOWPLACEMENT);
+	bool r = GetWindowPlacement(ctx->hwnd, &p);
+	
+	*state = MTY_WINDOWSTATE_NORMAL;
+	
+	switch (p.showCmd) {
+		case SW_MAXIMIZE: *state = MTY_WINDOWSTATE_MAXIMIZED; break;
+		case SW_MINIMIZE: *state = MTY_WINDOWSTATE_MINIMIZED; break;
+	};
+	
+	return r;
+}
+
+bool MTY_WindowPointIsOnScreen(MTY_App *app, int32_t x, int32_t y)
+{
+	POINT p;
+	p.x = x;
+	p.y = y;
+
+	HMONITOR mon = MonitorFromPoint(p, MONITOR_DEFAULTTONULL);
+	
+	return (mon != NULL);
+}
+
 static bool window_get_monitor_info(HWND hwnd, MONITORINFOEX *info)
 {
 	HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);

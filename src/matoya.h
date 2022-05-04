@@ -1101,6 +1101,54 @@ MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *he
 MTY_EXPORT void
 MTY_WindowGetPosition(MTY_App *app, MTY_Window window, int32_t *x, int32_t *y);
 
+/// @brief Set a window's width and height.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param width Set to the width of the client area of the window.
+/// @param height Set to the height of the client area of the window.
+/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
+MTY_EXPORT bool
+MTY_WindowSetSize(MTY_App *app, MTY_Window window, int32_t width, int32_t height);
+
+/// @brief Set the `x` and `y` coordinates of the window's top left corner.
+/// @details These coordinates include the window border, title bar, and shadows.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param x Set to the horizontal position of the window's left edge.
+/// @param y Set to the vertical position of the window's top edge.
+/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
+MTY_EXPORT bool
+MTY_WindowSetPosition(MTY_App *app, MTY_Window window, int32_t x, int32_t y);
+
+/// @brief Set the `x` and `y` coordinates of the window's top left corner.
+/// @details These coordinates include the window border, title bar, and shadows.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param x Set to the horizontal position of the window's left edge.
+/// @param y Set to the vertical position of the window's top edge.
+/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
+MTY_EXPORT bool
+MTY_WindowGetState(MTY_App *app, MTY_Window window, MTY_WindowState *state);
+
+/// @brief Set the `x` and `y` coordinates of the window's top left corner.
+/// @details These coordinates include the window border, title bar, and shadows.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param x Set to the horizontal position of the window's left edge.
+/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
+MTY_EXPORT bool
+MTY_WindowSetState(MTY_App *app, MTY_Window window, MTY_WindowState state);
+
+/// @brief Determine if a point is contained within the visible desktop.
+/// @details The point may be on any real or virtual display, and may be obscured by window decorations.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param x Horizontal position of the point to test.
+/// @param y Vertical position of the point to test.
+/// @returns Returns true if the point is visible, false if it is off screen. Call MTY_GetLog for details.
+MTY_EXPORT bool
+MTY_WindowPointIsOnScreen(MTY_App *app, int32_t x, int32_t y);
+
 /// @brief Get the width and height of the screen where the window currently resides.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.

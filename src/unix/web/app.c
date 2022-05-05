@@ -512,6 +512,31 @@ void MTY_WindowGetPosition(MTY_App *app, MTY_Window window, int32_t *x, int32_t 
 	web_get_position(x, y);
 }
 
+bool MTY_WindowSetPosition(MTY_App *app, MTY_Window window, int32_t x, int32_t y)
+{
+	return false;
+}
+
+bool MTY_WindowSetSize(MTY_App *app, MTY_Window window, int32_t width, int32_t height)
+{
+	return false;
+}
+
+bool MTY_WindowSetState(MTY_App *app, MTY_Window window, MTY_WindowState state)
+{
+	return false;
+}
+
+bool MTY_WindowGetState(MTY_App *app, MTY_Window window, MTY_WindowState *state)
+{
+	return false;
+}
+
+bool MTY_WindowPointIsOnScreen(MTY_App *app, int32_t x, int32_t y)
+{
+	return true;
+}
+
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
 	web_get_screen_size(width, height);

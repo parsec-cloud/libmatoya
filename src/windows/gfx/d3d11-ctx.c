@@ -64,12 +64,11 @@ static void mty_validate_format_colorspace(struct d3d11_ctx *ctx, MTY_ColorForma
 	DXGI_COLOR_SPACE_TYPE colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
 	// Use the last known value if unspecified
-	if (format == MTY_COLOR_FORMAT_UNKNOWN) {
+	if (format == MTY_COLOR_FORMAT_UNKNOWN)
 		format_new = ctx->format;
-	}
-	if (colorspace == MTY_COLOR_SPACE_UNKNOWN) {
+
+	if (colorspace == MTY_COLOR_SPACE_UNKNOWN)
 		colorspace_new = ctx->colorspace;
-	}
 
 	switch (format) {
 		case MTY_COLOR_FORMAT_RGBA16F:
@@ -169,9 +168,7 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 	float best_intersect_area = -1;
 	IDXGIAdapter1 *adapter1 = NULL;
 	for (UINT j = 0; IDXGIFactory1_EnumAdapters1(ctx->factory1, j, &adapter1) != DXGI_ERROR_NOT_FOUND; j++) {
-
 		for (UINT i = 0; IDXGIAdapter1_EnumOutputs(adapter1, i, &current_output) != DXGI_ERROR_NOT_FOUND; i++) {
-
 			// Get the rectangle bounds of current output
 			DXGI_OUTPUT_DESC desc = {0};
 			e = IDXGIOutput_GetDesc(current_output, &desc);
@@ -209,6 +206,7 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 		e = IDXGIOutput6_GetDesc1(output6, &desc1);
 		if (e != S_OK) {
 			MTY_Log("'IDXGIOutput6_GetDesc1' failed with HRESULT 0x%X", e);
+
 		} else {
 			r = desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020; // this is the canonical check according to MSDN and NVIDIA
 		}
@@ -492,6 +490,7 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 				d3d11_ctx_free(ctx);
 				d3d11_ctx_init(ctx);
 			}
+
 		} else if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
 			d3d11_ctx_free(ctx);
@@ -516,9 +515,8 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 		hdr_desc.MaxFrameAverageLightLevel = (UINT16) ctx->hdr_desc.max_frame_average_light_level;
 
 		HRESULT e = IDXGISwapChain4_SetHDRMetaData(ctx->swap_chain4, DXGI_HDR_METADATA_TYPE_HDR10, sizeof(hdr_desc), &hdr_desc);
-		if (e != S_OK) {
+		if (e != S_OK)
 			MTY_Log("Unable to set HDR metadata: 'IDXGISwapChain4_SetHDRMetaData' failed with HRESULT 0x%X", e);
-		}
 	}
 }
 

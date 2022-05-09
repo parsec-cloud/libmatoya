@@ -23,6 +23,9 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 )
 
 #define D3D11_CTX_WAIT 2000
+#ifndef D3D11_CTX_DEBUG
+	#define D3D11_CTX_DEBUG false
+#endif
 
 struct d3d11_ctx {
 	HWND hwnd;
@@ -122,12 +125,12 @@ static bool d3d11_ctx_refresh_window_bounds(struct d3d11_ctx *ctx)
 	RECT window_bounds_new = {0};
 	GetWindowRect(ctx->hwnd, &window_bounds_new);
 
-	LONG dt_left = window_bounds_new.left - ctx->window_bounds.left;
-	LONG dt_top = window_bounds_new.top - ctx->window_bounds.top;
-	LONG dt_right = window_bounds_new.right - ctx->window_bounds.right;
-	LONG dt_bottom = window_bounds_new.bottom - ctx->window_bounds.bottom;
+	const LONG dt_left = window_bounds_new.left - ctx->window_bounds.left;
+	const LONG dt_top = window_bounds_new.top - ctx->window_bounds.top;
+	const LONG dt_right = window_bounds_new.right - ctx->window_bounds.right;
+	const LONG dt_bottom = window_bounds_new.bottom - ctx->window_bounds.bottom;
 
-	changed = labs(dt_left) || labs(dt_top) || labs(dt_right) || labs(dt_bottom);
+	changed = dt_left || dt_top || dt_right || dt_bottom;
 
 	ctx->window_bounds = window_bounds_new;
 
@@ -165,7 +168,7 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 	// Go through the outputs of each and every adapter
 	IDXGIOutput *current_output = NULL;
 	IDXGIOutput *best_output = NULL;
-	float best_intersect_area = -1;
+	LONG best_intersect_area = -1;
 	IDXGIAdapter1 *adapter1 = NULL;
 	for (UINT j = 0; IDXGIFactory1_EnumAdapters1(ctx->factory1, j, &adapter1) != DXGI_ERROR_NOT_FOUND; j++) {
 		for (UINT i = 0; IDXGIAdapter1_EnumOutputs(adapter1, i, &current_output) != DXGI_ERROR_NOT_FOUND; i++) {
@@ -182,10 +185,15 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 				const LONG by2 = output_bounds.bottom;
 
 				// Compute the intersection and see if its the best fit
-				const LONG intersect_area = max(0, min(ax2, bx2) - max(ax1, bx1)) * max(0, min(ay2, by2) - max(ay1, by1)); // courtesy of https://github.com/microsoft/DirectX-Graphics-Samples/blob/c79f839da1bb2db77d2306be5e4e664a5d23a36b/Samples/Desktop/D3D12HDR/src/D3D12HDR.cpp#L1046
+				// Courtesy of https://github.com/microsoft/DirectX-Graphics-Samples/blob/c79f839da1bb2db77d2306be5e4e664a5d23a36b/Samples/Desktop/D3D12HDR/src/D3D12HDR.cpp#L1046
+				const LONG intersect_area = max(0, min(ax2, bx2) - max(ax1, bx1)) * max(0, min(ay2, by2) - max(ay1, by1));
 				if (intersect_area > best_intersect_area) {
+					if (best_output != NULL)
+						IDXGIOutput_Release(best_output);
+
 					best_output = current_output;
-					best_intersect_area = (float) intersect_area; // not sure why but the MSDN sample stores this as float when its all integer math...it works though!
+					best_intersect_area = intersect_area;
+
 				} else {
 					IDXGIOutput_Release(current_output);
 				}
@@ -273,7 +281,7 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	ctx->colorspace = MTY_COLOR_SPACE_SRGB;
 
 	DXGI_SWAP_CHAIN_DESC1 sd = {0};
-	sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	sd.SampleDesc.Count = 1;
@@ -282,9 +290,8 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	
 	D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
 	UINT flags = 0;
-	#ifdef DEBUG
+	if (D3D11_CTX_DEBUG)
 		flags |= D3D11_CREATE_DEVICE_DEBUG;
-	#endif
 	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, levels,
 		sizeof(levels) / sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, &ctx->device, NULL, &ctx->context);
 	if (e != S_OK) {
@@ -454,8 +461,9 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 	d3d11_ctx_get_size(ctx, &width, &height);
 
 	if (ctx->width != width || ctx->height != height) {
+		// DXGI_FORMAT_UNKNOWN will resize without changing the existing format
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
-			DXGI_FORMAT_UNKNOWN, D3D11_SWFLAGS);  // unknown format will resize without changing the existing format
+			DXGI_FORMAT_UNKNOWN, D3D11_SWFLAGS);
 
 		if (e == S_OK) {
 			ctx->width = width;
@@ -636,12 +644,13 @@ bool mty_d3d11_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
 	
 	if (!ctx->hdr_init) {
 		ctx->hdr_supported = false;
-	} else if (
-			d3d11_ctx_refresh_window_bounds(ctx) // check whether window was moved to another screen
-			|| !ctx->factory1
-			|| !IDXGIFactory1_IsCurrent(ctx->factory1) // display adapter reset for a variety of reasons
-		) {
-		ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
+
+	} else {
+		const bool adapter_reset = !ctx->factory1 || !IDXGIFactory1_IsCurrent(ctx->factory1);
+		const bool window_moved = d3d11_ctx_refresh_window_bounds(ctx); // includes when moved to different display
+		if (window_moved || adapter_reset) {
+			ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
+		}
 	}
 
 	return ctx->hdr_supported;

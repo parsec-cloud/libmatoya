@@ -316,7 +316,7 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 		case MTY_COLOR_FORMAT_BGRA5551:
 		case MTY_COLOR_FORMAT_RGB10A2:
 		case MTY_COLOR_FORMAT_RGBA16F: {
-			DXGI_FORMAT format = DXGI_FORMAT_B8G8R8X8_UNORM;
+			DXGI_FORMAT format = DXGI_FORMAT_B8G8R8A8_UNORM;
 			uint8_t bpp = 4;
 			d3d11_get_dxgi_format_and_bpp(desc->format, &format, &bpp);
 

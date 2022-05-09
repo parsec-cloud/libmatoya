@@ -562,7 +562,7 @@ bool mty_d3d12_ctx_make_current(struct gfx_ctx *gfx_ctx, bool current)
 
 bool mty_d3d12_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
 {
-	// TODO
+	// XXX: Write this when we implement D3D12 support for HDR
 
 	return false;
 }

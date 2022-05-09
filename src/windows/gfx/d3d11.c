@@ -272,6 +272,39 @@ static HRESULT d3d11_crop_copy(ID3D11DeviceContext *context, ID3D11Resource *tex
 	return e;
 }
 
+static void d3d11_get_dxgi_format_and_bpp(const MTY_ColorFormat format, DXGI_FORMAT *out_format, uint8_t *out_bpp)
+{	
+	DXGI_FORMAT result = DXGI_FORMAT_B8G8R8A8_UNORM;
+	switch (format) {
+		case MTY_COLOR_FORMAT_BGR565:
+			result = DXGI_FORMAT_B5G6R5_UNORM;
+			break;
+		case MTY_COLOR_FORMAT_BGRA5551:
+			result = DXGI_FORMAT_B5G5R5A1_UNORM;
+			break;
+		case MTY_COLOR_FORMAT_Y410: // according to MSDN, the view format of Y410 is RGB10A2, just like how that of AYUV is BGRA8
+		case MTY_COLOR_FORMAT_RGB10A2:
+			result = DXGI_FORMAT_R10G10B10A2_UNORM;
+			break;
+		case MTY_COLOR_FORMAT_RGBA16F:
+			result = DXGI_FORMAT_R16G16B16A16_FLOAT;
+			break;
+	}
+	*out_format = format;
+	
+	uint8_t bpp = 2;
+	switch (format) {
+		case MTY_COLOR_FORMAT_BGRA:
+		case MTY_COLOR_FORMAT_RGB10A2:
+		case MTY_COLOR_FORMAT_AYUV:
+		case MTY_COLOR_FORMAT_Y410:
+			bpp = 4;
+		case MTY_COLOR_FORMAT_RGBA16F:
+			bpp = 8;
+	}
+	*out_bpp = bpp;
+}
+
 static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID3D11DeviceContext *context,
 	const void *image, const MTY_RenderDesc *desc)
 {
@@ -283,25 +316,9 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 		case MTY_COLOR_FORMAT_BGRA5551:
 		case MTY_COLOR_FORMAT_RGB10A2:
 		case MTY_COLOR_FORMAT_RGBA16F: {
-			DXGI_FORMAT format = DXGI_FORMAT_B8G8R8A8_UNORM;
-			switch (desc->format) {
-				case MTY_COLOR_FORMAT_BGR565:
-					format = DXGI_FORMAT_B5G6R5_UNORM;
-					break;
-				case MTY_COLOR_FORMAT_BGRA5551:
-					format = DXGI_FORMAT_B5G5R5A1_UNORM;
-					break;
-				case MTY_COLOR_FORMAT_Y410: // according to MSDN, the view format of Y410 is RGB10A2, just like how that of AYUV is BGRA8
-				case MTY_COLOR_FORMAT_RGB10A2:
-					format = DXGI_FORMAT_R10G10B10A2_UNORM;
-					break;
-				case MTY_COLOR_FORMAT_RGBA16F:
-					format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-					break;
-			}
-			uint8_t bpp = (desc->format == MTY_COLOR_FORMAT_BGRA || desc->format == MTY_COLOR_FORMAT_RGB10A2 || desc->format == MTY_COLOR_FORMAT_AYUV || desc->format == MTY_COLOR_FORMAT_Y410) ? 4 : 2;
-			if (format == DXGI_FORMAT_R16G16B16A16_FLOAT)
-				bpp = 8;
+			DXGI_FORMAT format = DXGI_FORMAT_B8G8R8X8_UNORM;
+			uint8_t bpp = 4;
+			d3d11_get_dxgi_format_and_bpp(desc->format, &format, &bpp);
 
 			// BGRA
 			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, format, desc->cropWidth, desc->cropHeight);

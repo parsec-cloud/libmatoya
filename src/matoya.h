@@ -1292,6 +1292,7 @@ MTY_WindowGetContextState(MTY_App *app, MTY_Window window);
 /// @brief Tells you whether the window can show HDR content or not.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
+/// @returns Returns true if the window can render HDR content, false otherwise.
 MTY_EXPORT bool
 MTY_WindowIsHDRSupported(MTY_App *app, MTY_Window window);
 

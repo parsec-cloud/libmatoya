@@ -62,9 +62,9 @@ inline float4 yuv_to_rgba_rec2020(float y, float u, float v)
 	u = u - C_minmax_2;
 	v = v - C_minmax_2;
 
-	y = y * 1.0f / Y_minmax_dt;
-	u = u * 1.0f / C_minmax_dt;
-	v = v * 1.0f / C_minmax_dt;
+	y = y / Y_minmax_dt;
+	u = u / C_minmax_dt;
+	v = v / C_minmax_dt;
 
 	const float K_r = 0.2627f;
 	const float K_b = 0.0593f;
@@ -175,6 +175,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		if (format == 9 && colorspace == 3) {
 			// Note the reordering of yuv components here...RGBA maps to UYVA according to https://docs.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
 			rgba = yuv_to_rgba_rec2020(u, y, v);
+
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
 		}
@@ -185,6 +186,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		if (colorspace == 1) {
 			// sRGB - do nothing different
 			rgba = tex0.Sample(ss, uv);
+
 		} else {
 			// HDR10
 			// TODO: Do we need to do a st 2084 encoding/decoding?

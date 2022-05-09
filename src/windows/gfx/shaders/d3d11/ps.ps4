@@ -139,6 +139,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 
 		if (format == 10 && colorspace == 3) {
 			rgba = yuv_to_rgba_rec2020(y, u, v);
+
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
 		}
@@ -160,6 +161,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 
 		if ((format == 11 || format == 12) && colorspace == 3) {
 			rgba = yuv_to_rgba_rec2020(y, u, v);
+
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
 		}

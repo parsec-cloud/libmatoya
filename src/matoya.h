@@ -86,7 +86,7 @@ typedef enum {
 	MTY_COLOR_SPACE_SRGB         = 1, ///< sRGB/rec709 primaries and a non-linear transfer function (approx gamma curve of 2.2). Supported by all color formats.
 	MTY_COLOR_SPACE_SCRGB_LINEAR = 2, ///< Microsoft's scRGB wide gamut color space which is based on sRGB/rec709 primaries and has a linear transfer function. Only supported by color format MTY_COLOR_FORMAT_RGBA16F.
 	MTY_COLOR_SPACE_HDR10        = 3, ///< Uses the rec2020 color primaries and the rec2100 non-linear transfer function (ST 2084 perceptual quantizer, aka PQ). Only supported by color format MTY_COLOR_FORMAT_RGB10A2.
-	MTY_COLOR_SPACE_MAKE_32 = INT32_MAX,
+	MTY_COLOR_SPACE_MAKE_32      = INT32_MAX,
 } MTY_ColorSpace;
 
 /// @brief Quad texture filtering.

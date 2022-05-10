@@ -27,6 +27,50 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 	#define D3D11_CTX_DEBUG false
 #endif
 
+
+static const MTY_ColorSpace MTY_FORMAT_TO_EXPECTED_MTY_COLORSPACE[] = {
+	[MTY_COLOR_FORMAT_UNKNOWN]  = MTY_COLOR_SPACE_UNKNOWN,
+	[MTY_COLOR_FORMAT_BGRA]     = MTY_COLOR_SPACE_SRGB,
+	[MTY_COLOR_FORMAT_NV12]     = MTY_COLOR_SPACE_SRGB,
+	[MTY_COLOR_FORMAT_I420]     = MTY_COLOR_SPACE_SRGB,
+	[MTY_COLOR_FORMAT_I444]     = MTY_COLOR_SPACE_SRGB,
+	[MTY_COLOR_FORMAT_NV16]     = MTY_COLOR_SPACE_SRGB,
+	[MTY_COLOR_FORMAT_BGR565]   = MTY_COLOR_SPACE_SRGB,
+	[MTY_COLOR_FORMAT_BGRA5551] = MTY_COLOR_SPACE_SRGB,
+	[MTY_COLOR_FORMAT_AYUV]     = MTY_COLOR_SPACE_SRGB,
+	[MTY_COLOR_FORMAT_Y410]     = MTY_COLOR_SPACE_HDR10,
+	[MTY_COLOR_FORMAT_P016]     = MTY_COLOR_SPACE_HDR10,
+	[MTY_COLOR_FORMAT_I444_10]  = MTY_COLOR_SPACE_HDR10,
+	[MTY_COLOR_FORMAT_I444_16]  = MTY_COLOR_SPACE_HDR10,
+	[MTY_COLOR_FORMAT_RGB10A2]  = MTY_COLOR_SPACE_HDR10,
+	[MTY_COLOR_FORMAT_RGBA16F]  = MTY_COLOR_SPACE_SCRGB_LINEAR,
+};
+
+static const DXGI_FORMAT MTY_FORMAT_TO_DXGI_FORMAT[] = {
+	[MTY_COLOR_FORMAT_UNKNOWN]  = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_BGRA]     = DXGI_FORMAT_B8G8R8A8_UNORM,
+	[MTY_COLOR_FORMAT_NV12]     = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_I420]     = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_I444]     = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_NV16]     = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_BGR565]   = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_BGRA5551] = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_AYUV]     = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_Y410]     = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_P016]     = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_I444_10]  = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_I444_16]  = DXGI_FORMAT_UNKNOWN,
+	[MTY_COLOR_FORMAT_RGB10A2]  = DXGI_FORMAT_R10G10B10A2_UNORM,
+	[MTY_COLOR_FORMAT_RGBA16F]  = DXGI_FORMAT_R16G16B16A16_FLOAT,
+};
+
+static const DXGI_COLOR_SPACE_TYPE MTY_COLORSPACE_TO_DXGI_COLORSPACE[] = {
+	[MTY_COLOR_SPACE_UNKNOWN]      = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709,
+	[MTY_COLOR_SPACE_SRGB]         = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709,
+	[MTY_COLOR_SPACE_SCRGB_LINEAR] = DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709,
+	[MTY_COLOR_SPACE_HDR10]        = DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020,
+};
+
 struct d3d11_ctx {
 	HWND hwnd;
 	uint32_t width;
@@ -63,55 +107,20 @@ static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t 
 
 static void mty_validate_format_colorspace(struct d3d11_ctx *ctx, MTY_ColorFormat format, MTY_ColorSpace colorspace, DXGI_FORMAT *format_out, DXGI_COLOR_SPACE_TYPE *colorspace_out)
 {
-	DXGI_FORMAT format_new = DXGI_FORMAT_R8G8B8A8_UNORM;
-	DXGI_COLOR_SPACE_TYPE colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+	// Default to last known values
+	DXGI_FORMAT format_new = ctx->format;
+	DXGI_COLOR_SPACE_TYPE colorspace_new = ctx->colorspace;
 
-	// Use the last known value if unspecified
-	if (format == MTY_COLOR_FORMAT_UNKNOWN)
-		format_new = ctx->format;
-
-	if (colorspace == MTY_COLOR_SPACE_UNKNOWN)
-		colorspace_new = ctx->colorspace;
-
-	switch (format) {
-		case MTY_COLOR_FORMAT_RGBA16F:
-			format_new = DXGI_FORMAT_R16G16B16A16_FLOAT;
-			break;
-		case MTY_COLOR_FORMAT_RGB10A2:
-			format_new = DXGI_FORMAT_R10G10B10A2_UNORM;
-			break;
-	}
-
-	switch (colorspace) {
-		case MTY_COLOR_SPACE_SRGB:
-			colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
-			break;
-		case MTY_COLOR_SPACE_SCRGB_LINEAR:
-			colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709;
-			break;
-		case MTY_COLOR_SPACE_HDR10:
-			colorspace_new = DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
-			break;
-	}
-
-	// Ensure that the format and colorspace are a valid pairing
-	switch (colorspace_new) {
-		case DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709: {
-			if (format_new != DXGI_FORMAT_R16G16B16A16_FLOAT) {
-				MTY_Log("Format 0x%X is not meant for colorspace 0x%X. Forcing format to 0x%X.", format_new, DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709, DXGI_FORMAT_R16G16B16A16_FLOAT);
-				format_new = DXGI_FORMAT_R16G16B16A16_FLOAT;
-			}
-			break;
+	if (format != MTY_COLOR_FORMAT_UNKNOWN && colorspace != MTY_COLOR_SPACE_UNKNOWN) {
+		// Align the color space to the given format
+		MTY_ColorSpace colorspace_expected = MTY_FORMAT_TO_EXPECTED_MTY_COLORSPACE[format];
+		if (colorspace_expected != colorspace) {
+			MTY_Log("Expected MTY colorspace 0x%X for MTY format 0x%X but found 0x%X. Forcing colorspace to 0x%X.", colorspace_expected, format, colorspace, colorspace_expected);
+			colorspace = colorspace_expected;
 		}
-		case DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020: {
-			if (format_new != DXGI_FORMAT_R10G10B10A2_UNORM) {
-				MTY_Log("Format 0x%X is not meant for colorspace 0x%X. Forcing format to 0x%X.", format_new, DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020, DXGI_FORMAT_R10G10B10A2_UNORM);
-				format_new = DXGI_FORMAT_R10G10B10A2_UNORM;
-			}
-			break;
-		}
-		default:
-			break;
+
+		format_new = MTY_FORMAT_TO_DXGI_FORMAT[format];
+		colorspace_new = MTY_COLORSPACE_TO_DXGI_COLORSPACE[colorspace];
 	}
 
 	*format_out = format_new;
@@ -277,8 +286,8 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	IDXGIFactory2 *factory2 = NULL;
 	IDXGISwapChain1 *swap_chain1 = NULL;
 
-	ctx->format = MTY_COLOR_FORMAT_BGRA;
-	ctx->colorspace = MTY_COLOR_SPACE_SRGB;
+	ctx->format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	ctx->colorspace = DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
 	DXGI_SWAP_CHAIN_DESC1 sd = {0};
 	sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -480,7 +489,7 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 	bool hdr = ctx->format_new == DXGI_FORMAT_R16G16B16A16_FLOAT || ctx->colorspace_new == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
 
 	if (ctx->hdr != hdr) {
-		// If in HDR mode, we keep swap chain in HDR10 (rec2020 10-bit RGB + ST2084 PQ); otherwise in SDR mode, it's the standard RGBA8 sRGB
+		// If in HDR mode, we keep swap chain in HDR10 (rec2020 10-bit RGB + ST2084 PQ); otherwise in SDR mode, it's the standard BGRA8 sRGB
 		DXGI_FORMAT format = hdr ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
 		DXGI_COLOR_SPACE_TYPE colorspace = hdr ? DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
@@ -607,7 +616,7 @@ void mty_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 	MTY_DrawData dd_mutated = *dd;
 	dd_mutated.hdr = ctx->composite_ui;
 
-	ctx->format_new = dd_mutated.hdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM;
+	ctx->format_new = dd_mutated.hdr ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_B8G8R8A8_UNORM;
 	ctx->colorspace_new = dd_mutated.hdr ? DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
 	mty_d3d11_ctx_get_surface(gfx_ctx);

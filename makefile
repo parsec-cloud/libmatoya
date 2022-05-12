@@ -77,16 +77,16 @@ OBJS = \
 
 
 SHADERS = \
+	src\gfx\shaders\gl\fs.h \
+	src\gfx\shaders\gl\vs.h \
+	src\gfx\shaders\gl\fsui.h \
+	src\gfx\shaders\gl\vsui.h \
 	src\windows\gfx\shaders\d3d11\ps.h \
 	src\windows\gfx\shaders\d3d11\vs.h \
 	src\windows\gfx\shaders\d3d11\psui.h \
 	src\windows\gfx\shaders\d3d11\vsui.h \
 	src\windows\gfx\shaders\d3d9\ps.h \
-	src\windows\gfx\shaders\d3d9\vs.h \
-	src\gfx\shaders\gl\fs.h \
-	src\gfx\shaders\gl\vs.h \
-	src\gfx\shaders\gl\vsui.h \
-	src\gfx\shaders\gl\fsui.h
+	src\windows\gfx\shaders\d3d9\vs.h
 
 INCLUDES = \
 	-Ideps \

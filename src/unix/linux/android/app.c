@@ -390,7 +390,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, job
 	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers, jboolean start)
 {
 	CTX.should_detach = false;
-	CTX.double_tap = false;
 
 	// Single finger scrolling in touchscreen mode OR two finger scrolling in
 	// trackpad mode moves to the touch location and produces a scroll event
@@ -465,7 +464,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scale(JNIEnv *env, jobj
 	jfloat scaleFactor, jfloat focus_x, jfloat focus_y, jboolean start, jboolean stop)
 {
 	CTX.should_detach = true;
-	CTX.double_tap = false;
 
 	MTY_Event evt = {0};
 	evt.type = MTY_EVENT_SCALE;

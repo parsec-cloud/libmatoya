@@ -45,16 +45,16 @@ inline float4 yuv_to_rgba(float y, float u, float v)
 	return float4(r, g, b, 1.0);
 }
 
-inline float4 yuv_to_rgba_rec2020(float y, float u, float v)
+inline float4 yuv_to_rgba_rec2020(float y, float u, float v, bool full_range)
 {
 	// Using "RGB to YCbCr color conversion for UHDTV" (ITU-R BT.2020)
 	// Thanks to https://github.com/colour-science/colour/blob/c3735e5d0ad67443022ece0b42b575e040eb61d1/colour/models/rgb/ycbcr.py#L472
 
-	const float Y_min = 0.06256109f;
-	const float Y_max = 0.91886608f;
+	const float Y_min = full_range ? 0.0f : 0.06256109f;
+	const float Y_max = full_range ? 1.0f : 0.91886608f;
 	const float Y_minmax_dt = Y_max - Y_min;
-	const float C_min = 0.06256109f;
-	const float C_max = 0.93841642f;
+	const float C_min = full_range ? 0.0f : 0.06256109f;
+	const float C_max = full_range ? 1.0f : 0.93841642f;
 	const float C_minmax_2 = (C_min + C_max) * 0.5f;
 	const float C_minmax_dt = C_max - C_min;
 	
@@ -77,6 +77,8 @@ inline float4 yuv_to_rgba_rec2020(float y, float u, float v)
 }
 
 static const float SDR_MAX_NITS = 80.0f;
+
+static const bool YCBCR_FULL_RANGE = true;
 
 inline void gaussian(uint type, float w, float h, inout float2 uv)
 {
@@ -138,7 +140,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		float v = tex1.Sample(ss, uv).g;
 
 		if (format == 10 && colorspace == 3) {
-			rgba = yuv_to_rgba_rec2020(y, u, v);
+			rgba = yuv_to_rgba_rec2020(y, u, v, YCBCR_FULL_RANGE);
 
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
@@ -160,7 +162,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		}
 
 		if ((format == 11 || format == 12) && colorspace == 3) {
-			rgba = yuv_to_rgba_rec2020(y, u, v);
+			rgba = yuv_to_rgba_rec2020(y, u, v, YCBCR_FULL_RANGE);
 
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
@@ -174,7 +176,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 
 		if (format == 9 && colorspace == 3) {
 			// Note the reordering of yuv components here...RGBA maps to UYVA according to https://docs.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
-			rgba = yuv_to_rgba_rec2020(u, y, v);
+			rgba = yuv_to_rgba_rec2020(u, y, v, YCBCR_FULL_RANGE);
 
 		} else {
 			rgba = yuv_to_rgba(y, u, v);

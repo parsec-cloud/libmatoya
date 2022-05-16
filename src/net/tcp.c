@@ -261,7 +261,7 @@ bool mty_dns_query(const char *host, bool v6, char *ip, size_t size)
 		goto except;
 	}
 
-	char *dst = NULL;
+	const char *dst = NULL;
 	if (v6) {
 		struct sockaddr_in6 *addr = (struct sockaddr_in6 *) servinfo->ai_addr;
 		dst = inet_ntop(af, &addr->sin6_addr, ip, size);

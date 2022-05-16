@@ -20,7 +20,7 @@ cbuffer VS_CONSTANT_BUFFER : register(b0) {
 	uint format;
 	uint colorspace;
 	uint rotation;
-	uint __pad[1];
+	bool ycbcr_full_range;
 };
 
 SamplerState ss {
@@ -77,8 +77,6 @@ inline float4 yuv_to_rgba_rec2020(float y, float u, float v, bool full_range)
 }
 
 static const float SDR_MAX_NITS = 80.0f;
-
-static const bool YCBCR_FULL_RANGE = true;
 
 inline void gaussian(uint type, float w, float h, inout float2 uv)
 {
@@ -140,7 +138,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		float v = tex1.Sample(ss, uv).g;
 
 		if (format == 10 && colorspace == 3) {
-			rgba = yuv_to_rgba_rec2020(y, u, v, YCBCR_FULL_RANGE);
+			rgba = yuv_to_rgba_rec2020(y, u, v, ycbcr_full_range);
 
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
@@ -162,7 +160,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 		}
 
 		if ((format == 11 || format == 12) && colorspace == 3) {
-			rgba = yuv_to_rgba_rec2020(y, u, v, YCBCR_FULL_RANGE);
+			rgba = yuv_to_rgba_rec2020(y, u, v, ycbcr_full_range);
 
 		} else {
 			rgba = yuv_to_rgba(y, u, v);
@@ -176,7 +174,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 
 		if (format == 9 && colorspace == 3) {
 			// Note the reordering of yuv components here...RGBA maps to UYVA according to https://docs.microsoft.com/en-us/windows/win32/api/dxgiformat/ne-dxgiformat-dxgi_format
-			rgba = yuv_to_rgba_rec2020(u, y, v, YCBCR_FULL_RANGE);
+			rgba = yuv_to_rgba_rec2020(u, y, v, ycbcr_full_range);
 
 		} else {
 			rgba = yuv_to_rgba(y, u, v);

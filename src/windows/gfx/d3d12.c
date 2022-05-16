@@ -31,7 +31,8 @@ struct d3d12_psvars {
 	uint32_t effect;
 	uint32_t format;
 	uint32_t rotation;
-	uint32_t __pad[1]; // D3D11 needs 16-byte aligned, unsure about D3D12
+	uint32_t full_range; // 1 = full range video, 0 = limited/partial range video
+	uint32_t __pad[3]; // D3D11 needs 16-byte aligned, unsure about D3D12
 };
 
 struct d3d12_res {

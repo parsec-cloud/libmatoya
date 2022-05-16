@@ -145,6 +145,7 @@ typedef struct {
 	float scale;               ///< Multiplier applied to the dimensions of the image, producing an
 	                           ///<   minimized or magnified image. This can be set to 0
 	                           ///<   if unnecessary.
+	bool fullRange;            ///< If true, then the image components comprise the range [0, 1]; else, they comprise the "partial" or "legal" range based on the format of the image.
 	bool hdrDescSpecified;     ///< Is HDR metadata provided. Only relevant if format + colorspace indicate an HDR image.
 	MTY_HDRDesc hdrDesc;       ///< HDR metadata for the image. Only relevant if format + colorspace indicate an HDR image.
 } MTY_RenderDesc;

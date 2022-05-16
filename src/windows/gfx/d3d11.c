@@ -28,7 +28,9 @@ struct d3d11_psvars {
 	uint32_t effect;
 	uint32_t format;
 	uint32_t colorspace;
-	uint32_t rotation; // Constant buffers must be in increments of 16 bytes
+	uint32_t rotation;
+	uint32_t full_range; // 1 = full range video, 0 = limited/partial range video
+	uint32_t __pad[3]; // Constant buffers must be in increments of 16 bytes
 };
 
 struct d3d11_res {
@@ -472,6 +474,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	cb.format = ctx->format;
 	cb.colorspace = desc->colorspace;
 	cb.rotation = desc->rotation;
+	cb.full_range = desc->fullRange;
 
 	D3D11_MAPPED_SUBRESOURCE res = {0};
 	e = ID3D11DeviceContext_Map(_context, ctx->psbres, 0, D3D11_MAP_WRITE_DISCARD, 0, &res);

@@ -91,8 +91,11 @@ bool MTY_MoveFile(const char *src, const char *dst, bool allow_copy)
 		r = false;
 	}
 
-	if (!r && allow_copy) {
-		if (MTY_FileExists(dst))
+	bool src_exists = MTY_FileExists(src);
+	bool dst_exists = MTY_FileExists(dst);
+
+	if (allow_copy && !r && src_exists) {
+		if (dst_exists)
 			MTY_DeleteFile(dst);
 		
 		if (MTY_CopyFile(src, dst)) {

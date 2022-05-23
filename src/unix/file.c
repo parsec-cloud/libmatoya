@@ -80,11 +80,23 @@ bool MTY_CopyFile(const char *src, const char *dst)
 	return r;
 }
 
-bool MTY_MoveFile(const char *src, const char *dst)
+bool MTY_MoveFile(const char *src, const char *dst, bool allow_copy)
 {
+	bool r = true;
+
 	if (rename(src, dst) != 0) {
 		MTY_Log("'rename' failed with errno %d", errno);
-		return false;
+		r = false;
+	}
+
+	if (!r && allow_copy) {
+		if (MTY_FileExists(dst))
+			MTY_DeleteFile(dst);
+		
+		if (MTY_CopyFile(src, dst)) {
+			MTY_DeleteFile(src);
+			r = true;
+		}
 	}
 
 	return true;

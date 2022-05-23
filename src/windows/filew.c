@@ -80,7 +80,7 @@ bool MTY_CopyFile(const char *src, const char *dst)
 	return r;
 }
 
-bool MTY_MoveFile(const char *src, const char *dst)
+bool MTY_MoveFile(const char *src, const char *dst, bool allow_copy)
 {
 	bool r = true;
 	wchar_t *srcw = MTY_MultiToWideD(src);
@@ -89,6 +89,16 @@ bool MTY_MoveFile(const char *src, const char *dst)
 	if (!MoveFileEx(srcw, dstw, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
 		MTY_Log("'MoveFileEx' failed with error 0x%X", GetLastError());
 		r = false;
+	}
+
+	if (!r && allow_copy) {
+		if (MTY_FileExists(dst))
+			MTY_DeleteFile(dst);
+		
+		if (MTY_CopyFile(src, dst)) {
+			MTY_DeleteFile(src);
+			r = true;
+		}
 	}
 
 	MTY_Free(srcw);

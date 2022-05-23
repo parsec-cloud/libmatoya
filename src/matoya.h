@@ -1654,9 +1654,10 @@ MTY_CopyFile(const char *src, const char *dst);
 /// @brief Move a file.
 /// @param src Path to the source file.
 /// @param dst Path to the destination file.
+/// @param allow_copy Set to true to copy and delete the file instead if moving it fails.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
-MTY_MoveFile(const char *src, const char *dst);
+MTY_MoveFile(const char *src, const char *dst, bool allow_copy);
 
 /// @brief Get a special directory on the filesystem.
 /// @param dir The special directory of interest.

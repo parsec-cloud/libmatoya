@@ -12,6 +12,26 @@
 #include "fsutil.h"
 #include "tlocal.h"
 
+bool MTY_MoveOrCopyFile(const char *src, const char *dst)
+{
+	if (!MTY_FileExists(src)) {
+		MTY_Log("Source file does not exist.");
+		return false;
+	}
+
+	bool r = MTY_MoveFile(src, dst);
+	if (!r) {
+		if (MTY_FileExists(dst))
+			MTY_DeleteFile(dst);
+		
+		if (MTY_CopyFile(src, dst)) {
+			MTY_DeleteFile(src);
+			r = true;
+		}
+	}
+	return r;
+}
+
 void *MTY_ReadFile(const char *path, size_t *size)
 {
 	size_t tmp = 0;

@@ -97,26 +97,6 @@ bool MTY_MoveFile(const char *src, const char *dst)
 	return r;
 }
 
-bool MTY_MoveOrCopyFile(const char *src, const char *dst)
-{
-	if (!MTY_FileExists(src)) {
-		MTY_Log("Source file does not exist.");
-		return false;
-	}
-
-	bool r = MTY_MoveFile(src, dst);
-	if (!r) {
-		if (MTY_FileExists(dst))
-			MTY_DeleteFile(dst);
-		
-		if (MTY_CopyFile(src, dst)) {
-			MTY_DeleteFile(src);
-			r = true;
-		}
-	}
-	return r;
-}
-
 static char *file_known_folder(const KNOWNFOLDERID *fid)
 {
 	WCHAR *dirw = NULL;

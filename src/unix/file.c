@@ -105,6 +105,7 @@ bool MTY_MoveOrCopyFile(const char *src, const char *dst)
 		if (MTY_CopyFile(src, dst)) {
 			MTY_DeleteFile(src);
 			r = true;
+		}
 	}
 	return r;
 }

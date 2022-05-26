@@ -72,8 +72,8 @@ static bool file_main (void)
 	test_cmp("MTY_DeleteFile1", !MTY_FileExists(full_path));
 	test_cmp("MTY_DeleteFile2", !MTY_DeleteFile(full_path)); // Make sure it handles missing file
 
-	MTY_MoveFile(full_path_2, full_path, false);
-	test_cmp("MTY_MoveFile1", !MTY_MoveFile(full_path_2, full_path, false));
+	MTY_MoveFile(full_path_2, full_path);
+	test_cmp("MTY_MoveFile1", !MTY_MoveFile(full_path_2, full_path));
 	test_cmp("MTY_MoveFile2", MTY_FileExists(full_path));
 
 	MTY_FileList *list = MTY_GetFileList(prefix, ".txt");

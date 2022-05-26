@@ -80,7 +80,7 @@ bool MTY_CopyFile(const char *src, const char *dst)
 	return r;
 }
 
-bool MTY_MoveFile(const char *src, const char *dst, bool allow_copy)
+bool MTY_MoveFile(const char *src, const char *dst)
 {
 	bool r = true;
 
@@ -89,19 +89,26 @@ bool MTY_MoveFile(const char *src, const char *dst, bool allow_copy)
 		r = false;
 	}
 
-	bool src_exists = MTY_FileExists(src);
+	return true;
+}
 
-	if (allow_copy && !r && src_exists) {
+bool MTY_MoveOrCopyFile(const char *src, const char *dst)
+{
+	if (!MTY_FileExists(src)) {
+		MTY_Log("Source file does not exist.");
+		return false;
+	}
+
+	bool r = MTY_MoveFile(src, dst);
+	if (!r) {
 		if (MTY_FileExists(dst))
 			MTY_DeleteFile(dst);
 		
 		if (MTY_CopyFile(src, dst)) {
 			MTY_DeleteFile(src);
 			r = true;
-		}
 	}
-
-	return true;
+	return r;
 }
 
 const char *MTY_GetDir(MTY_Dir dir)

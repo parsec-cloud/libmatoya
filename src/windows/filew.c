@@ -80,7 +80,7 @@ bool MTY_CopyFile(const char *src, const char *dst)
 	return r;
 }
 
-bool MTY_MoveFile(const char *src, const char *dst, bool allow_copy)
+bool MTY_MoveFile(const char *src, const char *dst)
 {
 	bool r = true;
 	wchar_t *srcw = MTY_MultiToWideD(src);
@@ -91,9 +91,21 @@ bool MTY_MoveFile(const char *src, const char *dst, bool allow_copy)
 		r = false;
 	}
 
-	bool src_exists = MTY_FileExists(src);
+	MTY_Free(srcw);
+	MTY_Free(dstw);
 
-	if (allow_copy && !r && src_exists) {
+	return r;
+}
+
+bool MTY_MoveOrCopyFile(const char *src, const char *dst)
+{
+	if (!MTY_FileExists(src)) {
+		MTY_Log("Source file does not exist.");
+		return false;
+	}
+
+	bool r = MTY_MoveFile(src, dst);
+	if (!r) {
 		if (MTY_FileExists(dst))
 			MTY_DeleteFile(dst);
 		
@@ -102,10 +114,6 @@ bool MTY_MoveFile(const char *src, const char *dst, bool allow_copy)
 			r = true;
 		}
 	}
-
-	MTY_Free(srcw);
-	MTY_Free(dstw);
-
 	return r;
 }
 

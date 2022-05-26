@@ -29,6 +29,7 @@ bool MTY_MoveOrCopyFile(const char *src, const char *dst)
 			r = true;
 		}
 	}
+
 	return r;
 }
 

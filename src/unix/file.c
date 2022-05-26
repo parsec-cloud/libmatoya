@@ -82,11 +82,9 @@ bool MTY_CopyFile(const char *src, const char *dst)
 
 bool MTY_MoveFile(const char *src, const char *dst)
 {
-	bool r = true;
-
 	if (rename(src, dst) != 0) {
 		MTY_Log("'rename' failed with errno %d", errno);
-		r = false;
+		return false;
 	}
 
 	return true;

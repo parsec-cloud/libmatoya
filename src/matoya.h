@@ -3657,9 +3657,10 @@ typedef struct MTY_Cursor MTY_Cursor;
 
 /// @brief Create a cursor context.
 /// @param ctx The MTY_Cursor.
+/// @param window The target window.
 /// @returns The newly created cursor context.
 MTY_EXPORT MTY_Cursor *
-MTY_CursorCreate(MTY_App *app);
+MTY_CursorCreate(MTY_App *app, MTY_Window window);
 
 /// @brief Destroy the cursor context.
 /// @param ctx The MTY_Cursor.
@@ -3706,9 +3707,10 @@ MTY_CursorMoveFromZoom(MTY_Cursor *ctx, MTY_Zoom *zoom);
 ///   the current loop iteration. IMPORTANT: transparency is currently only supported when
 ///   using MTY_GFX_GL, MTY_GFX_D3D9 or MTY_GFX_D3D11.
 /// @param ctx The MTY_Cursor.
-/// @param window The target window.
-MTY_EXPORT void
-MTY_CursorDraw(MTY_Cursor *ctx, MTY_Window window);
+/// @param dd The existing draw data.
+/// @return The updated draw data.
+MTY_EXPORT MTY_DrawData *
+MTY_CursorDraw(MTY_Cursor *ctx, MTY_DrawData *dd);
 
 #ifdef __cplusplus
 }

@@ -107,8 +107,8 @@ void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, 
 {
 	VALIDATE_CTX(ctx);
 
-	bool same_window = lrint(ctx->window_w) == windowWidth && lrint(ctx->window_h) == windowHeight;
-	bool same_image  = lrint(ctx->image_w)  == imageWidth  && lrint(ctx->image_h)  == imageHeight;
+	bool same_window = lrint(ctx->window_w) == (long) windowWidth && lrint(ctx->window_h) == (long) windowHeight;
+	bool same_image  = lrint(ctx->image_w)  == (long) imageWidth  && lrint(ctx->image_h)  == (long) imageHeight;
 	if (same_window && same_image)
 		return;
 

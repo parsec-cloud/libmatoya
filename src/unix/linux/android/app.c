@@ -37,9 +37,10 @@ static struct MTY_App {
 	MTY_Thread *thread;
 	MTY_InputMode input;
 	MTY_Button long_button;
+	MTY_Time last_scroll;
 	int32_t double_tap;
-	bool check_scroller;
 	bool log_thread_running;
+	bool check_scroller;
 	bool should_detach;
 	bool relative;
 
@@ -386,15 +387,14 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1long_1press(JNIEnv 
 	return false;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, jobject obj,
+JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, jobject obj,
 	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers, jboolean start)
 {
 	CTX.should_detach = false;
 
 	// Single finger scrolling in touchscreen mode OR two finger scrolling in
 	// trackpad mode moves to the touch location and produces a scroll event
-	if (CTX.input == MTY_INPUT_MODE_TOUCHSCREEN ||
-		(CTX.long_button == MTY_BUTTON_NONE && fingers > 1))
+	if (CTX.input == MTY_INPUT_MODE_TOUCHSCREEN || (CTX.long_button == MTY_BUTTON_NONE && fingers > 1))
 	{
 		MTY_Event evt = {0};
 
@@ -416,6 +416,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, job
 		evt.scroll.x = 0;
 		app_push_event(&CTX, &evt);
 
+		CTX.last_scroll = MTY_GetTime();
+
 	// While single finger scrolling in trackpad mode, convert to mouse motion
 	} else if (abs_x >= 0.0f || abs_y >= 0.0f) {
 		MTY_Event evt = {0};
@@ -428,6 +430,13 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, job
 			evt.motion.flags |= MTY_MOTION_FLAG_START;
 		app_push_event(&CTX, &evt);
 	}
+
+	if (CTX.last_scroll && MTY_TimeDiff(CTX.last_scroll, MTY_GetTime()) < 100.0f)
+		return true;
+
+	CTX.last_scroll = 0;
+
+	return false;
 }
 
 

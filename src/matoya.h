@@ -584,6 +584,13 @@ typedef enum {
 	MTY_ORIENTATION_MAKE_32   = INT32_MAX,
 } MTY_Orientation;
 
+typedef enum {
+	MTY_WINDOWSTATE_NORMAL      = 0, ///< Standard windowed state.
+	MTY_WINDOWSTATE_MAXIMIZED   = 1, ///< Window is maximized.
+	MTY_WINDOWSTATE_MINIMIZED   = 2, ///< Window is minimized.
+	MTY_WINDOWSTATE_MAKE_32     = INT32_MAX,
+} MTY_WindowState;
+
 /// @brief Scope of an operation.
 typedef enum {
 	MTY_SCOPE_LOCAL   = 0, ///< Operation affecting only the current application.

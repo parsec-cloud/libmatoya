@@ -951,7 +951,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			// Wintab context only catches events on the main window, so we update the real one manually
 			struct window *new_ctx = (struct window *) GetWindowLongPtr(focused_window, 0);
 
-			pen_double_click = wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window);
+			wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window, &pen_double_click);
 
 			break;
 		}

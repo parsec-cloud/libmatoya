@@ -3703,9 +3703,9 @@ MTY_EXPORT void
 MTY_CursorMoveFromZoom(MTY_Cursor *ctx, MTY_Zoom *zoom);
 
 /// @brief Draw the cursor on the specified window
-/// @details The configured cursor will be drawn on top of any other drawing operation in
-///   the current loop iteration. IMPORTANT: transparency is currently only supported when
-///   using MTY_GFX_GL, MTY_GFX_D3D9 or MTY_GFX_D3D11.
+/// @details The configured cursor will be drawn on top of any other drawing operation 
+///   in the current loop iteration by adding the cursor's draw data at the end of the 
+///   provided `dd` parameter.
 /// @param ctx The MTY_Cursor.
 /// @param dd The existing draw data.
 /// @return The updated draw data.

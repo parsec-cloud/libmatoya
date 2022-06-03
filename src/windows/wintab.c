@@ -83,13 +83,15 @@ static void wintab_override_extension(struct wintab *ctx, uint8_t tablet_i, uint
 	}
 }
 
-struct wintab *wintab_create(HWND hwnd)
+struct wintab *wintab_create(HWND hwnd, bool override)
 {
 	bool r = false;
 
 	struct wintab *ctx = MTY_Alloc(1, sizeof(struct wintab));
 	if (!ctx)
 		goto except;
+
+	ctx->override = override;
 
 	// Symbols are preserved between runtime destructions, so we only initialize them once
 	if (!wt.instance) {
@@ -164,10 +166,10 @@ struct wintab *wintab_create(HWND hwnd)
 	return ctx;
 }
 
-void wintab_recreate(struct wintab **ctx, HWND hwnd)
+void wintab_recreate(struct wintab **ctx, HWND hwnd, bool override)
 {
 	wintab_destroy(ctx, false);
-	*ctx = wintab_create(hwnd);
+	*ctx = wintab_create(hwnd, override);
 }
 
 void wintab_destroy(struct wintab **wintab, bool unload_symbols)
@@ -189,11 +191,6 @@ void wintab_destroy(struct wintab **wintab, bool unload_symbols)
 
 	MTY_Free(ctx);
 	*wintab = NULL;
-}
-
-void wintab_override_controls(struct wintab *ctx, bool override)
-{
-	ctx->override = override;
 }
 
 void wintab_get_packet(struct wintab *ctx, WPARAM wparam, LPARAM lparam, void *pkt)
@@ -301,4 +298,9 @@ bool wintab_on_proximity(struct wintab *ctx, MTY_Event *evt, LPARAM lparam)
 	}
 
 	return pen_in_range;
+}
+
+void wintab_on_infochange(struct wintab **ctx, HWND hwnd)
+{
+	wintab_recreate(ctx, hwnd, ctx && *ctx && (*ctx)->override);
 }

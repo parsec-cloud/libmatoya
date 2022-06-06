@@ -1921,6 +1921,13 @@ MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, const MTY_JSON *value);
 MTY_EXPORT void
 MTY_JSONArrayAppendItem(MTY_JSON *json, const MTY_JSON *value);
 
+/// @brief Get the full string from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @returns Returns a string on success, NULL on failure. Call MTY_GetLog for details.
+MTY_EXPORT const char *
+MTY_JSONObjGetFullString(const MTY_JSON *json, const char *key);
+
 /// @brief Get a string value from a JSON object.
 /// @param json An MTY_JSON object.
 /// @param key Key to lookup.

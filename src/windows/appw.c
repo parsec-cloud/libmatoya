@@ -934,7 +934,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				EndMenu();
 			break;
 		case WT_PACKET: {
-			if (!app || !app->wintab || !app->pen_in_range)
+			if (!app || !app->wintab || !pen_active)
 				break;
 
 			PACKET pkt = {0};

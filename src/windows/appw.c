@@ -637,11 +637,11 @@ static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int3
 
 	POINT point = {pointer_x, pointer_y};
 	if (ctx->PhysicalToLogicalPointForPerMonitorDPI) {
-		if (!PhysicalToLogicalPointForPerMonitorDPI(hwnd, &point))
+		if (!ctx->PhysicalToLogicalPointForPerMonitorDPI(hwnd, &point))
 			return false;
 
 	} else if (ctx->PhysicalToLogicalPoint) {
-		if (!PhysicalToLogicalPoint(hwnd, &point))
+		if (!ctx->PhysicalToLogicalPoint(hwnd, &point))
 			return false;
 
 	} else {

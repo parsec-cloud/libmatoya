@@ -625,7 +625,7 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Event *evt)
 	}
 }
 
-static bool app_adjust_position(HWND hwnd, int32_t pointer_x, int32_t pointer_y, POINT *position) 
+static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int32_t pointer_y, POINT *position)
 {
 	POINT origin = {0};
 	if (!ClientToScreen(hwnd, &origin))
@@ -668,7 +668,7 @@ static HWND app_get_hovered_window(MTY_App *ctx, int32_t pointer_x, int32_t poin
 	if (!hwnd)
 		return NULL;
 
-	if (app_adjust_position(hwnd, pointer_x, pointer_y, position))
+	if (app_adjust_position(ctx, hwnd, pointer_x, pointer_y, position))
 		return hwnd;
 
 	for (uint8_t i = 0; i < MTY_WINDOW_MAX; i++) {
@@ -676,7 +676,7 @@ static HWND app_get_hovered_window(MTY_App *ctx, int32_t pointer_x, int32_t poin
 			continue;
 
 		hwnd = ctx->windows[i]->hwnd;
-		if (app_adjust_position(hwnd, pointer_x, pointer_y, position))
+		if (app_adjust_position(ctx, hwnd, pointer_x, pointer_y, position))
 			return hwnd;
 	}
 

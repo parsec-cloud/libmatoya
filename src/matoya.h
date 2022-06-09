@@ -564,10 +564,10 @@ typedef enum {
 	MTY_PEN_FLAG_TOUCHING = 0x02, ///< Pen is touching the drawing surface.
 	MTY_PEN_FLAG_INVERTED = 0x04, ///< The pen is inverted.
 	MTY_PEN_FLAG_ERASER   = 0x08, ///< The eraser is touching the drawing surface.
-	MTY_PEN_FLAG_BARREL   = 0x10, ///< The pen's barrel button is held down.
-	MTY_PEN_FLAG_BUTTON_0 = 0x20, ///< The physical pen's tip is held down.
-	MTY_PEN_FLAG_BUTTON_1 = 0x40, ///< The physical pen's 1st button is held down.
-	MTY_PEN_FLAG_BUTTON_2 = 0x80, ///< The physical pen's 2nd button is held down.
+	MTY_PEN_FLAG_BARREL   = 0x10, ///< One of the pen's barrel button is held down.
+	MTY_PEN_FLAG_TIP      = 0x20, ///< One of the physical pen's tips is touching the surface.
+	MTY_PEN_FLAG_BARREL_1 = 0x40, ///< The pen's 1st barrel button is held down.
+	MTY_PEN_FLAG_BARREL_2 = 0x80, ///< The pen's 2nd barrel button is held down.
 	MTY_PEN_FLAG_MAKE_32  = INT32_MAX,
 } MTY_PenFlag;
 
@@ -690,14 +690,14 @@ typedef struct {
 
 /// @brief Pen event.
 typedef struct {
-	MTY_PenFlag flags; ///< Pen attributes.
-	uint16_t x;        ///< The horizontal position in the client area of the window.
-	uint16_t y;        ///< The vertical position in the client area of the window.
-	uint16_t z;        ///< The elevation position in the client area of the window.
-	uint16_t pressure; ///< Pressure on the drawing surface between 0 and 1024.
-	uint16_t rotation; ///< Rotation of the pen between 0 and 359.
-	int8_t tiltX;      ///< Horizontal tilt of the pen between -90 and 90.
-	int8_t tiltY;      ///< Vertical tilt of the pen between -90 and 90.
+	MTY_PenFlag flags;     ///< Pen attributes.
+	uint16_t x;            ///< The horizontal position in the client area of the window.
+	uint16_t y;            ///< The vertical position in the client area of the window.
+	uint16_t z;            ///< The elevation position in the client area of the window.
+	uint16_t pressure;     ///< Pressure on the drawing surface between 0 and 1024.
+	uint16_t rotation;     ///< Rotation of the pen between 0 and 359.
+	int8_t tiltX;          ///< Horizontal tilt of the pen between -90 and 90.
+	int8_t tiltY;          ///< Vertical tilt of the pen between -90 and 90.
 } MTY_PenEvent;
 
 /// @brief Wintab input event.

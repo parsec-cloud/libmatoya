@@ -229,7 +229,6 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 	BYTE mapping[32] = {0};
 	wt.info(WTI_CURSORS + pkt->pkCursor, CSR_SYSBTNMAP, &mapping);
 
-	MTY_PenFlag button_flag = MTY_PEN_FLAG_BUTTON_0;
 	for (uint8_t i = 0; i < buttons; i++) {
 		bool pressed      = pkt->pkButtons & (1 << i);
 		bool prev_pressed = ctx->prev_buttons & (1 << i);
@@ -248,9 +247,11 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 			ctx->has_double_clicked = *double_clicked = pressed;
 
 		if (pressed)
-			evt->pen.flags |= button_flag;
-
-		button_flag *= 2;
+			evt->pen.flags |= 
+				i == 0 ? MTY_PEN_FLAG_TIP :
+				i == 1 ? MTY_PEN_FLAG_BARREL_1 :
+				i == 2 ? MTY_PEN_FLAG_BARREL_2 :
+				0;
 	}
 
 	if (evt->pen.flags & MTY_PEN_FLAG_TOUCHING && evt->pen.flags & MTY_PEN_FLAG_INVERTED)

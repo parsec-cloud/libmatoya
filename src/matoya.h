@@ -565,6 +565,9 @@ typedef enum {
 	MTY_PEN_FLAG_INVERTED = 0x04, ///< The pen is inverted.
 	MTY_PEN_FLAG_ERASER   = 0x08, ///< The eraser is touching the drawing surface.
 	MTY_PEN_FLAG_BARREL   = 0x10, ///< The pen's barrel button is held down.
+	MTY_PEN_FLAG_BUTTON_0 = 0x20, ///< The physical pen's tip is held down.
+	MTY_PEN_FLAG_BUTTON_1 = 0x40, ///< The physical pen's 1st button is held down.
+	MTY_PEN_FLAG_BUTTON_2 = 0x80, ///< The physical pen's 2nd button is held down.
 	MTY_PEN_FLAG_MAKE_32  = INT32_MAX,
 } MTY_PenFlag;
 

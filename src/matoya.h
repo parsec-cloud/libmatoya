@@ -560,14 +560,14 @@ typedef enum {
 
 /// @brief Pen attributes.
 typedef enum {
-	MTY_PEN_FLAG_LEAVE    = 0x01, ///< Pen has left the drawing surface.
-	MTY_PEN_FLAG_TOUCHING = 0x02, ///< Pen is touching the drawing surface.
-	MTY_PEN_FLAG_INVERTED = 0x04, ///< The pen is inverted.
-	MTY_PEN_FLAG_ERASER   = 0x08, ///< The eraser is touching the drawing surface.
-	MTY_PEN_FLAG_BARREL   = 0x10, ///< One of the pen's barrel button is held down.
-	MTY_PEN_FLAG_TIP      = 0x20, ///< One of the physical pen's tips is touching the surface.
-	MTY_PEN_FLAG_BARREL_1 = 0x40, ///< The pen's 1st barrel button is held down.
-	MTY_PEN_FLAG_BARREL_2 = 0x80, ///< The pen's 2nd barrel button is held down.
+	MTY_PEN_FLAG_LEAVE        = 0x01, ///< Pen has left the drawing surface.
+	MTY_PEN_FLAG_TOUCHING     = 0x02, ///< Pen is touching the drawing surface.
+	MTY_PEN_FLAG_INVERTED     = 0x04, ///< The pen is inverted.
+	MTY_PEN_FLAG_ERASER       = 0x08, ///< The eraser is touching the drawing surface.
+	MTY_PEN_FLAG_BARREL_1     = 0x10, ///< The pen's 1st barrel button is held down.
+	MTY_PEN_FLAG_BARREL_2     = 0x20, ///< The pen's 2nd barrel button is held down.
+	MTY_PEN_FLAG_TIP          = 0x40, ///< One of the physical pen's tips is touching the surface.
+	MTY_PEN_FLAG_DOUBLE_CLICK = 0x80, ///< A double-click has been fired by one of the pen's barrel buttons.
 	MTY_PEN_FLAG_MAKE_32  = INT32_MAX,
 } MTY_PenFlag;
 

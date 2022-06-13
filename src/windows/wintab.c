@@ -198,9 +198,9 @@ void wintab_get_packet(struct wintab *ctx, WPARAM wparam, LPARAM lparam, void *p
 	wt.packet((HCTX) lparam, (UINT) wparam, pkt);
 }
 
-void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY_Window window, bool *double_clicked)
+void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY_Window window)
 {
-	*double_clicked = false;
+	bool double_clicked = false;
 	bool has_double_clicked = ctx->has_double_clicked;
 
 	evt->type = MTY_EVENT_PEN;
@@ -240,13 +240,10 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 		if ((left_click || right_click) && pressed)
 			evt->pen.flags |= MTY_PEN_FLAG_TOUCHING;
 
-		if (right_click && (pressed || prev_pressed))
-			evt->pen.flags |= MTY_PEN_FLAG_BARREL;
-
 		if (double_click)
-			ctx->has_double_clicked = *double_clicked = pressed;
+			ctx->has_double_clicked = double_clicked = pressed;
 
-		if (pressed)
+		if (pressed || prev_pressed)
 			evt->pen.flags |= 
 				i == 0 ? MTY_PEN_FLAG_TIP :
 				i == 1 ? MTY_PEN_FLAG_BARREL_1 :
@@ -257,10 +254,11 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 	if (evt->pen.flags & MTY_PEN_FLAG_TOUCHING && evt->pen.flags & MTY_PEN_FLAG_INVERTED)
 		evt->pen.flags |= MTY_PEN_FLAG_ERASER;
 
+	if (double_clicked && !has_double_clicked)
+		evt->pen.flags |= MTY_PEN_FLAG_DOUBLE_CLICK;
+
 	ctx->prev_evt     = evt->pen;
 	ctx->prev_buttons = pkt->pkButtons;
-
-	*double_clicked = *double_clicked && !has_double_clicked;
 }
 
 void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pktext)

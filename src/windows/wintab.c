@@ -274,19 +274,27 @@ void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pk
 	const SLIDERDATA *curr_ring = &pktext->pkTouchRing;
 	const SLIDERDATA *prev_ring = &ctx->prev_pktext.pkTouchRing;
 	if (curr_ring->nPosition != prev_ring->nPosition || curr_ring->nMode != prev_ring->nMode) {
+		uint16_t position = curr_ring->nPosition;
+		if (position >= 73) // If outside of the logical 0-72 range, offset it back for event consistency
+			position -= UINT8_MAX - 73;
+
 		evt->wintab.type     = MTY_WINTAB_TYPE_RING;
 		evt->wintab.control  = curr_ring->nControl;
 		evt->wintab.state    = curr_ring->nMode;
-		evt->wintab.position = (uint16_t) curr_ring->nPosition;
+		evt->wintab.position = position;
 	}
 
 	const SLIDERDATA *curr_strip = &pktext->pkTouchStrip;
 	const SLIDERDATA *prev_strip = &ctx->prev_pktext.pkTouchStrip;
 	if (curr_strip->nPosition != prev_strip->nPosition || curr_strip->nMode != prev_strip->nMode) {
+		uint16_t position = curr_ring->nPosition;
+		if (position >= 73) // If outside of the logical 0-72 range, offset it back for event consistency
+			position -= UINT8_MAX - 73;
+
 		evt->wintab.type     = MTY_WINTAB_TYPE_STRIP;
 		evt->wintab.control  = curr_strip->nControl;
 		evt->wintab.state    = curr_strip->nMode;
-		evt->wintab.position = (uint16_t) curr_strip->nPosition;
+		evt->wintab.position = position;
 	}
 
 	ctx->prev_pktext = *pktext;

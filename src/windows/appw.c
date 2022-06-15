@@ -76,6 +76,7 @@ struct MTY_App {
 	MTY_DetachState detach;
 	MTY_Hash *hotkey;
 	MTY_Hash *ghotkey;
+	MTY_Hash *deduper;
 
 	struct window *windows[MTY_WINDOW_MAX];
 
@@ -100,6 +101,8 @@ struct MTY_App {
 	HRESULT (WINAPI *GetDpiForMonitor)(HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
 	BOOL (WINAPI *GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
 	BOOL (WINAPI *GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
+	BOOL (WINAPI *PhysicalToLogicalPointForPerMonitorDPI)(HWND hWnd, LPPOINT lpPoint);
+	BOOL (WINAPI *PhysicalToLogicalPoint)(HWND hWnd, LPPOINT lpPoint);
 };
 
 
@@ -623,7 +626,7 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Event *evt)
 	}
 }
 
-static bool app_adjust_position(HWND hwnd, int32_t pointer_x, int32_t pointer_y, POINT *position) 
+static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int32_t pointer_y, POINT *position)
 {
 	POINT origin = {0};
 	if (!ClientToScreen(hwnd, &origin))
@@ -634,8 +637,17 @@ static bool app_adjust_position(HWND hwnd, int32_t pointer_x, int32_t pointer_y,
 		return false;
 
 	POINT point = {pointer_x, pointer_y};
-	if (!PhysicalToLogicalPointForPerMonitorDPI(hwnd, &point))
+	if (ctx->PhysicalToLogicalPointForPerMonitorDPI) {
+		if (!ctx->PhysicalToLogicalPointForPerMonitorDPI(hwnd, &point))
+			return false;
+
+	} else if (ctx->PhysicalToLogicalPoint) {
+		if (!ctx->PhysicalToLogicalPoint(hwnd, &point))
+			return false;
+
+	} else {
 		return false;
+	}
 
 	int32_t x      = (int32_t) (point.x - origin.x);
 	int32_t y      = (int32_t) (point.y - origin.y);
@@ -657,7 +669,7 @@ static HWND app_get_hovered_window(MTY_App *ctx, int32_t pointer_x, int32_t poin
 	if (!hwnd)
 		return NULL;
 
-	if (app_adjust_position(hwnd, pointer_x, pointer_y, position))
+	if (app_adjust_position(ctx, hwnd, pointer_x, pointer_y, position))
 		return hwnd;
 
 	for (uint8_t i = 0; i < MTY_WINDOW_MAX; i++) {
@@ -665,7 +677,7 @@ static HWND app_get_hovered_window(MTY_App *ctx, int32_t pointer_x, int32_t poin
 			continue;
 
 		hwnd = ctx->windows[i]->hwnd;
-		if (app_adjust_position(hwnd, pointer_x, pointer_y, position))
+		if (app_adjust_position(ctx, hwnd, pointer_x, pointer_y, position))
 			return hwnd;
 	}
 
@@ -902,6 +914,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				if (evt.drop.buf)
 					evt.type = MTY_EVENT_DROP;
 			}
+
+			DragFinish((HDROP) wparam);
 			break;
 		case WM_INPUT:
 			UINT rsize = APP_RI_MAX;
@@ -1065,8 +1079,8 @@ static void app_hid_report(struct hid_dev *device, const void *buf, size_t size,
 	evt.type = MTY_EVENT_CONTROLLER;
 
 	if (mty_hid_driver_state(device, buf, size, &evt.controller)) {
-		// Prevent gamepad input while in the background
-		if (evt.type == MTY_EVENT_CONTROLLER && MTY_AppIsActive(ctx))
+		// Prevent gamepad input while in the background, dedupe
+		if (MTY_AppIsActive(ctx) && mty_hid_dedupe(ctx->deduper, &evt.controller))
 			ctx->event_func(&evt, ctx->opaque);
 	}
 }
@@ -1081,6 +1095,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx->opaque = opaque;
 	ctx->hotkey = MTY_HashCreate(0);
 	ctx->ghotkey = MTY_HashCreate(0);
+	ctx->deduper = MTY_HashCreate(0);
 	ctx->instance = GetModuleHandle(NULL);
 	if (!ctx->instance) {
 		r = false;
@@ -1114,6 +1129,8 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx->GetDpiForMonitor = (void *) GetProcAddress(shcore, "GetDpiForMonitor");
 	ctx->GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
 	ctx->GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
+	ctx->PhysicalToLogicalPoint = (void *) GetProcAddress(user32, "PhysicalToLogicalPoint");
+	ctx->PhysicalToLogicalPointForPerMonitorDPI = (void *) GetProcAddress(user32, "PhysicalToLogicalPointForPerMonitorDPI");
 
 	ImmDisableIME(0);
 
@@ -1146,6 +1163,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_HashDestroy(&ctx->ghotkey, NULL);
+	MTY_HashDestroy(&ctx->deduper, NULL);
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(ctx, x);
@@ -1184,7 +1202,7 @@ void MTY_AppRun(MTY_App *ctx)
 
 		// XInput
 		if (focus)
-			xip_state(ctx->xip, ctx->event_func, ctx->opaque);
+			xip_state(ctx->xip, ctx->deduper, ctx->event_func, ctx->opaque);
 
 		// Tray retry in case of failure
 		app_tray_retry(ctx, window);

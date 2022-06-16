@@ -31,9 +31,6 @@ struct MTY_Cursor {
 
 	MTY_DrawData *draw_data;
 	MTY_CmdList *cmd_list;
-	MTY_Cmd *commands;
-	MTY_Vtx *vertices;
-	uint16_t *indices;
 };
 
 MTY_Cursor *MTY_CursorCreate(MTY_App *app, MTY_Window window)
@@ -44,9 +41,6 @@ MTY_Cursor *MTY_CursorCreate(MTY_App *app, MTY_Window window)
 	ctx->window = window;
 	ctx->enabled = true;
 
-	ctx->commands = MTY_Alloc(CMD_LEN, sizeof(MTY_Cmd));
-	ctx->vertices = MTY_Alloc(VTX_LEN, sizeof(MTY_Vtx));
-	ctx->indices  = MTY_Alloc(IDX_LEN, sizeof(uint16_t));
 	ctx->cmd_list = MTY_Alloc(1, sizeof(MTY_CmdList));
 
 	MTY_Cmd commands[CMD_LEN] = {
@@ -74,23 +68,23 @@ MTY_Cursor *MTY_CursorCreate(MTY_App *app, MTY_Window window)
 	uint16_t indices[IDX_LEN] = { 0, 1, 2, 0, 2, 3 };
 
 	MTY_CmdList cmd_list = {
-		.cmd = ctx->commands,
+		.cmd = MTY_Alloc(CMD_LEN, sizeof(MTY_Cmd)),
 		.cmdLength = CMD_LEN,
 		.cmdMax = CMD_LEN,
 
-		.vtx = ctx->vertices,
+		.vtx = MTY_Alloc(VTX_LEN, sizeof(MTY_Vtx)),
 		.vtxLength = VTX_LEN,
 		.vtxMax = VTX_LEN,
 
-		.idx = ctx->indices,
+		.idx = MTY_Alloc(IDX_LEN, sizeof(uint16_t)),
 		.idxLength = IDX_LEN,
 		.idxMax = IDX_LEN,
 	};
 
-	memcpy(ctx->commands, &commands, sizeof(MTY_Cmd[CMD_LEN]));
-	memcpy(ctx->vertices, &vertices, sizeof(MTY_Vtx[VTX_LEN]));
-	memcpy(ctx->indices,  &indices,  sizeof(uint16_t[IDX_LEN]));
 	memcpy(ctx->cmd_list, &cmd_list, sizeof(MTY_CmdList));
+	memcpy(ctx->cmd_list->cmd, cmd_list.cmd, sizeof(MTY_Cmd[CMD_LEN]));
+	memcpy(ctx->cmd_list->vtx, cmd_list.vtx, sizeof(MTY_Vtx[VTX_LEN]));
+	memcpy(ctx->cmd_list->idx, cmd_list.idx, sizeof(uint16_t[IDX_LEN]));
 
 	return ctx;
 }
@@ -109,10 +103,10 @@ void MTY_CursorDestroy(MTY_Cursor **cursor)
 		MTY_Free(ctx->draw_data);
 	}
 
+	MTY_Free(ctx->cmd_list->idx);
+	MTY_Free(ctx->cmd_list->vtx);
+	MTY_Free(ctx->cmd_list->cmd);
 	MTY_Free(ctx->cmd_list);
-	MTY_Free(ctx->indices);
-	MTY_Free(ctx->vertices);
-	MTY_Free(ctx->commands);
 
 	if (ctx->image)
 		MTY_Free(ctx->image);
@@ -194,13 +188,13 @@ MTY_DrawData *MTY_CursorDraw(MTY_Cursor *ctx, MTY_DrawData *dd)
 		ctx->image_changed = false;
 	}
 
-	ctx->vertices[0].pos = (MTY_Point) {x,         y};
-	ctx->vertices[1].pos = (MTY_Point) {x + width, y};
-	ctx->vertices[2].pos = (MTY_Point) {x + width, y + height};
-	ctx->vertices[3].pos = (MTY_Point) {x,         y + height};
+	ctx->cmd_list->vtx[0].pos = (MTY_Point) {x,         y};
+	ctx->cmd_list->vtx[1].pos = (MTY_Point) {x + width, y};
+	ctx->cmd_list->vtx[2].pos = (MTY_Point) {x + width, y + height};
+	ctx->cmd_list->vtx[3].pos = (MTY_Point) {x,         y + height};
 
-	ctx->commands[0].clip = (MTY_Rect) {0, 0, view_width, view_height};
-	ctx->commands[1].clip = (MTY_Rect) {0, 0, view_width, view_height};
+	ctx->cmd_list->cmd[0].clip = (MTY_Rect) {0, 0, view_width, view_height};
+	ctx->cmd_list->cmd[1].clip = (MTY_Rect) {0, 0, view_width, view_height};
 
 	ctx->draw_data->cmdListLength++;
 	ctx->draw_data->vtxTotalLength += VTX_LEN;

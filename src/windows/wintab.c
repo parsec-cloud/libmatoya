@@ -304,7 +304,7 @@ void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pk
 		evt->wintab.type     = MTY_WINTAB_TYPE_STRIP;
 		evt->wintab.control  = curr_strip->nControl;
 		evt->wintab.state    = curr_strip->nMode;
-		evt->wintab.position = wintab_transform_position(curr_ring->nPosition);
+		evt->wintab.position = wintab_transform_position(curr_strip->nPosition);
 	}
 
 	ctx->prev_pktext = *pktext;

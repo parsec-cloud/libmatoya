@@ -261,6 +261,24 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 	ctx->prev_buttons = pkt->pkButtons;
 }
 
+static uint16_t wintab_transform_position(DWORD position)
+{
+	// The position value isn't documented, so here is what we discovered:
+	// * Default logical range is 0-72 and application-specific settings range is 182-255
+	// * In case of custom settings, we convert the position back to the 0-72 range to guarantee consistent event values
+	// * If the position is not within one of those known ranges, we prefer returning 0 to avoid undesired behaviors
+
+	if (position > UINT8_MAX) {
+		return 0;
+
+	} else if (position >= 73) {
+		return (uint16_t) ((int16_t) position - UINT8_MAX + 73);
+	
+	} else {
+		return (uint16_t) position;
+	}
+}
+
 void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pktext)
 {
 	evt->type = MTY_EVENT_WINTAB;
@@ -274,27 +292,19 @@ void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pk
 	const SLIDERDATA *curr_ring = &pktext->pkTouchRing;
 	const SLIDERDATA *prev_ring = &ctx->prev_pktext.pkTouchRing;
 	if (curr_ring->nPosition != prev_ring->nPosition || curr_ring->nMode != prev_ring->nMode) {
-		uint16_t position = (uint16_t) curr_ring->nPosition;
-		if (position >= 73) // If outside of the logical 0-72 range, offset it back for event consistency
-			position -= UINT8_MAX - 73;
-
 		evt->wintab.type     = MTY_WINTAB_TYPE_RING;
 		evt->wintab.control  = curr_ring->nControl;
 		evt->wintab.state    = curr_ring->nMode;
-		evt->wintab.position = position;
+		evt->wintab.position = wintab_transform_position(curr_ring->nPosition);
 	}
 
 	const SLIDERDATA *curr_strip = &pktext->pkTouchStrip;
 	const SLIDERDATA *prev_strip = &ctx->prev_pktext.pkTouchStrip;
 	if (curr_strip->nPosition != prev_strip->nPosition || curr_strip->nMode != prev_strip->nMode) {
-		uint16_t position = (uint16_t) curr_ring->nPosition;
-		if (position >= 73) // If outside of the logical 0-72 range, offset it back for event consistency
-			position -= UINT8_MAX - 73;
-
 		evt->wintab.type     = MTY_WINTAB_TYPE_STRIP;
 		evt->wintab.control  = curr_strip->nControl;
 		evt->wintab.state    = curr_strip->nMode;
-		evt->wintab.position = position;
+		evt->wintab.position = wintab_transform_position(curr_ring->nPosition);
 	}
 
 	ctx->prev_pktext = *pktext;

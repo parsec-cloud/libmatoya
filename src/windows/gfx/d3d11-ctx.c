@@ -32,10 +32,6 @@ struct d3d11_ctx {
 	uint32_t width;
 	uint32_t height;
 	MTY_Renderer *renderer;
-	DXGI_FORMAT format;
-	DXGI_FORMAT format_new;
-	MTY_ColorSpace colorspace;
-	MTY_ColorSpace colorspace_new;
 	ID3D11Device *device;
 	ID3D11DeviceContext *context;
 	ID3D11Texture2D *back_buffer;
@@ -46,7 +42,8 @@ struct d3d11_ctx {
 	HANDLE waitable;
 	bool hdr_init;
 	bool hdr_supported;
-	bool hdr;
+	bool hdr; // is the swap chain currently setup for HDR?
+	bool hdr_new; // tracks the new value for `hdr` whenever the surface is refreshed
 	bool composite_ui;
 	MTY_HDRDesc hdr_desc;
 	RECT window_bounds;
@@ -219,9 +216,6 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	IDXGIAdapter *adapter = NULL;
 	IDXGIFactory2 *factory2 = NULL;
 	IDXGISwapChain1 *swap_chain1 = NULL;
-
-	ctx->format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	ctx->colorspace = MTY_COLOR_SPACE_SRGB;
 
 	DXGI_SWAP_CHAIN_DESC1 sd = {0};
 	sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -420,22 +414,18 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 		}
 	}
 
-	const bool hdr = ctx->colorspace_new != MTY_COLOR_SPACE_SRGB;
-
-	if (ctx->hdr != hdr) {
+	if (ctx->hdr != ctx->hdr_new) {
 		// If in HDR mode, we keep swap chain in HDR10 (rec2020 10-bit RGB + ST2084 PQ);
 		// otherwise in SDR mode, it's the standard BGRA8 sRGB
-		DXGI_FORMAT format = hdr ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
-		DXGI_COLOR_SPACE_TYPE colorspace = hdr ? DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+		DXGI_FORMAT format = ctx->hdr_new ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
+		DXGI_COLOR_SPACE_TYPE colorspace = ctx->hdr_new ? DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0, format, D3D11_SWFLAGS);
 		if (e == S_OK) {
 			e = IDXGISwapChain3_SetColorSpace1(ctx->swap_chain3, colorspace);
 
 			if (e == S_OK) {
-				ctx->hdr = hdr;
-				ctx->format = ctx->format_new;
-				ctx->colorspace = ctx->colorspace_new;
+				ctx->hdr = ctx->hdr_new;
 
 			} else if (DXGI_FATAL(e)) {
 				MTY_Log("'IDXGISwapChain3_SetColorSpace1' failed with HRESULT 0x%X", e);
@@ -521,7 +511,7 @@ void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
-	ctx->colorspace_new = desc->colorspace;
+	ctx->hdr_new = desc->hdr;
 
 	if (desc->hdrDescSpecified)
 		ctx->hdr_desc = desc->hdrDesc;
@@ -547,7 +537,7 @@ void mty_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 	MTY_DrawData dd_mutated = *dd;
 	dd_mutated.hdr = ctx->composite_ui;
 
-	ctx->colorspace_new = dd_mutated.hdr ? MTY_COLOR_SPACE_HDR10 : MTY_COLOR_SPACE_SRGB;
+	ctx->hdr_new = dd_mutated.hdr;
 
 	mty_d3d11_ctx_get_surface(gfx_ctx);
 

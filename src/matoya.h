@@ -104,20 +104,6 @@ typedef enum {
 	MTY_CHROMA_MAKE_32 = INT32_MAX,
 } MTY_Chroma;
 
-/// @brief Defines the color encoding of the raw image. Note that certain color spaces and color formats are tightly coupled with each other.
-typedef enum {
-	MTY_COLOR_SPACE_UNKNOWN      = 0, ///< Unknown color space.
-	MTY_COLOR_SPACE_SRGB         = 1, ///< sRGB/rec709 primaries and a non-linear transfer function
-	                                  ///<   (approx gamma curve of 2.2). Supported by all color formats.
-	MTY_COLOR_SPACE_SCRGB_LINEAR = 2, ///< Microsoft's scRGB wide gamut color space which is based on
-	                                  ///<   sRGB/rec709 primaries and has a linear transfer function.
-	                                  ///<   Only supported by color format MTY_COLOR_FORMAT_RGBA16F.
-	MTY_COLOR_SPACE_HDR10        = 3, ///< Uses the rec2020 color primaries and the rec2100 non-linear
-	                                  ///<   transfer function (ST 2084 perceptual quantizer, aka PQ).
-	                                  ///<   Only supported by color format MTY_COLOR_FORMAT_RGB10A2.
-	MTY_COLOR_SPACE_MAKE_32      = INT32_MAX,
-} MTY_ColorSpace;
-
 /// @brief HDR metadata associated with an image being rendered.
 typedef struct {
 	float color_primary_red[2];          ///< xy coordinates for the red primary of the image's color
@@ -126,7 +112,7 @@ typedef struct {
 	                                     ///<   color space according to the CIE 1931 chromaticity diagram.
 	float color_primary_blue[2];         ///< xy coordinates for the blue primary of the image's
 	                                     ///<   color space according to the CIE 1931 chromaticity diagram.
-	float white_point[2];                ///< xy coordinates for the white point of the image's 
+	float white_point[2];                ///< xy coordinates for the white point of the image's
 	                                     ///<   color space according to the CIE 1931 chromaticity diagram.
 	float min_luminance;                 ///< Min luminance expected for the colors of the image.
 	float max_luminance;                 ///< Max luminance expected for the colors of the image.
@@ -141,7 +127,6 @@ typedef struct {
 /// @brief Description of a render operation.
 typedef struct {
 	MTY_ColorFormat format;    ///< The color format of a raw image.
-	MTY_ColorSpace colorspace; ///< Defines the color encoding of the image.
 	MTY_Rotation rotation;     ///< Rotation applied to the image.
 	MTY_Chroma chroma;         ///< Color subsampling, chroma layout for planar YUV formats.
 	MTY_Filter filter;         ///< Filter applied to the image.
@@ -160,8 +145,12 @@ typedef struct {
 	float scale;               ///< Multiplier applied to the dimensions of the image, producing an
 	                           ///<   minimized or magnified image. This can be set to 0
 	                           ///<   if unnecessary.
-	bool hdrDescSpecified;     ///< Is HDR metadata provided. Only relevant if format + colorspace indicate an HDR image.
-	MTY_HDRDesc hdrDesc;       ///< HDR metadata for the image. Only relevant if format + colorspace indicate an HDR image.
+	bool hdr;                  ///< If true, then the image is based on the rec2020 color primaries
+	                           ///<   and the rec2100 non-linear transfer function (ST 2084
+	                           ///<   perceptual quantizer, aka PQ). If false, then the image is
+	                           ///<   based on the rec709/sRGB primaries and transfer function.
+	bool hdrDescSpecified;     ///< Is HDR metadata provided. Only relevant if `hdr` is true.
+	MTY_HDRDesc hdrDesc;       ///< HDR metadata for the image. Only relevant if `hdr` is true.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.
@@ -216,7 +205,7 @@ typedef struct {
 	uint32_t idxTotalLength; ///< Total number of indices in all command lists.
 	uint32_t vtxTotalLength; ///< Total number of vertices in all command lists.
 	bool clear;              ///< Surface should be cleared before drawing.
-	bool hdr;                ///< UI in SDR will be composited on top of an HDR quad.
+	bool hdr;                ///< THe SDR UI will be composited on top of an HDR quad. See `MTY_RenderDesc`.
 } MTY_DrawData;
 
 /// @brief Create an MTY_Renderer capable of executing drawing commands.
@@ -1083,7 +1072,7 @@ MTY_AppEnablePen(MTY_App *ctx, bool enable);
 /// @brief Enable or disable extended tablet controls override.
 /// @details When overriden, tablet controls (e.g. ExpressKeys) will be received as
 ///   through the MTY_EVENT_WINTAB event, and their configured keystrokes will not
-///   be executed. 
+///   be executed.
 /// @param ctx The MTY_App.
 /// @param enable Set true to override controls, false to revert the override.
 //- #support Windows

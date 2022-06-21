@@ -965,8 +965,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			POINT position = {0};
 			HWND focused_window = app_get_hovered_window(app, &position);
 			if (!focused_window) {
-				if (app->pen_in_range)
+				if (app->pen_in_range) {
+					MTY_AppSetRelativeMouse(app, true); // XXX It works, but I'm not sure this belongs here 
 					app->pen_in_range = wintab_on_proximity(app->wintab, &evt, false);
+				}
 				break;
 
 			} else {

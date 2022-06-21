@@ -663,13 +663,17 @@ static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int3
 	return true;
 }
 
-static HWND app_get_hovered_window(MTY_App *ctx, int32_t pointer_x, int32_t pointer_y, POINT *position)
+static HWND app_get_hovered_window(MTY_App *ctx, POINT *position)
 {
 	HWND hwnd = GetActiveWindow();
 	if (!hwnd)
 		return NULL;
 
-	if (app_adjust_position(ctx, hwnd, pointer_x, pointer_y, position))
+	POINT cursor = {0};
+	if (!GetCursorPos(&cursor))
+		return NULL;
+
+	if (app_adjust_position(ctx, hwnd, cursor.x, cursor.y, position))
 		return hwnd;
 
 	for (uint8_t i = 0; i < MTY_WINDOW_MAX; i++) {
@@ -677,7 +681,7 @@ static HWND app_get_hovered_window(MTY_App *ctx, int32_t pointer_x, int32_t poin
 			continue;
 
 		hwnd = ctx->windows[i]->hwnd;
-		if (app_adjust_position(ctx, hwnd, pointer_x, pointer_y, position))
+		if (app_adjust_position(ctx, hwnd, cursor.x, cursor.y, position))
 			return hwnd;
 	}
 
@@ -954,7 +958,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			wintab_get_packet(app->wintab, wparam, lparam, &pkt);
 
 			POINT position = {0};
-			HWND focused_window = app_get_hovered_window(app, pkt.pkX, pkt.pkY, &position);
+			HWND focused_window = app_get_hovered_window(app, &position);
 			if (!focused_window)
 				break;
 

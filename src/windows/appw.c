@@ -762,6 +762,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
+			if (app && app->wintab) {
+				SetFocus(hwnd);
+				wintab_overlap_context(app->wintab, true);
+			}
+
 			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
 				evt.type = MTY_EVENT_MOTION;
 				evt.motion.relative = false;
@@ -951,7 +956,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				EndMenu();
 			break;
 		case WT_PACKET: {
-			if (!app || !app->wintab || !pen_active)
+			if (!app || !app->wintab)
 				break;
 
 			PACKET pkt = {0};
@@ -959,7 +964,16 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			POINT position = {0};
 			HWND focused_window = app_get_hovered_window(app, &position);
-			if (!focused_window)
+			if (!focused_window) {
+				if (app->pen_in_range)
+					app->pen_in_range = wintab_on_proximity(app->wintab, &evt, false);
+				break;
+
+			} else {
+				app->pen_in_range = true;
+			}
+
+			if (!pen_active)
 				break;
 
 			pkt.pkX = position.x;

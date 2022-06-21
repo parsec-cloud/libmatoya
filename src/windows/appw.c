@@ -495,7 +495,7 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 static void app_apply_clip(MTY_App *app, bool focus)
 {
 	if (focus) {
-		if (app->relative && app->detach != MTY_DETACH_STATE_FULL) {
+		if (app->relative && app->detach != MTY_DETACH_STATE_FULL && !app->pen_in_range) {
 			ClipCursor(&app->clip);
 
 		} else if (app->mgrab && app->detach == MTY_DETACH_STATE_NONE) {

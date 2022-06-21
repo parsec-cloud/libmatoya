@@ -10,6 +10,7 @@ typedef BOOL(API *WTCLOSE)(HCTX);
 typedef BOOL(API *WTPACKET)(HCTX, UINT, LPVOID);
 typedef BOOL(API *WTEXTGET)(HCTX, UINT, LPVOID);
 typedef BOOL(API *WTEXTSET)(HCTX, UINT, LPVOID);
+typedef BOOL(API *WTOVERLAP)(HCTX, BOOL);
 
 static struct wt {
 	MTY_SO *instance;
@@ -20,6 +21,7 @@ static struct wt {
 	WTPACKET packet;
 	WTEXTGET ext_get;
 	WTEXTSET ext_set;
+	WTOVERLAP overlap;
 } wt;
 
 struct wintab
@@ -109,6 +111,7 @@ struct wintab *wintab_create(HWND hwnd, bool override)
 		MAP(WTPACKET, Packet, packet);
 		MAP(WTEXTGET, ExtGet, ext_get);
 		MAP(WTEXTSET, ExtSet, ext_set);
+		MAP(WTOVERLAP, Overlap, overlap);
 
 		// We check that the driver running is currently running
 		if (!wt.info(0, 0, NULL))
@@ -191,6 +194,11 @@ void wintab_destroy(struct wintab **wintab, bool unload_symbols)
 
 	MTY_Free(ctx);
 	*wintab = NULL;
+}
+
+void wintab_overlap_context(struct wintab *ctx, bool overlap)
+{
+	wt.overlap(ctx->context, overlap);
 }
 
 void wintab_get_packet(struct wintab *ctx, WPARAM wparam, LPARAM lparam, void *pkt)

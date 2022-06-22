@@ -21,9 +21,10 @@ void wintab_recreate(struct wintab **ctx, HWND hwnd, bool override);
 void wintab_destroy(struct wintab **wintab, bool unload_symbols);
 
 void wintab_overlap_context(struct wintab *ctx, bool overlap);
+bool wintab_is_elevation_in_range(struct wintab *ctx, int32_t elevation);
 void wintab_get_packet(struct wintab *ctx, WPARAM wparam, LPARAM lparam, void *pkt);
 
-void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY_Window window);
+bool wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY_Window window);
 void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pktext);
 bool wintab_on_proximity(struct wintab *ctx, MTY_Event *evt, LPARAM lparam);
 void wintab_on_infochange(struct wintab **ctx, HWND hwnd);

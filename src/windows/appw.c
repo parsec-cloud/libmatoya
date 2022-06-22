@@ -392,7 +392,6 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 {
 	const RAWMOUSE *mouse = &ri->data.mouse;
 
-	if (mouse->lLastX != 0 || mouse->lLastY != 0) {
 		if (mouse->usFlags & MOUSE_MOVE_ABSOLUTE) {
 			int32_t x = mouse->lLastX;
 			int32_t y = mouse->lLastY;
@@ -425,7 +424,6 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 			evt->motion.x = mouse->lLastX;
 			evt->motion.y = mouse->lLastY;
 		}
-	}
 
 	ULONG b = mouse->usButtonFlags;
 
@@ -516,9 +514,9 @@ static void app_apply_clip(MTY_App *app, bool focus)
 	}
 }
 
-static void app_apply_cursor(MTY_App *app, bool focus)
+static void app_apply_cursor(MTY_App *app)
 {
-	if (focus && (app->hide_cursor || (app->relative && app->detach == MTY_DETACH_STATE_NONE))) {
+	if (app->hide_cursor || (app->relative && app->detach == MTY_DETACH_STATE_NONE)) {
 		app->cursor = NULL;
 
 	} else {
@@ -714,7 +712,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_SETCURSOR:
 			if (LOWORD(lparam) == HTCLIENT) {
-				app_apply_cursor(app, MTY_AppIsActive(app));
+				app_apply_cursor(app);
 				creturn = true;
 				r = TRUE;
 			}
@@ -767,7 +765,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wintab_overlap_context(app->wintab, true);
 			}
 
-			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
+			if (!app->filter_move && !pen_active) {
 				evt.type = MTY_EVENT_MOTION;
 				evt.motion.relative = false;
 				evt.motion.synth = false;
@@ -965,13 +963,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			POINT position = {0};
 			HWND focused_window = app_get_hovered_window(app, &position);
 			if (!focused_window) {
-				if (app->pen_in_range) {
-					MTY_AppSetRelativeMouse(app, true); // XXX It works, but I'm not sure this belongs here 
+				if (app->pen_in_range)
 					app->pen_in_range = wintab_on_proximity(app->wintab, &evt, false);
-				}
 				break;
-
-			} else {
+			} else if (wintab_is_elevation_in_range(app->wintab, pkt.pkZ)) {
 				app->pen_in_range = true;
 			}
 
@@ -984,7 +979,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			// Wintab context only catches events on the main window, so we update the real one manually
 			struct window *new_ctx = (struct window *) GetWindowLongPtr(focused_window, 0);
 
-			wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window);
+			app->pen_in_range = wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window);
 
 			break;
 		}
@@ -1006,7 +1001,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			if (app)
 				wintab_on_infochange(&app->wintab, app_get_main_hwnd(app));
 			break;
-
 	}
 
 	// Tray
@@ -1213,7 +1207,7 @@ void MTY_AppRun(MTY_App *ctx)
 		// Keyboard, mouse state changes
 		if (ctx->prev_state != ctx->state) {
 			app_apply_clip(ctx, focus);
-			app_apply_cursor(ctx, focus);
+			app_apply_cursor(ctx);
 			app_apply_mouse_ri(ctx, focus);
 			app_apply_keyboard_state(ctx, focus);
 
@@ -1450,7 +1444,7 @@ void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 
 	bool focus = MTY_AppIsActive(ctx);
 	app_apply_mouse_ri(ctx, focus);
-	app_apply_cursor(ctx, focus);
+	app_apply_cursor(ctx);
 	app_apply_clip(ctx, focus);
 }
 

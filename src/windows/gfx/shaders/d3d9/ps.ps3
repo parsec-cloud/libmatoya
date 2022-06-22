@@ -9,9 +9,12 @@ struct VS_OUTPUT {
 	float2 texcoord : TEXCOORD;
 };
 
-sampler tex0 : register(s0);
-sampler tex1 : register(s1);
-sampler tex2 : register(s2);
+SamplerState ss {
+};
+
+Texture2D tex0 : register(t0);
+Texture2D tex1 : register(t1);
+Texture2D tex2 : register(t2);
 
 uniform float4 cb0 : register(c0); // width, height, vp_height
 uniform float4 cb1 : register(c1); // effects, levels
@@ -65,10 +68,10 @@ inline float4 yuv_to_rgba(int4 conversion, float y, float u, float v)
 
 inline float4 sample_rgba(int planes, int4 conversion, float2 uv)
 {
-	float4 pixel0 = tex2D(tex0, uv);
+	float4 pixel0 = tex0.Sample(ss, uv);
 
 	if (planes == 2) {
-		float4 pixel1 = tex2D(tex1, uv);
+		float4 pixel1 = tex1.Sample(ss, uv);
 		float y = pixel0.r;
 
 		// A8L8
@@ -85,8 +88,8 @@ inline float4 sample_rgba(int planes, int4 conversion, float2 uv)
 
 	} else if (planes == 3) {
 		float y = pixel0.r;
-		float u = tex2D(tex1, uv).r;
-		float v = tex2D(tex2, uv).r;
+		float u = tex1.Sample(ss, uv).r;
+		float v = tex2.Sample(ss, uv).r;
 
 		return yuv_to_rgba(conversion, y, u, v);
 

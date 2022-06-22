@@ -56,6 +56,8 @@ struct MTY_App {
 	bool pen_in_range;
 	bool pen_enabled;
 	bool pen_had_barrel;
+	bool pen_touched_left;
+	bool pen_touched_right;
 	bool touch_active;
 	bool relative;
 	bool kbgrab;
@@ -596,7 +598,7 @@ static void app_fix_mouse_buttons(MTY_App *ctx)
 			MTY_Button b = flipped && x == MTY_BUTTON_LEFT ? MTY_BUTTON_RIGHT :
 				flipped && x == MTY_BUTTON_RIGHT ? MTY_BUTTON_LEFT : x;
 
-			if (!app_button_is_pressed(b)) {
+			if (!ctx->pen_in_range && !app_button_is_pressed(b)) {
 				MTY_Event evt = {0};
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = x;
@@ -688,6 +690,34 @@ static HWND app_get_hovered_window(MTY_App *ctx, POINT *position)
 	return NULL;
 }
 
+static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
+{
+	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
+	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
+
+	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
+		evt->type = MTY_EVENT_BUTTON;
+		evt->button.button = button;
+		evt->button.pressed = true;
+
+		*touched = true;
+
+	} else if (*touched && !(evt->pen.flags & MTY_PEN_FLAG_TOUCHING)) {
+		evt->type = MTY_EVENT_BUTTON;
+		evt->button.button = button;
+		evt->button.pressed = false;
+
+		*touched = false;
+
+	} else {
+		evt->type = MTY_EVENT_MOTION;
+		evt->motion.relative = false;
+		evt->motion.synth = false;
+		evt->motion.x = evt->pen.x;
+		evt->motion.y = evt->pen.y;
+	}
+}
+
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	MTY_App *app = ctx->app;
@@ -767,7 +797,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wintab_overlap_context(app->wintab, true);
 			}
 
-			if (!app->filter_move && !pen_active) {
+			if (!app->filter_move && !app->pen_in_range) {
 				evt.type = MTY_EVENT_MOTION;
 				evt.motion.relative = false;
 				evt.motion.synth = false;
@@ -779,7 +809,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
-			if (!pen_active) {
+			if (!app->pen_in_range) {
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = MTY_BUTTON_LEFT;
 				evt.button.pressed = msg == WM_LBUTTONDOWN;
@@ -787,7 +817,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_RBUTTONDOWN:
 		case WM_RBUTTONUP:
-			if (!pen_active) {
+			if (!app->pen_in_range) {
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = MTY_BUTTON_RIGHT;
 				evt.button.pressed = msg == WM_RBUTTONDOWN;
@@ -836,7 +866,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
-			if (!app->pen_enabled || !app->GetPointerType || !app->GetPointerPenInfo)
+			if (!app->GetPointerType || !app->GetPointerPenInfo)
 				break;
 
 			UINT32 id = GET_POINTERID_WPARAM(wparam);
@@ -886,6 +916,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			if (pen_barrel || app->pen_had_barrel)
 				evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
 			app->pen_had_barrel = pen_barrel;
+
+			if (!app->pen_enabled)
+				app_convert_pen_to_mouse(app, &evt);
 
 			defreturn = true;
 			break;

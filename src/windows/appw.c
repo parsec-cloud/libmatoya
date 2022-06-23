@@ -1744,7 +1744,7 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 	ctx->pen_enabled = enable;
 
 	if (enable && !ctx->wintab) {
-		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);//
+		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);
 	
 	} else if (!enable && ctx->wintab) {
 		wintab_destroy(&ctx->wintab, true);

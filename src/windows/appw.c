@@ -760,6 +760,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_KILLFOCUS:
 			evt.type = MTY_EVENT_FOCUS;
 			evt.focus = msg == WM_SETFOCUS;
+			if (app->pen_in_range)
+				app->pen_in_range = false;
 			app->state++;
 			break;
 		case WM_QUERYENDSESSION:
@@ -873,6 +875,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			POINTER_INPUT_TYPE type = PT_POINTER;
 			if (!app->GetPointerType(id, &type) || type != PT_PEN)
 				break;
+
+			app->pen_in_range = true;
 
 			POINTER_PEN_INFO ppi = {0};
 			if (!app->GetPointerPenInfo(id, &ppi))

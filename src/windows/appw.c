@@ -728,7 +728,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	LRESULT r = 0;
 	bool creturn = false;
 	bool defreturn = false;
-	bool pen_active = app->pen_enabled && app->pen_in_range;
 	char drop_name[MTY_PATH_MAX];
 
 	switch (msg) {
@@ -997,15 +996,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			POINT position = {0};
 			HWND focused_window = app_get_hovered_window(app, &position);
-			if (!focused_window) {
-				if (app->pen_in_range)
-					app->pen_in_range = wintab_on_proximity(app->wintab, &evt, false);
+			if (!focused_window)
 				break;
-			} else if (wintab_is_elevation_in_range(app->wintab, pkt.pkZ)) {
-				app->pen_in_range = true;
-			}
 
-			if (!pen_active)
+			if (!app->pen_enabled || !app->pen_in_range)
 				break;
 
 			pkt.pkX = position.x;
@@ -1014,7 +1008,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			// Wintab context only catches events on the main window, so we update the real one manually
 			struct window *new_ctx = (struct window *) GetWindowLongPtr(focused_window, 0);
 
-			app->pen_in_range = wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window);
+			wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window);
 
 			break;
 		}
@@ -1025,6 +1019,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			PACKETEXT pktext = {0};
 			wintab_get_packet(app->wintab, wparam, lparam, &pktext);
 			wintab_on_packetext(app->wintab, &evt, &pktext);
+
+			// TODO Not sure if this is enough to prevent motion after a ring click
+			app->filter_move = true;
 
 			break;
 		}

@@ -202,25 +202,13 @@ void wintab_overlap_context(struct wintab *ctx, bool overlap)
 	wt.overlap(ctx->context, overlap);
 }
 
-bool wintab_is_elevation_in_range(struct wintab *ctx, int32_t elevation)
-{
-	// XXX This range might be retrieved from the Wintab context
-	return elevation > 0 && elevation < 1023;
-}
-
 void wintab_get_packet(struct wintab *ctx, WPARAM wparam, LPARAM lparam, void *pkt)
 {
 	wt.packet((HCTX) lparam, (UINT) wparam, pkt);
 }
 
-bool wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY_Window window)
+void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY_Window window)
 {
-	// Wintab sometimes reports a null elevation on the last event
-	if (!ctx->pen_in_range && !wintab_is_elevation_in_range(ctx, pkt->pkZ))
-		return ctx->pen_in_range;
-
-	ctx->pen_in_range = true;
-
 	bool double_clicked = false;
 	bool has_double_clicked = ctx->has_double_clicked;
 
@@ -280,8 +268,6 @@ bool wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 
 	ctx->prev_evt     = evt->pen;
 	ctx->prev_buttons = pkt->pkButtons;
-
-	return ctx->pen_in_range;
 }
 
 static uint16_t wintab_transform_position(DWORD position)

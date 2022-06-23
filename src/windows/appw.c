@@ -394,7 +394,7 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 {
 	const RAWMOUSE *mouse = &ri->data.mouse;
 
-	if (mouse->lLastX != 0 || mouse->lLastY != 0 && !app->pen_in_range) {
+	if ((mouse->lLastX != 0 || mouse->lLastY != 0) && !app->pen_in_range) {
 		if (mouse->usFlags & MOUSE_MOVE_ABSOLUTE) {
 			int32_t x = mouse->lLastX;
 			int32_t y = mouse->lLastY;

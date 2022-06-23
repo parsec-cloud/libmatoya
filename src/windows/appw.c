@@ -988,7 +988,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				EndMenu();
 			break;
 		case WT_PACKET: {
-			if (!app || !app->wintab)
+			if (!app || !app->wintab || !app->pen_enabled || !app->pen_in_range)
 				break;
 
 			PACKET pkt = {0};
@@ -997,9 +997,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			POINT position = {0};
 			HWND focused_window = app_get_hovered_window(app, &position);
 			if (!focused_window)
-				break;
-
-			if (!app->pen_enabled || !app->pen_in_range)
 				break;
 
 			pkt.pkX = position.x;
@@ -1743,7 +1740,7 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 	ctx->pen_enabled = enable;
 
 	if (enable && !ctx->wintab) {
-		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);
+		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);//
 	
 	} else if (!enable && ctx->wintab) {
 		wintab_destroy(&ctx->wintab, true);

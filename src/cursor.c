@@ -67,7 +67,7 @@ MTY_Cursor *MTY_CursorCreate(MTY_App *app, MTY_Window window)
 
 	uint16_t indices[IDX_LEN] = { 0, 1, 2, 0, 2, 3 };
 
-	MTY_CmdList cmd_list = {
+	*ctx->cmd_list = (MTY_CmdList) {
 		.cmd = MTY_Alloc(CMD_LEN, sizeof(MTY_Cmd)),
 		.cmdLength = CMD_LEN,
 		.cmdMax = CMD_LEN,
@@ -81,10 +81,9 @@ MTY_Cursor *MTY_CursorCreate(MTY_App *app, MTY_Window window)
 		.idxMax = IDX_LEN,
 	};
 
-	memcpy(ctx->cmd_list, &cmd_list, sizeof(MTY_CmdList));
-	memcpy(ctx->cmd_list->cmd, cmd_list.cmd, sizeof(MTY_Cmd[CMD_LEN]));
-	memcpy(ctx->cmd_list->vtx, cmd_list.vtx, sizeof(MTY_Vtx[VTX_LEN]));
-	memcpy(ctx->cmd_list->idx, cmd_list.idx, sizeof(uint16_t[IDX_LEN]));
+	memcpy(ctx->cmd_list->cmd, commands, sizeof(MTY_Cmd[CMD_LEN]));
+	memcpy(ctx->cmd_list->vtx, vertices, sizeof(MTY_Vtx[VTX_LEN]));
+	memcpy(ctx->cmd_list->idx, indices, sizeof(uint16_t[IDX_LEN]));
 
 	return ctx;
 }

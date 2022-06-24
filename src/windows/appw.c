@@ -992,7 +992,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				EndMenu();
 			break;
 		case WT_PACKET: {
-			if (!app || !app->wintab || !app->pen_enabled || !app->pen_in_range)
+			if (!app || !app->wintab)
 				break;
 
 			PACKET pkt = {0};
@@ -1010,6 +1010,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			struct window *new_ctx = (struct window *) GetWindowLongPtr(focused_window, 0);
 
 			wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window);
+			
+			if (!app->pen_enabled)
+				app_convert_pen_to_mouse(app, &evt);
 
 			break;
 		}
@@ -1746,12 +1749,8 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 	ctx->pen_enabled = enable;
 
-	if (enable && !ctx->wintab) {
+	if (enable && !ctx->wintab)
 		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);
-	
-	} else if (!enable && ctx->wintab) {
-		wintab_destroy(&ctx->wintab, true);
-	}
 }
 
 void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)

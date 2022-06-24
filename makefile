@@ -34,6 +34,7 @@ OBJS = \
 	src\memory.obj \
 	src\queue.obj \
 	src\render.obj \
+	src\resample.obj \
 	src\system.obj \
 	src\thread.obj \
 	src\tlocal.obj \
@@ -63,6 +64,7 @@ OBJS = \
 	src\windows\threadw.obj \
 	src\windows\time.obj \
 	src\windows\tlsw.obj \
+	src\windows\wintab.obj \
 	src\windows\gfx\d3d12.obj \
 	src\windows\gfx\d3d12-ctx.obj \
 	src\windows\gfx\d3d12-ui.obj \

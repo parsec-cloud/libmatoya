@@ -14,6 +14,7 @@
 #include "scale.h"
 #include "keymap.h"
 #include "hid/hid.h"
+#include "hid/utils.h"
 
 
 // NSApp
@@ -25,6 +26,7 @@
 	@property MTY_AppFunc app_func;
 	@property MTY_EventFunc event_func;
 	@property MTY_Hash *hotkey;
+	@property MTY_Hash *deduper;
 	@property MTY_DetachState detach;
 	@property void *opaque;
 	@property void *kb_mode;
@@ -52,6 +54,15 @@ static const MTY_Button APP_MOUSE_MAP[] = {
 	MTY_BUTTON_X1,
 	MTY_BUTTON_X2,
 };
+
+typedef int32_t CGSConnection;
+typedef enum {
+	CGSGlobalHotKeyEnable  = 0,
+	CGSGlobalHotKeyDisable = 1,
+} CGSGlobalHotKeyOperatingMode;
+
+extern CGSConnection CGSMainConnectionID(void);
+extern CGError CGSSetGlobalHotKeyOperatingMode(CGSConnection connection, CGSGlobalHotKeyOperatingMode mode);
 
 #define APP_MOUSE_MAX (sizeof(APP_MOUSE_MAP) / sizeof(MTY_Button))
 
@@ -106,11 +117,14 @@ static void app_apply_keyboard_state(App *ctx)
 	if (ctx.grab_kb && ctx.detach == MTY_DETACH_STATE_NONE) {
 		// Requires "Enable access for assistive devices" checkbox is checked
 		// in the Universal Access preference pane
-		if (!ctx.kb_mode)
+		if (!ctx.kb_mode) {
 			ctx.kb_mode = PushSymbolicHotKeyMode(kHIHotKeyModeAllDisabled);
+			CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyDisable);
+		}
 
 	} else if (ctx.kb_mode) {
 		PopSymbolicHotKeyMode(ctx.kb_mode);
+		CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyEnable);
 		ctx.kb_mode = NULL;
 	}
 }
@@ -663,6 +677,12 @@ static void window_mod_event(Window *window, NSEvent *event)
 	evt.key.key = keymap_keycode_to_key(event.keyCode);
 	evt.key.mod = keymap_modifier_flags_to_keymod(event.modifierFlags);
 
+	// Macos doesn't send capslock keycodes, so emulate them to act more like windows
+	if (event.keyCode == kVK_CapsLock) {
+		window_keyboard_event(window, event.keyCode, event.modifierFlags, true);
+		window_keyboard_event(window, event.keyCode, event.modifierFlags, false);
+	}
+
 	switch (evt.key.key) {
 		case MTY_KEY_LSHIFT: evt.key.pressed = evt.key.mod & MTY_MOD_LSHIFT; break;
 		case MTY_KEY_LCTRL:  evt.key.pressed = evt.key.mod & MTY_MOD_LCTRL;  break;
@@ -694,13 +714,24 @@ static void window_mod_event(Window *window, NSEvent *event)
 	{
 		NSUInteger mods = NSEventModifierFlagControl | NSEventModifierFlagCommand;
 
+		// Allow bypassing some system keys when in immersive
+		bool grabbed = self.app.grab_kb;
+		bool is_command = (event.modifierFlags & NSEventModifierFlagCommand) ? true : false;
+		bool is_command_q = (event.keyCode == kVK_ANSI_Q) && is_command;
+		bool is_command_w = (event.keyCode == kVK_ANSI_W) && is_command;
+		bool is_command_space = (event.keyCode == kVK_Space) && is_command;
+
 		// macOS swallows Ctrl+Tab and Cmd+Tab, special cases
-		if (event.keyCode == kVK_Tab && (event.modifierFlags & mods)) {
+		bool is_command_tab = (event.keyCode == kVK_Tab) && (event.modifierFlags & mods);
+
+		bool override_hotkey = grabbed && (is_command_q || is_command_w || is_command_space);
+
+		if (override_hotkey || is_command_tab) {
 			window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
 			window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
 		}
 
-		return NO;
+		return override_hotkey ? YES : NO;
 	}
 
 	- (BOOL)windowShouldClose:(NSWindow *)sender
@@ -943,8 +974,8 @@ static void app_hid_report(struct hid_dev *device, const void *buf, size_t size,
 	evt.type = MTY_EVENT_CONTROLLER;
 
 	if (mty_hid_driver_state(device, buf, size, &evt.controller)) {
-		// Prevent gamepad input while in the background
-		if (evt.type != MTY_EVENT_NONE && MTY_AppIsActive((MTY_App *) opaque))
+		// Prevent gamepad input while in the background, dedupe
+		if (MTY_AppIsActive((MTY_App *) opaque) && mty_hid_dedupe(ctx.deduper, &evt.controller))
 			ctx.event_func(&evt, ctx.opaque);
 	}
 }
@@ -979,6 +1010,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
 	ctx.hotkey = MTY_HashCreate(0);
+	ctx.deduper = MTY_HashCreate(0);
 
 	ctx.cb_seq = [[NSPasteboard generalPasteboard] changeCount];
 
@@ -1003,6 +1035,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 	if (ctx.kb_mode) {
 		PopSymbolicHotKeyMode(ctx.kb_mode);
+		CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyEnable);
 		ctx.kb_mode = NULL;
 	}
 
@@ -1018,6 +1051,10 @@ void MTY_AppDestroy(MTY_App **app)
 	MTY_Hash *h = ctx.hotkey;
 	MTY_HashDestroy(&h, NULL);
 	ctx.hotkey = NULL;
+
+	h = ctx.deduper;
+	MTY_HashDestroy(&h, MTY_Free);
+	ctx.deduper = NULL;
 
 	[NSApp terminate:ctx];
 	*app = NULL;
@@ -1441,6 +1478,25 @@ float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 	// macOS scales the display as though it switches resolutions,
 	// so all we need to report is the high DPI device multiplier
 	return mty_screen_scale(ctx.screen);
+}
+
+uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
+{
+	uint32_t r = 60;
+
+	Window *ctx = app_get_window(app, window);
+
+	if (ctx) {
+		CGDirectDisplayID display = ((NSNumber *) [ctx.screen deviceDescription][@"NSScreenNumber"]).intValue;
+		CGDisplayModeRef mode = CGDisplayCopyDisplayMode(display);
+
+		if (mode) {
+			r = lrint(CGDisplayModeGetRefreshRate(mode));
+			CGDisplayModeRelease(mode);
+		}
+	}
+
+	return r;
 }
 
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)

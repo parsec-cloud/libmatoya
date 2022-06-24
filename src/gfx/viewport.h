@@ -31,7 +31,7 @@ static void mty_viewport(const MTY_RenderDesc *desc, float *vp_x, float *vp_y, f
 			if (scaled_w == 0 || scaled_h == 0 || desc->viewWidth < scaled_w || desc->viewHeight < scaled_h)
 				scaled_w = desc->viewWidth;
 
-			*vp_w = scaled_w;
+			*vp_w = (float) scaled_w;
 			*vp_h = roundf(*vp_w / ar);
 
 			if (*vp_w > (float) desc->viewWidth) {
@@ -48,14 +48,14 @@ static void mty_viewport(const MTY_RenderDesc *desc, float *vp_x, float *vp_y, f
 			*vp_y = roundf(((float) desc->viewHeight - *vp_h) / 2.0f);
 			break;
 		case MTY_POSITION_FIXED:
-			*vp_w = roundf(scaled_w);
-			*vp_h = roundf(scaled_h);
+			*vp_w = (float) scaled_w;
+			*vp_h = (float) scaled_h;
 
-			*vp_x = roundf(desc->imageX);
-			*vp_y = roundf(desc->imageY);
+			*vp_x = (float) desc->imageX;
+			*vp_y = (float) desc->imageY;
 
 			if (transform_origin)
-				*vp_y = roundf(desc->displayHeight) - *vp_h - *vp_y;
+				*vp_y = (float) desc->displayHeight - *vp_h - *vp_y;
 			break;
 	}
 }

@@ -1658,13 +1658,6 @@ MTY_CopyFile(const char *src, const char *dst);
 MTY_EXPORT bool
 MTY_MoveFile(const char *src, const char *dst);
 
-/// @brief Move a file, copying and deleting it instead if it can't be moved.
-/// @param src Path to the source file.
-/// @param dst Path to the destination file.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-MTY_EXPORT bool
-MTY_MoveOrCopyFile(const char *src, const char *dst);
-
 /// @brief Get a special directory on the filesystem.
 /// @param dir The special directory of interest.
 /// @returns This buffer is allocated in thread local storage and must not be freed.

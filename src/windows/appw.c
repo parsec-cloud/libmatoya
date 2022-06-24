@@ -1027,8 +1027,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		}
 		case WT_PROXIMITY:
-			if (app && app->wintab)
-				app->pen_in_range = wintab_on_proximity(app->wintab, &evt, lparam);
+			if (!app || !app->wintab)
+				break;
+
+			app->pen_in_range = wintab_on_proximity(app->wintab, &evt, lparam);
+			app_apply_clip(app, MTY_AppIsActive(app));
 			break;
 		case WT_INFOCHANGE:
 			if (app)

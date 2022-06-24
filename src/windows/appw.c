@@ -518,9 +518,9 @@ static void app_apply_clip(MTY_App *app, bool focus)
 	}
 }
 
-static void app_apply_cursor(MTY_App *app)
+static void app_apply_cursor(MTY_App *app, bool focus)
 {
-	if (app->hide_cursor || (app->relative && app->detach == MTY_DETACH_STATE_NONE)) {
+	if (focus && (app->hide_cursor || (app->relative && app->detach == MTY_DETACH_STATE_NONE))) {
 		app->cursor = NULL;
 
 	} else {
@@ -659,32 +659,26 @@ static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int3
 	if (x < 0 || x > width || y < 0 || y > height)
 		return false;
 
-	position->x = x;
-	position->y = y;
+	if (position) {
+		position->x = x;
+		position->y = y;
+	}
 
 	return true;
 }
 
-static HWND app_get_hovered_window(MTY_App *ctx, POINT *position)
+static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
 {
-	HWND hwnd = GetActiveWindow();
-	if (!hwnd)
-		return NULL;
-
 	POINT cursor = {0};
 	if (!GetCursorPos(&cursor))
 		return NULL;
-
-	if (app_adjust_position(ctx, hwnd, cursor.x, cursor.y, position))
-		return hwnd;
 
 	for (uint8_t i = 0; i < MTY_WINDOW_MAX; i++) {
 		if (!ctx->windows[i])
 			continue;
 
-		hwnd = ctx->windows[i]->hwnd;
-		if (app_adjust_position(ctx, hwnd, cursor.x, cursor.y, position))
-			return hwnd;
+		if (app_adjust_position(ctx, ctx->windows[i]->hwnd, cursor.x, cursor.y, position))
+			return ctx->windows[i];
 	}
 
 	return NULL;
@@ -740,10 +734,12 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_MOVE:
 			evt.type = MTY_EVENT_MOVE;
+			if (app->relative)
+				app->filter_move = true;
 			break;
 		case WM_SETCURSOR:
 			if (LOWORD(lparam) == HTCLIENT) {
-				app_apply_cursor(app);
+				app_apply_cursor(app, MTY_AppIsActive(app));
 				creturn = true;
 				r = TRUE;
 			}
@@ -760,7 +756,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_KILLFOCUS:
 			evt.type = MTY_EVENT_FOCUS;
 			evt.focus = msg == WM_SETFOCUS;
-			if (app->pen_in_range)
+			if (!evt.focus && app->pen_in_range)
 				app->pen_in_range = false;
 			app->state++;
 			break;
@@ -793,7 +789,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
-			if (app && app->wintab && app->pen_in_range) {
+			if (app && app->wintab) {
 				SetFocus(hwnd);
 				wintab_overlap_context(app->wintab, true);
 			}
@@ -999,17 +995,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			wintab_get_packet(app->wintab, wparam, lparam, &pkt);
 
 			POINT position = {0};
-			HWND focused_window = app_get_hovered_window(app, &position);
+			struct window *focused_window = app_get_hovered_window(app, &position);
 			if (!focused_window)
 				break;
 
 			pkt.pkX = position.x;
 			pkt.pkY = position.y;
 
-			// Wintab context only catches events on the main window, so we update the real one manually
-			struct window *new_ctx = (struct window *) GetWindowLongPtr(focused_window, 0);
-
-			wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window);
+			wintab_on_packet(app->wintab, &evt, &pkt, focused_window->window);
 			
 			if (!app->pen_enabled)
 				app_convert_pen_to_mouse(app, &evt);
@@ -1024,7 +1017,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			wintab_get_packet(app->wintab, wparam, lparam, &pktext);
 			wintab_on_packetext(app->wintab, &evt, &pktext);
 
-			// TODO Not sure if this is enough to prevent motion after a ring click
 			app->filter_move = true;
 
 			break;
@@ -1060,6 +1052,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			app->buttons &= ~(1 << evt.button.button);
 		}
 	}
+
+	if (evt.type == MTY_EVENT_MOTION && app->detach != MTY_DETACH_STATE_NONE)
+		evt.type = MTY_EVENT_NONE;
 
 	// Process the message
 	if (evt.type != MTY_EVENT_NONE) {
@@ -1246,7 +1241,7 @@ void MTY_AppRun(MTY_App *ctx)
 		// Keyboard, mouse state changes
 		if (ctx->prev_state != ctx->state) {
 			app_apply_clip(ctx, focus);
-			app_apply_cursor(ctx);
+			app_apply_cursor(ctx, focus);
 			app_apply_mouse_ri(ctx, focus);
 			app_apply_keyboard_state(ctx, focus);
 
@@ -1439,6 +1434,9 @@ MTY_DetachState MTY_AppGetDetachState(MTY_App *ctx)
 
 void MTY_AppSetDetachState(MTY_App *ctx, MTY_DetachState state)
 {
+	if (!app_get_hovered_window(ctx, NULL))
+		return;
+
 	if (ctx->detach != state) {
 		ctx->detach = state;
 		ctx->state++;
@@ -1483,7 +1481,7 @@ void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 
 	bool focus = MTY_AppIsActive(ctx);
 	app_apply_mouse_ri(ctx, focus);
-	app_apply_cursor(ctx);
+	app_apply_cursor(ctx, focus);
 	app_apply_clip(ctx, focus);
 }
 

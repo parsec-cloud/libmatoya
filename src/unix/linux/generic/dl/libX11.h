@@ -21,6 +21,7 @@
 
 #define None                      0L
 #define NoSymbol                  0L
+#define AnyPropertyType           0L
 #define Bool                      int
 #define True                      1
 #define False                     0
@@ -449,6 +450,9 @@ typedef struct _XIM *XIM;
 typedef struct _XIC *XIC;
 
 static Display *(*XOpenDisplay)(const char *display_name);
+static Screen *(*XScreenOfDisplay)(Display *display, int screen_number);
+static Screen *(*XDefaultScreenOfDisplay)(Display *display);
+static int (*XScreenNumberOfScreen)(Screen *screen);
 static int (*XCloseDisplay)(Display *display);
 static Window (*XDefaultRootWindow)(Display *display);
 static Window (*XRootWindowOfScreen)(Screen *screen);
@@ -461,12 +465,15 @@ static int (*XMapRaised)(Display *display, Window w);
 static int (*XSetInputFocus)(Display *display, Window focus, int revert_to, Time time);
 static int (*XStoreName)(Display *display, Window w, const char *window_name);
 static Status (*XGetWindowAttributes)(Display *display, Window w, XWindowAttributes *window_attributes_return);
+static Bool (*XTranslateCoordinates)(Display *display, Window src_w, Window dest_w, int src_x, int src_y,
+	int *dest_x_return, int *dest_y_return, Window *child_return);
 static KeySym (*XLookupKeysym)(XKeyEvent *key_event, int index);
 static Status (*XSetWMProtocols)(Display *display, Window w, Atom *protocols, int count);
 static Atom (*XInternAtom)(Display *display, const char *atom_name, Bool only_if_exists);
 static int (*XNextEvent)(Display *display, XEvent *event_return);
 static int (*XEventsQueued)(Display *display, int mode);
 static int (*XMoveWindow)(Display *display, Window w, int x, int y);
+static int (*XMoveResizeWindow)(Display *display, Window w, int x, int y, unsigned int width, unsigned int height);
 static int (*XChangeProperty)(Display *display, Window w, Atom property, Atom type, int format, int mode, const unsigned char *data, int nelements);
 static int (*XGetInputFocus)(Display *display, Window *focus_return, int *revert_to_return);
 static char *(*XGetDefault)(Display *display, const char *program, const char *option);
@@ -588,6 +595,15 @@ static Cursor (*XcursorImageLoadCursor)(Display *dpy, const XcursorImage *image)
 static void (*XcursorImageDestroy)(XcursorImage *image);
 
 
+// Xrandr interface
+
+typedef struct _XRRScreenConfiguration XRRScreenConfiguration;
+
+static XRRScreenConfiguration *(*XRRGetScreenInfo)(Display *dpy, Window window);
+static void (*XRRFreeScreenConfigInfo)(XRRScreenConfiguration *config);
+static short (*XRRConfigCurrentRate)(XRRScreenConfiguration *config);
+
+
 // GLX interface
 
 // Reference: https://code.woboq.org/qt5/include/GL/
@@ -640,6 +656,7 @@ static MTY_SO *LIBGL_SO;
 static MTY_SO *LIBXI_SO;
 static MTY_SO *LIBXCURSOR_SO;
 static MTY_SO *LIBX11_SO;
+static MTY_SO *LIBXRANDR_SO;
 static bool LIBX11_INIT;
 
 static void __attribute__((destructor)) libX11_global_destroy(void)
@@ -650,6 +667,7 @@ static void __attribute__((destructor)) libX11_global_destroy(void)
 	MTY_SOUnload(&LIBXI_SO);
 	MTY_SOUnload(&LIBXCURSOR_SO);
 	MTY_SOUnload(&LIBX11_SO);
+	MTY_SOUnload(&LIBXRANDR_SO);
 	LIBX11_INIT = false;
 
 	MTY_GlobalUnlock(&LIBX11_LOCK);
@@ -666,6 +684,7 @@ static bool libX11_global_init(void)
 		LIBXI_SO = MTY_SOLoad("libXi.so.6");
 		LIBXCURSOR_SO = MTY_SOLoad("libXcursor.so.1");
 		LIBGL_SO = MTY_SOLoad("libGL.so.1");
+		LIBXRANDR_SO = MTY_SOLoad("libXrandr.so.2");
 
 		if (!LIBX11_SO || !LIBGL_SO || !LIBXI_SO || !LIBXCURSOR_SO) {
 			r = false;
@@ -673,6 +692,9 @@ static bool libX11_global_init(void)
 		}
 
 		LOAD_SYM(LIBX11_SO, XOpenDisplay);
+		LOAD_SYM(LIBX11_SO, XScreenOfDisplay);
+		LOAD_SYM(LIBX11_SO, XDefaultScreenOfDisplay);
+		LOAD_SYM(LIBX11_SO, XScreenNumberOfScreen);
 		LOAD_SYM(LIBX11_SO, XCloseDisplay);
 		LOAD_SYM(LIBX11_SO, XDefaultRootWindow);
 		LOAD_SYM(LIBX11_SO, XRootWindowOfScreen);
@@ -683,12 +705,14 @@ static bool libX11_global_init(void)
 		LOAD_SYM(LIBX11_SO, XSetInputFocus);
 		LOAD_SYM(LIBX11_SO, XStoreName);
 		LOAD_SYM(LIBX11_SO, XGetWindowAttributes);
+		LOAD_SYM(LIBX11_SO, XTranslateCoordinates);
 		LOAD_SYM(LIBX11_SO, XLookupKeysym);
 		LOAD_SYM(LIBX11_SO, XSetWMProtocols);
 		LOAD_SYM(LIBX11_SO, XInternAtom);
 		LOAD_SYM(LIBX11_SO, XNextEvent);
 		LOAD_SYM(LIBX11_SO, XEventsQueued);
 		LOAD_SYM(LIBX11_SO, XMoveWindow);
+		LOAD_SYM(LIBX11_SO, XMoveResizeWindow);
 		LOAD_SYM(LIBX11_SO, XChangeProperty);
 		LOAD_SYM(LIBX11_SO, XGetInputFocus);
 		LOAD_SYM(LIBX11_SO, XGetDefault);
@@ -735,6 +759,12 @@ static bool libX11_global_init(void)
 		LOAD_SYM(LIBXCURSOR_SO, XcursorImageCreate);
 		LOAD_SYM(LIBXCURSOR_SO, XcursorImageLoadCursor);
 		LOAD_SYM(LIBXCURSOR_SO, XcursorImageDestroy);
+
+		if (LIBXRANDR_SO) {
+			LOAD_SYM_OPT(LIBXRANDR_SO, XRRGetScreenInfo);
+			LOAD_SYM_OPT(LIBXRANDR_SO, XRRFreeScreenConfigInfo);
+			LOAD_SYM_OPT(LIBXRANDR_SO, XRRConfigCurrentRate);
+		}
 
 		LOAD_SYM(LIBGL_SO, glXGetProcAddress);
 		LOAD_SYM(LIBGL_SO, glXSwapBuffers);

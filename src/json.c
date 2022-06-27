@@ -192,6 +192,16 @@ void MTY_JSONArrayAppendItem(MTY_JSON *json, const MTY_JSON *value)
 
 // Typed getters and setters
 
+static const char *json_to_fullstring(const MTY_JSON *json)
+{
+	cJSON *cj = (cJSON *) json;
+
+	if (!cj || !cJSON_IsString(cj))
+		return NULL;
+
+	return cj->valuestring;
+}
+
 static bool json_to_string(const MTY_JSON *json, char *value, size_t size)
 {
 	cJSON *cj = (cJSON *) json;
@@ -262,12 +272,25 @@ static bool json_to_bool(const MTY_JSON *json, bool *value)
 	return true;
 }
 
-static bool json_is_null(const MTY_JSON *json)
+static MTY_JSONType json_type(const MTY_JSON *json)
 {
 	if (!json)
-		return false;
+		return MTY_JSON_NULL;
 
-	return cJSON_IsNull((cJSON *) json);
+	cJSON *cj = (cJSON *) json;
+
+	return cJSON_IsNull(cj) ? MTY_JSON_NULL :
+		cJSON_IsNumber(cj) ? MTY_JSON_NUMBER :
+		cJSON_IsString(cj) ? MTY_JSON_STRING :
+		cJSON_IsArray(cj) ? MTY_JSON_ARRAY :
+		cJSON_IsObject(cj) ? MTY_JSON_OBJECT :
+		cJSON_IsBool(cj) ? MTY_JSON_BOOL :
+		MTY_JSON_NULL;
+}
+
+const char *MTY_JSONObjGetFullString(const MTY_JSON *json, const char *key)
+{
+	return json_to_fullstring(MTY_JSONObjGetItem(json, key));
 }
 
 bool MTY_JSONObjGetString(const MTY_JSON *json, const char *key, char *val, size_t size)
@@ -315,9 +338,9 @@ bool MTY_JSONObjGetBool(const MTY_JSON *json, const char *key, bool *val)
 	return json_to_bool(MTY_JSONObjGetItem(json, key), val);
 }
 
-bool MTY_JSONObjIsValNull(const MTY_JSON *json, const char *key)
+MTY_JSONType MTY_JSONObjGetValType(const MTY_JSON *json, const char *key)
 {
-	return json_is_null(MTY_JSONObjGetItem(json, key));
+	return json_type(MTY_JSONObjGetItem(json, key));
 }
 
 void MTY_JSONObjSetString(MTY_JSON *json, const char *key, const char *val)
@@ -375,9 +398,9 @@ bool MTY_JSONArrayGetBool(const MTY_JSON *json, uint32_t index, bool *val)
 	return json_to_bool(MTY_JSONArrayGetItem(json, index), val);
 }
 
-bool MTY_JSONArrayIsValNull(const MTY_JSON *json, uint32_t index)
+MTY_JSONType MTY_JSONArrayGetValType(const MTY_JSON *json, uint32_t index)
 {
-	return json_is_null(MTY_JSONArrayGetItem(json, index));
+	return json_type(MTY_JSONArrayGetItem(json, index));
 }
 
 void MTY_JSONArraySetString(MTY_JSON *json, uint32_t index, const char *val)

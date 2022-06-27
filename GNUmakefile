@@ -26,6 +26,7 @@ OBJS = \
 	src/memory.o \
 	src/queue.o \
 	src/render.o \
+	src/resample.o \
 	src/system.o \
 	src/thread.o \
 	src/tlocal.o \
@@ -74,8 +75,11 @@ endif
 ############
 ### WASM ###
 ############
+
+# github.com/WebAssembly/wasi-sdk/releases -> ~/wasi-sdk-xx
+
 ifdef WASM
-WASI_SDK = $(HOME)/wasi-sdk-12.0
+WASI_SDK = $(HOME)/wasi-sdk-16.0
 
 CC = $(WASI_SDK)/bin/clang --sysroot=$(WASI_SDK)/share/wasi-sysroot
 AR = $(WASI_SDK)/bin/ar
@@ -213,10 +217,9 @@ objs: $(OBJS)
 ### ANDROID ###
 ###############
 
-### Downloads ###
-# https://developer.android.com/ndk/downloads -> Put in ~/android-ndk-xxx
+# developer.android.com/ndk/downloads -> ~/android-ndk-xxx
 
-ANDROID_NDK = $(HOME)/android-ndk-r23
+ANDROID_NDK = $(HOME)/android-ndk-r23c
 
 android: clean clear $(SHADERS)
 	@$(ANDROID_NDK)/ndk-build -j4 \

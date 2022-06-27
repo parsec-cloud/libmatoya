@@ -18,6 +18,7 @@
 #include "jnih.h"
 #include "keymap.h"
 #include "gfx/gl-ctx.h"
+#include "hid/utils.h"
 
 static struct MTY_App {
 	MTY_EventFunc event_func;
@@ -32,6 +33,7 @@ static struct MTY_App {
 
 	MTY_Queue *events;
 	MTY_Hash *ctrls;
+	MTY_Hash *deduper;
 	MTY_Mutex *ctrl_mutex;
 	MTY_Thread *log_thread;
 	MTY_Thread *thread;
@@ -163,6 +165,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1start(JNIEnv *env, jobj
 
 	CTX.events = MTY_QueueCreate(500, sizeof(MTY_Event));
 	CTX.ctrls = MTY_HashCreate(0);
+	CTX.deduper = MTY_HashCreate(0);
 	CTX.ctrl_mutex = MTY_MutexCreate();
 
 	CTX.log_thread_running = true;
@@ -188,6 +191,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1stop(JNIEnv *env, jobje
 
 	MTY_ThreadDestroy(&CTX.log_thread);
 	MTY_MutexDestroy(&CTX.ctrl_mutex);
+	MTY_HashDestroy(&CTX.deduper, MTY_Free);
 	MTY_HashDestroy(&CTX.ctrls, MTY_Free);
 	MTY_QueueDestroy(&CTX.events);
 
@@ -570,7 +574,9 @@ static void app_push_controller_event(MTY_App *ctx, const MTY_ControllerEvent *c
 	MTY_Event evt = {0};
 	evt.type = MTY_EVENT_CONTROLLER;
 	evt.controller = *c;
-	app_push_event(ctx, &evt);
+
+	if (mty_hid_dedupe(ctx->deduper, &evt.controller))
+		app_push_event(ctx, &evt);
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1button(JNIEnv *env, jobject obj,
@@ -944,7 +950,7 @@ void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
 
 // Window
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *frame, MTY_Window index)
 {
 	if (desc->api != MTY_GFX_NONE && desc->api != MTY_GFX_GL)
 		return -1;
@@ -958,9 +964,9 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
 }
 
-bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+MTY_Size MTY_WindowGetSize(MTY_App *app, MTY_Window window)
 {
-	MTY_WindowGetScreenSize(app, window, width, height);
+	MTY_Size size = MTY_WindowGetScreenSize(app, window);
 
 	int32_t kb_height = mty_jni_int(MTY_GetJNIEnv(), app->obj, "keyboardHeight", "()I");
 
@@ -968,22 +974,32 @@ bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_
 		kb_height = 0;
 
 	mty_gfx_set_kb_height(kb_height);
-	*height -= kb_height;
+	size.h -= kb_height;
 
-	return true;
+	return size;
 }
 
-void MTY_WindowGetPosition(MTY_App *app, MTY_Window window, int32_t *x, int32_t *y)
+MTY_Frame MTY_WindowGetFrame(MTY_App *app, MTY_Window window)
 {
-	*x = 0;
-	*y = 0;
+	return (MTY_Frame) {
+		.size = MTY_WindowGetSize(app, window),
+	};
 }
 
-bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 {
-	mty_gfx_size(width, height);
+}
 
-	return true;
+void MTY_WindowSetMinSize(MTY_App *app, MTY_Window window, uint32_t minWidth, uint32_t minHeight)
+{
+}
+
+MTY_Size MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window)
+{
+	MTY_Size size = {0};
+	mty_gfx_size(&size.w, &size.h);
+
+	return size;
 }
 
 float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
@@ -1057,6 +1073,16 @@ void *mty_window_get_native(MTY_App *app, MTY_Window window)
 
 
 // Misc
+
+MTY_Frame MTY_MakeDefaultFrame(int32_t x, int32_t y, uint32_t w, uint32_t h, float maxHeight)
+{
+	return (MTY_Frame) {
+		.x = x,
+		.y = y,
+		.size.w = w,
+		.size.h = h,
+	};
+}
 
 void MTY_HotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 {

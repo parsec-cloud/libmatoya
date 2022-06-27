@@ -66,6 +66,7 @@ struct MTY_App {
 	bool hide_cursor;
 	bool ghk_disabled;
 	bool filter_move;
+	bool filter_relative;
 	uint64_t prev_state;
 	uint64_t state;
 	uint32_t timeout;
@@ -1056,6 +1057,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	if (evt.type == MTY_EVENT_MOTION && app->detach != MTY_DETACH_STATE_NONE)
 		evt.type = MTY_EVENT_NONE;
 
+	if (evt.type == MTY_EVENT_PEN && evt.pen.flags & MTY_PEN_FLAG_LEAVE)
+		app->filter_relative = true;
+
 	// Process the message
 	if (evt.type != MTY_EVENT_NONE) {
 		app->event_func(&evt, app->opaque);
@@ -1463,6 +1467,11 @@ bool MTY_AppGetRelativeMouse(MTY_App *ctx)
 
 void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 {
+	if (ctx->filter_relative) {
+		ctx->filter_relative = false;
+		return;
+	}
+
 	if (relative && !ctx->relative) {
 		ctx->relative = true;
 		ctx->last_x = ctx->last_y = -1;

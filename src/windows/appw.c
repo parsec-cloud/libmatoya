@@ -100,10 +100,10 @@ struct MTY_App {
 
 	BOOL (WINAPI *GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
 	BOOL (WINAPI *GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
-	BOOL (WINAPI *AdjustWindowRectExForDpi)(LPRECT lpRect, DWORD dwStyle, BOOL bMenu,
-		DWORD dwExStyle, UINT dpi);
 	BOOL (WINAPI *PhysicalToLogicalPointForPerMonitorDPI)(HWND hWnd, LPPOINT lpPoint);
 	BOOL (WINAPI *PhysicalToLogicalPoint)(HWND hWnd, LPPOINT lpPoint);
+	BOOL (WINAPI *AdjustWindowRectExForDpi)(LPRECT lpRect, DWORD dwStyle, BOOL bMenu,
+		DWORD dwExStyle, UINT dpi);
 };
 
 
@@ -1233,9 +1233,9 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	HMODULE user32 = GetModuleHandle(L"user32.dll");
 	ctx->GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
 	ctx->GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
-	ctx->AdjustWindowRectExForDpi = (void *) GetProcAddress(user32, "AdjustWindowRectExForDpi");
 	ctx->PhysicalToLogicalPoint = (void *) GetProcAddress(user32, "PhysicalToLogicalPoint");
 	ctx->PhysicalToLogicalPointForPerMonitorDPI = (void *) GetProcAddress(user32, "PhysicalToLogicalPointForPerMonitorDPI");
+	ctx->AdjustWindowRectExForDpi = (void *) GetProcAddress(user32, "AdjustWindowRectExForDpi");
 
 	ImmDisableIME(0);
 

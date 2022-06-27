@@ -1046,7 +1046,7 @@ MTY_AppEnablePen(MTY_App *ctx, bool enable);
 /// @brief Enable or disable extended tablet controls override.
 /// @details When overriden, tablet controls (e.g. ExpressKeys) will be received as
 ///   through the MTY_EVENT_WINTAB event, and their configured keystrokes will not
-///   be executed. 
+///   be executed.
 /// @param ctx The MTY_App.
 /// @param enable Set true to override controls, false to revert the override.
 //- #support Windows

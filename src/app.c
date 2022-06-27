@@ -48,8 +48,11 @@ void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, cons
 	struct gfx_ctx *gfx_ctx = NULL;
 	MTY_GFX api = mty_window_get_gfx(app, window, &gfx_ctx);
 
+	MTY_Size size = MTY_WindowGetSize(app, window);
+
 	MTY_RenderDesc mutated = *desc;
-	MTY_WindowGetSize(app, window, &mutated.displayWidth, &mutated.displayHeight);
+	mutated.displayWidth = size.w;
+	mutated.displayHeight = size.h;
 
 	if (api != MTY_GFX_NONE)
 		GFX_CTX_API[api].draw_quad(gfx_ctx, image, &mutated);

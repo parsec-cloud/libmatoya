@@ -1054,9 +1054,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 	}
 
-	if (evt.type == MTY_EVENT_MOTION && app->detach != MTY_DETACH_STATE_NONE)
-		evt.type = MTY_EVENT_NONE;
-
 	if (evt.type == MTY_EVENT_PEN && evt.pen.flags & MTY_PEN_FLAG_LEAVE)
 		app->filter_relative = true;
 

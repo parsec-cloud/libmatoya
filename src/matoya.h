@@ -348,6 +348,7 @@ typedef enum {
 	MTY_EVENT_BACK         = 19, ///< The mobile back command has been triggered.
 	MTY_EVENT_SIZE         = 20, ///< The size of a window has changed.
 	MTY_EVENT_MOVE         = 21, ///< The window's top left corner has moved.
+	MTY_EVENT_WINTAB       = 22, ///< Creative tablets extended input has occurred.
 	MTY_EVENT_MAKE_32      = INT32_MAX,
 } MTY_EventType;
 
@@ -630,6 +631,14 @@ typedef enum {
 	MTY_WINDOW_MAKE_32    = INT32_MAX,
 } MTY_WindowType;
 
+/// @brief Wintab input type.
+typedef enum {
+	MTY_WINTAB_TYPE_KEY     = 0, ///< The Wintab input comes from an ExpressKey button.
+	MTY_WINTAB_TYPE_STRIP   = 1, ///< The Wintab input comes from a TouchStrip manipulation.
+	MTY_WINTAB_TYPE_RING    = 2, ///< The Wintab input comes from a TouchRing manipulation.
+	MTY_WINTAB_TYPE_MAKE_32 = INT32_MAX,
+} MTY_WintabType;
+
 /// @brief Key event.
 typedef struct {
 	MTY_Key key;  ///< The key that has been pressed or released.
@@ -694,11 +703,21 @@ typedef struct {
 	MTY_PenFlag flags; ///< Pen attributes.
 	uint16_t x;        ///< The horizontal position in the client area of the window.
 	uint16_t y;        ///< The vertical position in the client area of the window.
+	uint16_t z;        ///< The elevation position in the client area of the window.
 	uint16_t pressure; ///< Pressure on the drawing surface between 0 and 1024.
 	uint16_t rotation; ///< Rotation of the pen between 0 and 359.
 	int8_t tiltX;      ///< Horizontal tilt of the pen between -90 and 90.
 	int8_t tiltY;      ///< Vertical tilt of the pen between -90 and 90.
 } MTY_PenEvent;
+
+/// @brief Wintab input event.
+typedef struct {
+	MTY_WintabType type; ///< The Wintab input type.
+	uint16_t position;   ///< The position of the control (when applicable).
+	uint8_t device;      ///< The originating Wintab device.
+	uint8_t control;     ///< The control identifier on the device.
+	uint8_t state;       ///< The state of the control.
+} MTY_WintabEvent;
 
 /// @brief App event encapsulating all event types.
 /// @details First inspect the `type` member to determine what kind of event it is,
@@ -716,6 +735,7 @@ typedef struct MTY_Event {
 		MTY_DropEvent drop;             ///< Valid on MTY_EVENT_DROP.
 		MTY_PenEvent pen;               ///< Valid on MTY_EVENT_PEN.
 		MTY_KeyEvent key;               ///< Valid on MTY_EVENT_KEY.
+		MTY_WintabEvent wintab;         ///< Valid on MTY_EVENT_WINTAB.
 
 		const char *reopenArg; ///< Valid on MTY_EVENT_REOPEN, the argument supplied.
 		uint32_t hotkey;       ///< Valid on MTY_EVENT_HOTKEY, the `id` set via MTY_AppSetHotkey.
@@ -1019,6 +1039,16 @@ MTY_AppIsPenEnabled(MTY_App *ctx);
 //- #support Windows macOS
 MTY_EXPORT void
 MTY_AppEnablePen(MTY_App *ctx, bool enable);
+
+/// @brief Enable or disable extended tablet controls override.
+/// @details When overriden, tablet controls (e.g. ExpressKeys) will be received as
+///   through the MTY_EVENT_WINTAB event, and their configured keystrokes will not
+///   be executed. 
+/// @param ctx The MTY_App.
+/// @param enable Set true to override controls, false to revert the override.
+//- #support Windows
+MTY_EXPORT void
+MTY_AppOverrideTabletControls(MTY_App *ctx, bool override);
 
 /// @brief Get the app's current mobile input mode.
 /// @param ctx The MTY_App.
@@ -1967,6 +1997,15 @@ MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, const MTY_JSON *value);
 /// @param value Value to append.
 MTY_EXPORT void
 MTY_JSONArrayAppendItem(MTY_JSON *json, const MTY_JSON *value);
+
+/// @brief Get the full string from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @returns Returns the string value of the `key` if it exists. This reference
+///   is valid only as long as the `json` item and `key` are also valid.\n\n
+///   If the `key` does not exist, or is not a string, NULL is returned.
+MTY_EXPORT const char *
+MTY_JSONObjGetFullString(const MTY_JSON *json, const char *key);
 
 /// @brief Get a string value from a JSON object.
 /// @param json An MTY_JSON object.
@@ -3299,7 +3338,7 @@ MTY_IsSupported(void);
 /// @returns An MTY_OS value bitwise OR'd with the OS's major and minor version numbers.
 ///   The major version has a mask of `0xFF00` and the minor has a mask of `0xFF`. On
 ///   Android, only a single version number is reported, the API level, in the
-///   position of the minor number.
+///   position of the major number.
 MTY_EXPORT uint32_t
 MTY_GetPlatform(void);
 

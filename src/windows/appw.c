@@ -988,7 +988,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			wintab_on_packet(app->wintab, &evt, &pkt, focused_window->window);
 			
-			if (!app->pen_enabled)
+			if (!app->pen_enabled || !app->pen_in_range)
 				app_convert_pen_to_mouse(app, &evt);
 
 			break;

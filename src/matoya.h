@@ -625,6 +625,14 @@ typedef enum {
 	MTY_CONTEXT_STATE_MAKE_32 = INT32_MAX,
 } MTY_ContextState;
 
+/// @brief Wintab input type.
+typedef enum {
+	MTY_WINTAB_TYPE_KEY     = 0, ///< The Wintab input comes from an ExpressKey button.
+	MTY_WINTAB_TYPE_STRIP   = 1, ///< The Wintab input comes from a TouchStrip manipulation.
+	MTY_WINTAB_TYPE_RING    = 2, ///< The Wintab input comes from a TouchRing manipulation.
+	MTY_WINTAB_TYPE_MAKE_32 = INT32_MAX,
+} MTY_WintabType;
+
 /// @brief Window modes and behaviors.
 typedef enum {
 	MTY_WINDOW_NORMAL     = 0x0, ///< Normal resizable, bordered window.
@@ -633,14 +641,6 @@ typedef enum {
 	MTY_WINDOW_MAXIMIZED  = 0x4, ///< Window is maximized (zoomed).
 	MTY_WINDOW_MAKE_32    = INT32_MAX,
 } MTY_WindowType;
-
-/// @brief Wintab input type.
-typedef enum {
-	MTY_WINTAB_TYPE_KEY     = 0, ///< The Wintab input comes from an ExpressKey button.
-	MTY_WINTAB_TYPE_STRIP   = 1, ///< The Wintab input comes from a TouchStrip manipulation.
-	MTY_WINTAB_TYPE_RING    = 2, ///< The Wintab input comes from a TouchRing manipulation.
-	MTY_WINTAB_TYPE_MAKE_32 = INT32_MAX,
-} MTY_WintabType;
 
 /// @brief Key event.
 typedef struct {

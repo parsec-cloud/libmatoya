@@ -17,7 +17,7 @@
 #include <dbt.h>
 
 #include "xip.h"
-#include "wsize.h"
+#include "wintab.h"
 #include "hid/hid.h"
 
 #define APP_CLASS_NAME L"MTY_Window"
@@ -26,12 +26,10 @@
 struct window {
 	MTY_App *app;
 	MTY_Window window;
+	MTY_Frame frame;
 	MTY_GFX api;
 	HWND hwnd;
-	int32_t x;
-	int32_t y;
-	int32_t width;
-	int32_t height;
+	bool was_zoomed;
 	uint32_t min_width;
 	uint32_t min_height;
 	struct gfx_ctx *gfx_ctx;
@@ -54,6 +52,7 @@ struct MTY_App {
 	DWORD cb_seq;
 	bool pen_in_range;
 	bool pen_enabled;
+	bool pen_had_barrel;
 	bool touch_active;
 	bool relative;
 	bool kbgrab;
@@ -69,10 +68,12 @@ struct MTY_App {
 	int32_t last_y;
 	struct hid *hid;
 	struct xip *xip;
+	struct wintab *wintab;
 	MTY_Button buttons;
 	MTY_DetachState detach;
 	MTY_Hash *hotkey;
 	MTY_Hash *ghotkey;
+	MTY_Hash *deduper;
 
 	struct window *windows[MTY_WINDOW_MAX];
 
@@ -86,7 +87,7 @@ struct MTY_App {
 		bool menu_open;
 
 		struct menu_item {
-			WCHAR *label;
+			wchar_t *label;
 			uint32_t trayID;
 			MTY_MenuItemCheckedFunc checked;
 		} *items;
@@ -94,9 +95,12 @@ struct MTY_App {
 		uint32_t len;
 	} tray;
 
-	HRESULT (WINAPI *GetDpiForMonitor)(HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
 	BOOL (WINAPI *GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
 	BOOL (WINAPI *GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
+	BOOL (WINAPI *PhysicalToLogicalPointForPerMonitorDPI)(HWND hWnd, LPPOINT lpPoint);
+	BOOL (WINAPI *PhysicalToLogicalPoint)(HWND hWnd, LPPOINT lpPoint);
+	BOOL (WINAPI *AdjustWindowRectExForDpi)(LPRECT lpRect, DWORD dwStyle, BOOL bMenu,
+		DWORD dwExStyle, UINT dpi);
 };
 
 
@@ -166,36 +170,6 @@ static bool app_hwnd_visible(HWND hwnd)
 	return IsWindowVisible(hwnd) && !IsIconic(hwnd);
 }
 
-static void app_hwnd_activate(HWND hwnd, bool active)
-{
-	if (active) {
-		if (!app_hwnd_visible(hwnd))
-			ShowWindow(hwnd, SW_RESTORE);
-
-		SetForegroundWindow(hwnd);
-
-	} else {
-		ShowWindow(hwnd, SW_HIDE);
-	}
-}
-
-static float app_hwnd_get_scale(MTY_App *ctx, HWND hwnd)
-{
-	if (ctx->GetDpiForMonitor) {
-		HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-
-		if (mon) {
-			UINT x = 0;
-			UINT y = 0;
-
-			if (ctx->GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y) == S_OK)
-				return (float) x / 96.0f;
-		}
-	}
-
-	return 1.0f;
-}
-
 static bool app_hwnd_active(HWND hwnd)
 {
 	return GetForegroundWindow() == hwnd && app_hwnd_visible(hwnd);
@@ -210,6 +184,16 @@ static void app_register_raw_input(USHORT usage_page, USHORT usage, DWORD flags,
 	rid.hwndTarget = hwnd;
 	if (!RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE)))
 		MTY_Log("'RegisterRawInputDevices' failed with error 0x%X", GetLastError());
+}
+
+static void app_adjust_window_rect(MTY_App *app, float scale, RECT *r)
+{
+	if (app->AdjustWindowRectExForDpi) {
+		app->AdjustWindowRectExForDpi(r, WS_OVERLAPPEDWINDOW, FALSE, 0, lrint(scale * 96));
+
+	} else {
+		AdjustWindowRect(r, WS_OVERLAPPEDWINDOW, FALSE);
+	}
 }
 
 
@@ -620,6 +604,64 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Event *evt)
 	}
 }
 
+static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int32_t pointer_y, POINT *position)
+{
+	POINT origin = {0};
+	if (!ClientToScreen(hwnd, &origin))
+		return false;
+
+	RECT size = {0};
+	if (!GetClientRect(hwnd, &size))
+		return false;
+
+	POINT point = {pointer_x, pointer_y};
+	if (ctx->PhysicalToLogicalPointForPerMonitorDPI) {
+		if (!ctx->PhysicalToLogicalPointForPerMonitorDPI(hwnd, &point))
+			return false;
+
+	} else if (ctx->PhysicalToLogicalPoint) {
+		if (!ctx->PhysicalToLogicalPoint(hwnd, &point))
+			return false;
+
+	} else {
+		return false;
+	}
+
+	int32_t x      = (int32_t) (point.x - origin.x);
+	int32_t y      = (int32_t) (point.y - origin.y);
+	int32_t width  = size.right  - size.left;
+	int32_t height = size.bottom - size.top;
+
+	if (x < 0 || x > width || y < 0 || y > height)
+		return false;
+
+	position->x = x;
+	position->y = y;
+
+	return true;
+}
+
+static HWND app_get_hovered_window(MTY_App *ctx, int32_t pointer_x, int32_t pointer_y, POINT *position)
+{
+	HWND hwnd = GetActiveWindow();
+	if (!hwnd)
+		return NULL;
+
+	if (app_adjust_position(ctx, hwnd, pointer_x, pointer_y, position))
+		return hwnd;
+
+	for (uint8_t i = 0; i < MTY_WINDOW_MAX; i++) {
+		if (!ctx->windows[i])
+			continue;
+
+		hwnd = ctx->windows[i]->hwnd;
+		if (app_adjust_position(ctx, hwnd, pointer_x, pointer_y, position))
+			return hwnd;
+	}
+
+	return NULL;
+}
+
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	MTY_App *app = ctx->app;
@@ -631,6 +673,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	bool creturn = false;
 	bool defreturn = false;
 	bool pen_active = app->pen_enabled && app->pen_in_range;
+	bool pen_double_click = false;
 	char drop_name[MTY_PATH_MAX];
 
 	switch (msg) {
@@ -670,10 +713,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			evt.type = MTY_EVENT_SHUTDOWN;
 			break;
 		case WM_GETMINMAXINFO: {
-			float scale = app_hwnd_get_scale(app, hwnd);
 			MINMAXINFO *info = (MINMAXINFO *) lparam;
-			info->ptMinTrackSize.x = lrint((float) ctx->min_width * scale);
-			info->ptMinTrackSize.y = lrint((float) ctx->min_height * scale);
+			info->ptMinTrackSize.x = ctx->min_width;
+			info->ptMinTrackSize.y = ctx->min_height;
 			creturn = true;
 			r = 0;
 			break;
@@ -695,11 +737,17 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_MOUSEMOVE:
 			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
+				evt.motion.x = GET_X_LPARAM(lparam);
+				evt.motion.y = GET_Y_LPARAM(lparam);
+
+				if (evt.motion.x == app->last_x && evt.motion.y == app->last_y)
+					break;
+
 				evt.type = MTY_EVENT_MOTION;
 				evt.motion.relative = false;
 				evt.motion.synth = false;
-				evt.motion.x = GET_X_LPARAM(lparam);
-				evt.motion.y = GET_Y_LPARAM(lparam);
+				app->last_x = evt.motion.x;
+				app->last_y = evt.motion.y;
 			}
 
 			app->filter_move = false;
@@ -758,7 +806,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		}
 		case WM_POINTERLEAVE:
-			app->pen_in_range = false;
+			if (!app->wintab)
+				app->pen_in_range = false;
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
@@ -807,8 +856,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			if (ppi.penFlags & PEN_FLAG_ERASER)
 				evt.pen.flags |= MTY_PEN_FLAG_ERASER;
 
-			if (ppi.penFlags & PEN_FLAG_BARREL)
+			// We must send a last barrel to notify it has been released
+			bool pen_barrel = (ppi.penFlags & PEN_FLAG_BARREL) ? true : false;
+			if (pen_barrel || app->pen_had_barrel)
 				evt.pen.flags |= MTY_PEN_FLAG_BARREL;
+			app->pen_had_barrel = pen_barrel;
 
 			defreturn = true;
 			break;
@@ -846,6 +898,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				if (evt.drop.buf)
 					evt.type = MTY_EVENT_DROP;
 			}
+
+			DragFinish((HDROP) wparam);
 			break;
 		case WM_INPUT:
 			UINT rsize = APP_RI_MAX;
@@ -876,6 +930,47 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			if (wparam == DBT_DEVNODES_CHANGED && app->tray.menu_open)
 				EndMenu();
 			break;
+		case WT_PACKET: {
+			if (!app || !app->wintab || !app->pen_in_range)
+				break;
+
+			PACKET pkt = {0};
+			wintab_get_packet(app->wintab, wparam, lparam, &pkt);
+
+			POINT position = {0};
+			HWND focused_window = app_get_hovered_window(app, pkt.pkX, pkt.pkY, &position);
+			if (!focused_window)
+				break;
+
+			pkt.pkX = position.x;
+			pkt.pkY = position.y;
+
+			// Wintab context only catches events on the main window, so we update the real one manually
+			struct window *new_ctx = (struct window *) GetWindowLongPtr(focused_window, 0);
+
+			wintab_on_packet(app->wintab, &evt, &pkt, new_ctx->window, &pen_double_click);
+
+			break;
+		}
+		case WT_PACKETEXT: {
+			if (!app || !app->wintab)
+				break;
+
+			PACKETEXT pktext = {0};
+			wintab_get_packet(app->wintab, wparam, lparam, &pktext);
+			wintab_on_packetext(app->wintab, &evt, &pktext);
+
+			break;
+		}
+		case WT_PROXIMITY:
+			if (app && app->wintab)
+				app->pen_in_range = wintab_on_proximity(app->wintab, &evt, lparam);
+			break;
+		case WT_INFOCHANGE:
+			if (app)
+				wintab_recreate(&app->wintab, app_get_main_hwnd(app));
+			break;
+
 	}
 
 	// Tray
@@ -900,6 +995,13 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	// Process the message
 	if (evt.type != MTY_EVENT_NONE) {
 		app->event_func(&evt, app->opaque);
+
+		if (pen_double_click) {
+			evt.pen.flags &= ~MTY_PEN_FLAG_TOUCHING;
+			app->event_func(&evt, app->opaque);
+			evt.pen.flags &= MTY_PEN_FLAG_TOUCHING;
+			app->event_func(&evt, app->opaque);
+		}
 
 		if (evt.type == MTY_EVENT_DROP)
 			MTY_Free((void *) evt.drop.buf);
@@ -927,6 +1029,80 @@ static LRESULT CALLBACK app_hwnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 	}
 
 	return DefWindowProc(hwnd, msg, wparam, lparam);
+}
+
+
+// Monitor helpers
+
+struct monitor_cb_info {
+	HMONITOR mon;
+	wchar_t screen[MTY_SCREEN_MAX];
+};
+
+static __declspec(thread) HRESULT (WINAPI *_GetDpiForMonitor)(HMONITOR hmonitor,
+	MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
+
+static float monitor_get_scale(HMONITOR mon)
+{
+	if (!_GetDpiForMonitor) {
+		HMODULE shcore = GetModuleHandle(L"shcore.dll");
+		_GetDpiForMonitor = (void *) GetProcAddress(shcore, "GetDpiForMonitor");
+
+		if (!_GetDpiForMonitor)
+			return 1.0f;
+	}
+
+	UINT x = 0;
+	UINT y = 0;
+	_GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y);
+
+	return x / 96.0f;
+}
+
+static HMONITOR monitor_primary(void)
+{
+	POINT pt = {0};
+
+	return MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
+}
+
+static HMONITOR monitor_from_hwnd(HWND hwnd)
+{
+	return MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+}
+
+static MONITORINFOEX monitor_get_info(HMONITOR mon)
+{
+	MONITORINFOEX info = {.cbSize = sizeof(MONITORINFOEX)};
+	GetMonitorInfo(mon, (MONITORINFO *) &info);
+
+	return info;
+}
+
+static BOOL WINAPI monitor_enum(HMONITOR mon, HDC p2, RECT *p3, LPARAM p4)
+{
+	struct monitor_cb_info *info = (struct monitor_cb_info *) p4;
+	MONITORINFOEX mi = monitor_get_info(mon);
+
+	if (!wcscmp(info->screen, mi.szDevice)) {
+		info->mon = mon;
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static HMONITOR monitor_from_screen(const char *screen)
+{
+	if (!screen || !screen[0])
+		return monitor_primary();
+
+	struct monitor_cb_info info = {0};
+	MTY_MultiToWide(screen, info.screen, MTY_SCREEN_MAX);
+
+	EnumDisplayMonitors(NULL, NULL, monitor_enum, (LPARAM) &info);
+
+	return info.mon ? info.mon : monitor_primary();
 }
 
 
@@ -968,8 +1144,8 @@ static void app_hid_report(struct hid_dev *device, const void *buf, size_t size,
 	evt.type = MTY_EVENT_CONTROLLER;
 
 	if (mty_hid_driver_state(device, buf, size, &evt.controller)) {
-		// Prevent gamepad input while in the background
-		if (evt.type == MTY_EVENT_CONTROLLER && MTY_AppIsActive(ctx))
+		// Prevent gamepad input while in the background, dedupe
+		if (MTY_AppIsActive(ctx) && mty_hid_dedupe(ctx->deduper, &evt.controller))
 			ctx->event_func(&evt, ctx->opaque);
 	}
 }
@@ -984,6 +1160,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx->opaque = opaque;
 	ctx->hotkey = MTY_HashCreate(0);
 	ctx->ghotkey = MTY_HashCreate(0);
+	ctx->deduper = MTY_HashCreate(0);
 	ctx->instance = GetModuleHandle(NULL);
 	if (!ctx->instance) {
 		r = false;
@@ -1013,10 +1190,11 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx->tb_msg = RegisterWindowMessage(L"TaskbarCreated");
 
 	HMODULE user32 = GetModuleHandle(L"user32.dll");
-	HMODULE shcore = GetModuleHandle(L"shcore.dll");
-	ctx->GetDpiForMonitor = (void *) GetProcAddress(shcore, "GetDpiForMonitor");
 	ctx->GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
 	ctx->GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
+	ctx->PhysicalToLogicalPoint = (void *) GetProcAddress(user32, "PhysicalToLogicalPoint");
+	ctx->PhysicalToLogicalPointForPerMonitorDPI = (void *) GetProcAddress(user32, "PhysicalToLogicalPointForPerMonitorDPI");
+	ctx->AdjustWindowRectExForDpi = (void *) GetProcAddress(user32, "AdjustWindowRectExForDpi");
 
 	ImmDisableIME(0);
 
@@ -1038,6 +1216,8 @@ void MTY_AppDestroy(MTY_App **app)
 
 	MTY_App *ctx = *app;
 
+	wintab_destroy(&ctx->wintab, true);
+
 	if (ctx->custom_cursor)
 		DestroyIcon(ctx->custom_cursor);
 
@@ -1047,6 +1227,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_HashDestroy(&ctx->ghotkey, NULL);
+	MTY_HashDestroy(&ctx->deduper, NULL);
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(ctx, x);
@@ -1085,7 +1266,7 @@ void MTY_AppRun(MTY_App *ctx)
 
 		// XInput
 		if (focus)
-			xip_state(ctx->xip, ctx->event_func, ctx->opaque);
+			xip_state(ctx->xip, ctx->deduper, ctx->event_func, ctx->opaque);
 
 		// Tray retry in case of failure
 		app_tray_retry(ctx, window);
@@ -1123,11 +1304,7 @@ bool MTY_AppIsActive(MTY_App *ctx)
 
 void MTY_AppActivate(MTY_App *ctx, bool active)
 {
-	HWND hwnd = app_get_main_hwnd(ctx);
-	if (!hwnd)
-		return;
-
-	app_hwnd_activate(hwnd, active);
+	MTY_WindowActivate(ctx, 0, active);
 }
 
 void MTY_AppSetTray(MTY_App *ctx, const char *tooltip, const MTY_MenuItem *items, uint32_t len)
@@ -1578,6 +1755,20 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 	ctx->pen_enabled = enable;
+
+	if (enable && !ctx->wintab) {
+		ctx->wintab = wintab_create(app_get_main_hwnd(ctx));
+
+	} else if (!enable && ctx->wintab) {
+		wintab_destroy(&ctx->wintab, true);
+	}
+}
+
+void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
+{
+	wintab_override_controls(ctx->wintab, override);
+
+	wintab_recreate(&ctx->wintab, app_get_main_hwnd(ctx));
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
@@ -1592,13 +1783,70 @@ void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
 
 // Window
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
+static void window_denormalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
+{
+	MONITORINFOEX mi = monitor_get_info(mon);
+	float scale = monitor_get_scale(mon);
+
+	app_adjust_window_rect(app, scale, r);
+
+	int32_t w = r->right - r->left;
+	int32_t h = r->bottom - r->top;
+	int32_t px_h = lrint(h * (scale - 1)) / 2;
+	int32_t px_w = lrint(w * (scale - 1)) / 2;
+
+	r->top = r->top - px_h + mi.rcWork.top;
+	r->right = r->right + px_w + mi.rcWork.left;
+	r->bottom = r->bottom + px_h + mi.rcWork.top;
+	r->left = r->left - px_w + mi.rcWork.left;
+}
+
+static void window_normalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
+{
+	MONITORINFOEX mi = monitor_get_info(mon);
+	float scale = monitor_get_scale(mon);
+
+	RECT ar = {0};
+	app_adjust_window_rect(app, scale, &ar);
+
+	int32_t w = r->right - r->left;
+	int32_t h = r->bottom - r->top;
+	int32_t px_h = lrint(h * (1 - (1 / scale))) / 2;
+	int32_t px_w = lrint(w * (1 - (1 / scale))) / 2;
+
+	r->top = r->top + px_h - mi.rcWork.top - ar.top;
+	r->right = r->right - px_w - mi.rcWork.left - ar.right;
+	r->bottom = r->bottom - px_h - mi.rcWork.top - ar.bottom;
+	r->left = r->left + px_w - mi.rcWork.left - ar.left;
+}
+
+static void window_set_placement(MTY_App *app, HMONITOR mon, HWND hwnd, const MTY_Frame *frame)
+{
+	WINDOWPLACEMENT p = {.length = sizeof(WINDOWPLACEMENT)};
+
+	p.showCmd = frame->type & MTY_WINDOW_HIDDEN ? SW_HIDE :
+		frame->type & MTY_WINDOW_MAXIMIZED ? SW_MAXIMIZE : SW_NORMAL;
+
+	p.rcNormalPosition = (RECT) {
+		.top = frame->y,
+		.left = frame->x,
+		.right = frame->size.w + frame->x,
+		.bottom = frame->size.h + frame->y,
+	};
+
+	window_denormalize_rect(app, mon, &p.rcNormalPosition);
+
+	SetWindowPlacement(hwnd, &p);
+}
+
+MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *frame, MTY_Window index)
 {
 	MTY_Window window = -1;
-	wchar_t *titlew = NULL;
 	bool r = true;
 
-	window = app_find_open_window(app, desc->index);
+	wchar_t *titlew = NULL;
+
+	window = app_find_open_window(app, index);
 	if (window == -1) {
 		r = false;
 		MTY_Log("Maximum windows (MTY_WINDOW_MAX) of %u reached", MTY_WINDOW_MAX);
@@ -1611,63 +1859,54 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 	ctx->ri = MTY_Alloc(APP_RI_MAX, 1);
 	ctx->app = app;
 	ctx->window = window;
-	ctx->min_width = desc->minWidth;
-	ctx->min_height = desc->minHeight;
 
-	RECT rect = {0};
-	DWORD style = WS_OVERLAPPEDWINDOW;
-	HWND desktop = GetDesktopWindow();
+	MTY_Frame dframe = {0};
 
-	GetWindowRect(desktop, &rect);
-	int32_t desktop_height = rect.bottom - rect.top;
-	int32_t desktop_width = rect.right - rect.left;
-
-	float scale = app_hwnd_get_scale(app, desktop);
-	ctx->width = desktop_width;
-	ctx->height = desktop_height;
-	ctx->x = lrint((float) desc->x * scale);
-	ctx->y = lrint((float) desc->y * scale);
-
-	if (desc->fullscreen) {
-		style = WS_POPUP;
-		ctx->x = rect.left;
-		ctx->y = rect.top;
-
-	} else {
-		wsize_client(desc, scale, desktop_height, &ctx->x, &ctx->y, &ctx->width, &ctx->height);
-
-		RECT arect = {0};
-		arect.right = ctx->width;
-		arect.bottom = ctx->height;
-		if (AdjustWindowRectEx(&arect, WS_OVERLAPPEDWINDOW, FALSE, 0)) {
-			ctx->width = arect.right - arect.left;
-			ctx->height = arect.bottom - arect.top;
-		}
-
-		if (desc->origin == MTY_ORIGIN_CENTER)
-			wsize_center(rect.left, rect.top, desktop_width, desktop_height,
-				&ctx->x, &ctx->y, &ctx->width, &ctx->height);
+	if (!frame) {
+		dframe = APP_DEFAULT_FRAME();
+		frame = &dframe;
 	}
 
-	titlew = MTY_MultiToWideD(desc->title ? desc->title : "MTY_Window");
+	ctx->frame = *frame;
+	ctx->was_zoomed = frame->type & MTY_WINDOW_MAXIMIZED;
 
-	ctx->hwnd = CreateWindowEx(0, APP_CLASS_NAME, titlew, style,
-		ctx->x, ctx->y, ctx->width, ctx->height, NULL, NULL, app->instance, ctx);
+	HMONITOR mon = monitor_from_screen(frame->screen);
+
+	DWORD style = WS_OVERLAPPEDWINDOW;
+	int32_t w = CW_USEDEFAULT;
+	int32_t h = CW_USEDEFAULT;
+	int32_t x = CW_USEDEFAULT;
+	int32_t y = CW_USEDEFAULT;
+
+	if (frame->type & MTY_WINDOW_FULLSCREEN) {
+		MONITORINFOEX info = monitor_get_info(mon);
+
+		style = WS_POPUP;
+		x = info.rcMonitor.left;
+		y = info.rcMonitor.top;
+		w = info.rcMonitor.right - info.rcMonitor.left;
+		h = info.rcMonitor.bottom - info.rcMonitor.top;
+	}
+
+	titlew = MTY_MultiToWideD(title ? title : "MTY_Window");
+
+	ctx->hwnd = CreateWindowEx(0, APP_CLASS_NAME, titlew, style, x, y, w, h, NULL, NULL, app->instance, ctx);
 	if (!ctx->hwnd) {
 		r = false;
 		MTY_Log("'CreateWindowEx' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
-	if (!desc->hidden)
-		app_hwnd_activate(ctx->hwnd, true);
+	if (frame->type & MTY_WINDOW_FULLSCREEN) {
+		if (!(frame->type & MTY_WINDOW_HIDDEN))
+			ShowWindow(ctx->hwnd, SW_NORMAL);
 
-	if (desc->api != MTY_GFX_NONE) {
-		if (!MTY_WindowSetGFX(app, window, desc->api, desc->vsync)) {
-			r = false;
-			goto except;
-		}
+	} else {
+		window_set_placement(app, mon, ctx->hwnd, frame);
 	}
+
+	if (!(frame->type & MTY_WINDOW_HIDDEN))
+		SetForegroundWindow(ctx->hwnd);
 
 	DragAcceptFiles(ctx->hwnd, TRUE);
 
@@ -1711,63 +1950,116 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	app->windows[window] = NULL;
 }
 
-bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+MTY_Size MTY_WindowGetSize(MTY_App *app, MTY_Window window)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
-		return false;
+		return (MTY_Size) {0};
 
-	RECT rect = {0};
-	if (GetClientRect(ctx->hwnd, &rect)) {
-		*width = rect.right - rect.left;
-		*height = rect.bottom - rect.top;
-		return true;
-	}
+	RECT r = {0};
+	GetClientRect(ctx->hwnd, &r);
 
-	return false;
+	return (MTY_Size) {
+		.w = r.right,
+		.h = r.bottom,
+	};
 }
 
-void MTY_WindowGetPosition(MTY_App *app, MTY_Window window, int32_t *x, int32_t *y)
+static MTY_Frame window_get_placement(MTY_App *app, HWND hwnd)
+{
+	HMONITOR mon = monitor_from_hwnd(hwnd);
+	MONITORINFOEX mi = monitor_get_info(mon);
+
+	WINDOWPLACEMENT p = {.length = sizeof(WINDOWPLACEMENT)};
+	GetWindowPlacement(hwnd, &p);
+
+	window_normalize_rect(app, mon, &p.rcNormalPosition);
+
+	MTY_Frame frame = {
+		.y = p.rcNormalPosition.top,
+		.x = p.rcNormalPosition.left,
+		.size.w = p.rcNormalPosition.right - p.rcNormalPosition.left,
+		.size.h = p.rcNormalPosition.bottom - p.rcNormalPosition.top,
+	};
+
+	frame.type = p.showCmd == SW_MAXIMIZE ? MTY_WINDOW_MAXIMIZED : MTY_WINDOW_NORMAL;
+	snprintf(frame.screen, MTY_SCREEN_MAX, "%s", MTY_WideToMultiDL(mi.szDevice));
+
+	return frame;
+}
+
+MTY_Frame MTY_WindowGetFrame(MTY_App *app, MTY_Window window)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return (MTY_Frame) {0};
+
+	if (MTY_WindowIsFullscreen(app, window))
+		return ctx->frame;
+
+	return window_get_placement(app, ctx->hwnd);
+}
+
+void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	RECT rect = {0};
-	if (GetWindowRect(ctx->hwnd, &rect)) {
-		*x = rect.left;
-		*y = rect.top;
+	HMONITOR mon = monitor_from_screen(frame->screen);
+
+	if (frame->type & MTY_WINDOW_FULLSCREEN) {
+		ctx->frame = *frame;
+
+		MONITORINFOEX info = monitor_get_info(mon);
+
+		uint32_t x = info.rcMonitor.left;
+		uint32_t y = info.rcMonitor.top;
+		uint32_t w = info.rcMonitor.right - info.rcMonitor.left;
+		uint32_t h = info.rcMonitor.bottom - info.rcMonitor.top;
+
+		SetWindowLongPtr(ctx->hwnd, GWL_STYLE, WS_VISIBLE | WS_POPUP);
+		SetWindowPos(ctx->hwnd, HWND_TOP, x, y, w, h, SWP_FRAMECHANGED);
+
+	} else {
+		LONG_PTR ptr = WS_OVERLAPPEDWINDOW;
+		if (frame->type & MTY_WINDOW_MAXIMIZED)
+			ptr |= WS_MAXIMIZE;
+
+		SetWindowLongPtr(ctx->hwnd, GWL_STYLE, ptr);
+		window_set_placement(app, mon, ctx->hwnd, frame);
+
+		PostMessage(ctx->hwnd, WM_SETICON, ICON_BIG, GetClassLongPtr(ctx->hwnd, GCLP_HICON));
+		PostMessage(ctx->hwnd, WM_SETICON, ICON_SMALL, GetClassLongPtr(ctx->hwnd, GCLP_HICONSM));
 	}
 }
 
-static bool window_get_monitor_info(HWND hwnd, MONITORINFOEX *info)
-{
-	HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-
-	if (mon) {
-		memset(info, 0, sizeof(MONITORINFOEX));
-		info->cbSize = sizeof(MONITORINFOEX);
-
-		return GetMonitorInfo(mon, (LPMONITORINFO) info);
-	}
-
-	return false;
-}
-
-bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+void MTY_WindowSetMinSize(MTY_App *app, MTY_Window window, uint32_t minWidth, uint32_t minHeight)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
-		return false;
+		return;
 
-	MONITORINFOEX info = {0};
-	if (window_get_monitor_info(ctx->hwnd, &info)) {
-		*width = info.rcMonitor.right - info.rcMonitor.left;
-		*height = info.rcMonitor.bottom - info.rcMonitor.top;
-		return true;
-	}
+	RECT r = {.right = minWidth, .bottom = minHeight};
+	HMONITOR mon = monitor_from_hwnd(ctx->hwnd);
+	window_denormalize_rect(app, mon, &r);
 
-	return false;
+	ctx->min_width = r.right - r.left;
+	ctx->min_height = r.bottom - r.top;
+}
+
+MTY_Size MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return (MTY_Size) {0};
+
+	MONITORINFOEX info = monitor_get_info(monitor_from_hwnd(ctx->hwnd));
+
+	return (MTY_Size) {
+		.w = info.rcMonitor.right - info.rcMonitor.left,
+		.h = info.rcMonitor.bottom - info.rcMonitor.top,
+	};
 }
 
 float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
@@ -1776,7 +2068,7 @@ float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return 1.0f;
 
-	return app_hwnd_get_scale(app, ctx->hwnd);
+	return monitor_get_scale(monitor_from_hwnd(ctx->hwnd));
 }
 
 uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
@@ -1785,19 +2077,11 @@ uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return 60;
 
-	HMONITOR mon = MonitorFromWindow(ctx->hwnd, MONITOR_DEFAULTTONEAREST);
-	if (mon) {
-		MONITORINFOEX info = {0};
-		info.cbSize = sizeof(MONITORINFOEX);
+	MONITORINFOEX info = monitor_get_info(monitor_from_hwnd(ctx->hwnd));
+	DEVMODE mode = {.dmSize = sizeof(DEVMODE)};
 
-		if (GetMonitorInfo(mon, (LPMONITORINFO) &info))  {
-			DEVMODE mode = {0};
-			mode.dmSize = sizeof(DEVMODE);
-
-			if (EnumDisplaySettings(info.szDevice, ENUM_CURRENT_SETTINGS, &mode))
-				return mode.dmDisplayFrequency;
-		}
-	}
+	if (EnumDisplaySettings(info.szDevice, ENUM_CURRENT_SETTINGS, &mode))
+		return mode.dmDisplayFrequency;
 
 	return 60;
 }
@@ -1809,7 +2093,9 @@ void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 		return;
 
 	wchar_t *titlew = MTY_MultiToWideD(title);
+
 	SetWindowText(ctx->hwnd, titlew);
+
 	MTY_Free(titlew);
 }
 
@@ -1837,7 +2123,16 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 	if (!ctx)
 		return;
 
-	app_hwnd_activate(ctx->hwnd, active);
+	if (active) {
+		if (!app_hwnd_visible(ctx->hwnd))
+			ShowWindow(ctx->hwnd, ctx->was_zoomed ? SW_MAXIMIZE : SW_RESTORE);
+
+		SetForegroundWindow(ctx->hwnd);
+
+	} else {
+		ctx->was_zoomed = IsZoomed(ctx->hwnd);
+		ShowWindow(ctx->hwnd, SW_HIDE);
+	}
 }
 
 bool MTY_WindowExists(MTY_App *app, MTY_Window window)
@@ -1861,33 +2156,15 @@ void MTY_WindowSetFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 		return;
 
 	if (fullscreen && !MTY_WindowIsFullscreen(app, window)) {
-		MONITORINFOEX info = {0};
-		if (window_get_monitor_info(ctx->hwnd, &info)) {
-			WINDOWPLACEMENT pl = {0};
-			pl.length = sizeof(WINDOWPLACEMENT);
+		MTY_Frame frame = window_get_placement(app, ctx->hwnd);
+		frame.type |= MTY_WINDOW_FULLSCREEN;
 
-			if (GetWindowPlacement(ctx->hwnd, &pl)) {
-				ctx->x = pl.rcNormalPosition.left;
-				ctx->y = pl.rcNormalPosition.top;
-				ctx->width = pl.rcNormalPosition.right - pl.rcNormalPosition.left;
-				ctx->height = pl.rcNormalPosition.bottom - pl.rcNormalPosition.top;
-			}
-
-			uint32_t x = info.rcMonitor.left;
-			uint32_t y = info.rcMonitor.top;
-			uint32_t w = info.rcMonitor.right - info.rcMonitor.left;
-			uint32_t h = info.rcMonitor.bottom - info.rcMonitor.top;
-
-			SetWindowLongPtr(ctx->hwnd, GWL_STYLE, WS_VISIBLE | WS_POPUP);
-			SetWindowPos(ctx->hwnd, HWND_TOP, x, y, w, h, SWP_FRAMECHANGED);
-		}
+		MTY_WindowSetFrame(app, window, &frame);
 
 	} else if (!fullscreen && MTY_WindowIsFullscreen(app, window)) {
-		SetWindowLongPtr(ctx->hwnd, GWL_STYLE, WS_VISIBLE | WS_OVERLAPPEDWINDOW);
-		SetWindowPos(ctx->hwnd, HWND_TOP, ctx->x, ctx->y, ctx->width, ctx->height, SWP_FRAMECHANGED);
+		ctx->frame.type &= ~MTY_WINDOW_FULLSCREEN;
 
-		PostMessage(ctx->hwnd, WM_SETICON, ICON_BIG, GetClassLongPtr(ctx->hwnd, GCLP_HICON));
-		PostMessage(ctx->hwnd, WM_SETICON, ICON_SMALL, GetClassLongPtr(ctx->hwnd, GCLP_HICONSM));
+		MTY_WindowSetFrame(app, window, &ctx->frame);
 	}
 }
 
@@ -1897,11 +2174,9 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 	if (!ctx)
 		return;
 
-	POINT p;
-	p.x = x;
-	p.y = y;
-
 	ClipCursor(NULL);
+
+	POINT p = {.x = x, .y = y};
 	if (ClientToScreen(ctx->hwnd, &p))
 		SetCursorPos(p.x, p.y);
 
@@ -1950,6 +2225,18 @@ void *mty_window_get_native(MTY_App *app, MTY_Window window)
 
 // Misc
 
+MTY_Frame MTY_MakeDefaultFrame(int32_t x, int32_t y, uint32_t w, uint32_t h, float maxHeight)
+{
+	HMONITOR mon = monitor_primary();
+	MONITORINFOEX info = monitor_get_info(mon);
+
+	uint32_t screen_h = info.rcMonitor.bottom - info.rcMonitor.top;
+	uint32_t screen_w = info.rcMonitor.right - info.rcMonitor.left;
+	float scale = monitor_get_scale(mon);
+
+	return mty_window_adjust(screen_w, screen_h, scale, maxHeight, x, y, w, h);
+}
+
 static bool app_key_to_str(MTY_Key key, char *str, size_t len)
 {
 	LONG lparam = (key & 0xFF) << 16;
@@ -1982,11 +2269,11 @@ void MTY_HotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 
 void MTY_SetAppID(const char *id)
 {
-	WCHAR *wid = MTY_MultiToWideD(id);
+	wchar_t *idw = MTY_MultiToWideD(id);
 
-	SetCurrentProcessExplicitAppUserModelID(wid);
+	SetCurrentProcessExplicitAppUserModelID(idw);
 
-	MTY_Free(wid);
+	MTY_Free(idw);
 }
 
 void *MTY_GLGetProcAddress(const char *name)

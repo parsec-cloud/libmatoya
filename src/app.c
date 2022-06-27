@@ -7,6 +7,7 @@
 #include "app.h"
 
 #include <stdio.h>
+#include <math.h>
 
 
 // GFX
@@ -115,6 +116,9 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 
 		// Fallback
 		if (!gfx_ctx) {
+			if (api == MTY_GFX_D3D12)
+				return MTY_WindowSetGFX(app, window, MTY_GFX_D3D11, vsync);
+
 			if (api == MTY_GFX_D3D11)
 				return MTY_WindowSetGFX(app, window, MTY_GFX_D3D9, vsync);
 
@@ -127,6 +131,42 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 	}
 
 	return gfx_ctx ? true : false;
+}
+
+
+// Window sizing
+
+MTY_Frame mty_window_adjust(uint32_t screen_w, uint32_t screen_h, float scale, float max_h,
+	int32_t x, int32_t y, uint32_t w, uint32_t h)
+{
+	if (h * scale > max_h * screen_h) {
+		float aspect = (float) w / h;
+		h = lrint(max_h * screen_h);
+		w = lrint(h * aspect);
+	}
+
+	if (screen_w > w) {
+		x += (screen_w - w) / 2;
+
+	} else {
+		x = 0;
+		w = screen_w;
+	}
+
+	if (screen_h > h) {
+		y += (screen_h - h) / 2;
+
+	} else {
+		y = 0;
+		h = screen_h;
+	}
+
+	return (MTY_Frame) {
+		.x = x,
+		.y = y,
+		.size.w = w,
+		.size.h = h,
+	};
 }
 
 
@@ -157,8 +197,10 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		PEVENT(MTY_EVENT_CLIPBOARD, evt, "");
 		PEVENT(MTY_EVENT_TRAY, evt, "id: %u", evt->trayID);
 		PEVENT(MTY_EVENT_REOPEN, evt, "arg: %s", evt->reopenArg);
-		PEVENT(MTY_EVENT_PEN, evt, "x: %u, y: %u, flags: 0x%X, pressure: %u, rotation: %u, tiltX: %d, tiltY: %d",
-			evt->pen.x, evt->pen.y, evt->pen.flags, evt->pen.pressure, evt->pen.rotation, evt->pen.tiltX, evt->pen.tiltY);
+		PEVENT(MTY_EVENT_PEN, evt, "x: %u, y: %u, z: %u, flags: 0x%X, pressure: %u, rotation: %u, tiltX: %d, tiltY: %d",
+			evt->pen.x, evt->pen.y, evt->pen.z, evt->pen.flags, evt->pen.pressure, evt->pen.rotation, evt->pen.tiltX, evt->pen.tiltY);
+		PEVENT(MTY_EVENT_WINTAB, evt, "type: %d, device: %d, control: %d, state: %d, position: %d",
+			evt->wintab.type, evt->wintab.device, evt->wintab.control, evt->wintab.state, evt->wintab.position);
 		PEVENT(MTY_EVENT_CONNECT, evt, "id: %u", evt->controller.id);
 		PEVENT(MTY_EVENT_DISCONNECT, evt, "id: %u", evt->controller.id);
 		PEVENT(MTY_EVENT_SIZE, evt, "");

@@ -652,11 +652,15 @@ static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
 	if (!GetCursorPos(&cursor))
 		return NULL;
 
+	HWND hwnd = WindowFromPoint(cursor);
+	if (!hwnd)
+		return NULL;
+
 	for (uint8_t i = 0; i < MTY_WINDOW_MAX; i++) {
-		if (!ctx->windows[i])
+		if (!ctx->windows[i] || ctx->windows[i]->hwnd != hwnd)
 			continue;
 
-		if (app_adjust_position(ctx, ctx->windows[i]->hwnd, cursor.x, cursor.y, position))
+		if (app_adjust_position(ctx, hwnd, cursor.x, cursor.y, position))
 			return ctx->windows[i];
 	}
 
@@ -735,7 +739,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_KILLFOCUS:
 			evt.type = MTY_EVENT_FOCUS;
 			evt.focus = msg == WM_SETFOCUS;
-			if (!evt.focus && app->pen_in_range)
+			if (!evt.focus && app->pen_in_range && !MTY_AppIsActive(app))
 				app->pen_in_range = false;
 			app->state++;
 			break;
@@ -767,7 +771,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
-			if (app && app->wintab) {
+			if (app && app->wintab && !MTY_AppIsActive(app)) {
 				SetFocus(hwnd);
 				wintab_overlap_context(app->wintab, true);
 			}

@@ -772,7 +772,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wintab_overlap_context(app->wintab, true);
 			}
 
-			if (!app->filter_move && !app->pen_in_range) {
+			if (!app->filter_move && !app->pen_in_range && (!app->relative || app_hwnd_active(hwnd))) {
 				evt.motion.x = GET_X_LPARAM(lparam);
 				evt.motion.y = GET_Y_LPARAM(lparam);
 
@@ -980,6 +980,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			POINT position = {0};
 			struct window *focused_window = app_get_hovered_window(app, &position);
+			app->filter_relative = focused_window == NULL;
 			if (!focused_window)
 				break;
 
@@ -1516,7 +1517,7 @@ bool MTY_AppGetRelativeMouse(MTY_App *ctx)
 
 void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 {
-	if (ctx->filter_relative) {
+	if (ctx->filter_relative && relative) {
 		ctx->filter_relative = false;
 		return;
 	}

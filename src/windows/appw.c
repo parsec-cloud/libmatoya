@@ -1040,6 +1040,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	if (evt.type == MTY_EVENT_PEN && evt.pen.flags & MTY_PEN_FLAG_LEAVE)
 		app->filter_relative = true;
 
+	if (evt.type == MTY_EVENT_BUTTON && !app_get_hovered_window(app, NULL))
+		evt.type = MTY_EVENT_NONE;
+
 	// Process the message
 	if (evt.type != MTY_EVENT_NONE) {
 		app->event_func(&evt, app->opaque);
@@ -1487,9 +1490,6 @@ MTY_DetachState MTY_AppGetDetachState(MTY_App *ctx)
 
 void MTY_AppSetDetachState(MTY_App *ctx, MTY_DetachState state)
 {
-	if (!app_get_hovered_window(ctx, NULL))
-		return;
-
 	if (ctx->detach != state) {
 		ctx->detach = state;
 		ctx->state++;

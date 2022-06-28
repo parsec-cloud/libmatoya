@@ -771,10 +771,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
-			if (app && app->wintab && !MTY_AppIsActive(app)) {
-				SetFocus(hwnd);
+			if (app && app->wintab)
 				wintab_overlap_context(app->wintab, true);
-			}
 
 			if (!app->filter_move && !app->pen_in_range && (!app->relative || app_hwnd_active(hwnd))) {
 				evt.motion.x = GET_X_LPARAM(lparam);

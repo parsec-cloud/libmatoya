@@ -703,6 +703,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	evt.window = ctx->window;
 
 	LRESULT r = 0;
+	HWND focused_hwnd = hwnd;
 	bool creturn = false;
 	bool defreturn = false;
 	char drop_name[MTY_PATH_MAX];
@@ -986,6 +987,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			if (!focused_window)
 				break;
 
+			focused_hwnd = focused_window->hwnd;
+
 			pkt.pkX = position.x;
 			pkt.pkY = position.y;
 
@@ -1030,7 +1033,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	// Record pressed buttons
 	if (evt.type == MTY_EVENT_BUTTON) {
-		app_set_button_coords(hwnd, &evt);
+		app_set_button_coords(focused_hwnd, &evt);
 
 		if (evt.button.pressed) {
 			app->buttons |= 1 << evt.button.button;

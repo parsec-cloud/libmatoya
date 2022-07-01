@@ -38,6 +38,7 @@ LOCAL_CFLAGS = $(DEFS) $(FLAGS)
 
 LOCAL_SRC_FILES := \
 	src/app.c \
+	src/archive.c \
 	src/crypto.c \
 	src/file.c \
 	src/hash.c \

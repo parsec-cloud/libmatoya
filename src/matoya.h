@@ -3618,6 +3618,50 @@ MTY_EXPORT uint32_t
 MTY_GetVersion(void);
 
 
+//- #module Archive
+//- #mbrief Archive files manipulation.
+//- #mdetails Currently only supports ZIP archives extract.
+
+typedef struct MTY_Archive MTY_Archive;
+
+/// @brief Archived file details.
+typedef struct {
+	char *path;     ///< Path of the file in the archive.
+	bool directory; ///< Flag indicating if the file is a directory.
+	size_t size;    ///< Uncompressed size of the archived file.
+	void *data;     ///< Raw file data, available after unpacking.
+} MTY_ArchiveFile;
+
+/// @brief Open an archive file from memory data.
+/// @param data Memory buffer of the archive.
+/// @param size Size of the memory buffer.
+/// @return The returned MTY_Archive must be destroyed with MTY_ArchiveDestroy.
+MTY_EXPORT MTY_Archive *
+MTY_ArchiveOpen(const void *data, size_t size);
+
+/// @brief Destroy an MTY_Archive.
+/// @param archive The MTY_Archive context.
+MTY_EXPORT void
+MTY_ArchiveDestroy(MTY_Archive **archive);
+
+/// @brief Read a file from the archive.
+/// @details `file` acts as an iterator: pass `NULL` on the first call to start from the beggining,
+///   and pass the current `file` on further calls to retrieve the next ones.
+/// @param ctx The MTY_Archive context.
+/// @param file The current `file`, or `NULL` on the first call.
+/// @return True if a file has been extracted, false if the archive has no remaining file.
+MTY_EXPORT bool
+MTY_ArchiveReadFile(MTY_Archive *ctx, MTY_ArchiveFile **file);
+
+/// @brief Uncompress a file into memory.
+/// @details MTY_ArchiveFile's `data` is only available after calling this function.
+/// @param ctx The MTY_Archive context.
+/// @param file The file to unpack.
+/// @return True if successfull, false otherwise.
+MTY_EXPORT bool
+MTY_ArchiveUnpack(MTY_Archive *ctx, MTY_ArchiveFile *file);
+
+
 #ifdef __cplusplus
 }
 #endif

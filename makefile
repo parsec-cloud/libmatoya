@@ -24,6 +24,7 @@ NAME = matoya
 
 OBJS = \
 	src\app.obj \
+	src\archive.obj \
 	src\crypto.obj \
 	src\file.obj \
 	src\hash.obj \

@@ -14,7 +14,7 @@
 #include "keymap.h"
 #include "hid/hid.h"
 #include "hid/utils.h"
-
+#include "webview.h"
 
 // NSApp
 
@@ -314,6 +314,7 @@ static void app_fix_mouse_buttons(App *ctx)
 
 @interface Window : NSWindow <NSWindowDelegate>
 	@property(strong) App *app;
+	@property MTY_Hash *webviews;
 	@property MTY_Window window;
 	@property MTY_GFX api;
 	@property bool was_maximized;
@@ -831,6 +832,7 @@ static void window_mod_event(Window *window, NSEvent *event)
 	{
 		MTY_Event evt = window_event(self, MTY_EVENT_SIZE);
 		self.app.event_func(&evt, self.app.opaque);
+		mty_webviews_resize(self.webviews);
 	}
 
 	- (void)windowDidMove:(NSNotification *)notification
@@ -1398,7 +1400,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	Window *ctx = nil;
 	View *content = nil;
 
-	NSScreen *screen = screen_from_display_id(atoi(frame->screen));
+	NSScreen *screen = screen_from_display_id(atoi(frame ? frame->screen : ""));
 
 	window = app_find_open_window(app, index);
 	if (window == -1) {
@@ -1423,6 +1425,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	ctx.title = [NSString stringWithUTF8String:title ? title : "MTY_Window"];
 	ctx.window = window;
 	ctx.app = (__bridge App *) app;
+	ctx.webviews = MTY_HashCreate(0);
 
 	[ctx setDelegate:ctx];
 	[ctx setAcceptsMouseMovedEvents:YES];
@@ -1461,8 +1464,26 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return;
 
+	MTY_Hash *webviews = ctx.webviews;
+	MTY_HashDestroy(&webviews, (MTY_FreeFunc) mty_webview_destroy);
+	ctx.webviews = NULL;
+
 	ctx.app.windows[window] = NULL;
 	[ctx close];
+}
+
+MTY_Webview *MTY_WindowCreateWebview(MTY_App *app, MTY_Window window)
+{
+	Window *w = app_get_window(app, window);
+
+	return mty_window_create_webview(w.webviews, (__bridge void *) w.contentView, w.app.opaque);
+}
+
+void MTY_WindowDestroyWebview(MTY_App *app, MTY_Window window, MTY_Webview **webview)
+{
+	Window *w = app_get_window(app, window);
+
+	mty_window_destroy_webview(w.webviews, webview);
 }
 
 MTY_Size MTY_WindowGetSize(MTY_App *app, MTY_Window window)

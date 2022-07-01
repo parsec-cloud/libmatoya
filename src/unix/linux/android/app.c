@@ -19,11 +19,13 @@
 #include "keymap.h"
 #include "gfx/gl-ctx.h"
 #include "hid/utils.h"
+#include "webview.h"
 
 static struct MTY_App {
 	MTY_EventFunc event_func;
 	MTY_AppFunc app_func;
 	MTY_Hash *hotkey;
+	MTY_Hash *webviews;
 	MTY_DetachState detach;
 	uint32_t timeout;
 	float scale;
@@ -212,6 +214,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1resize(JNIEnv *env, job
 	evt.type = MTY_EVENT_SIZE;
 
 	app_push_event(&CTX, &evt);
+
+	mty_webviews_resize(CTX.webviews);
 }
 
 
@@ -668,6 +672,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx->event_func = eventFunc;
 	ctx->opaque = opaque;
 	ctx->hotkey = MTY_HashCreate(0);
+	ctx->webviews = MTY_HashCreate(0);
 
 	ctx->scale = app_get_scale(ctx);
 
@@ -682,6 +687,7 @@ void MTY_AppDestroy(MTY_App **app)
 	MTY_App *ctx = *app;
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
+	MTY_HashDestroy(&ctx->webviews, (MTY_FreeFunc) mty_webview_destroy);
 	*app = NULL;
 }
 
@@ -933,6 +939,18 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 
 void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
+}
+
+MTY_Webview *MTY_WindowCreateWebview(MTY_App *app, MTY_Window window)
+{
+	void *handle[2] = { app->obj, mty_gfx_size };
+
+	return mty_window_create_webview(app->webviews, handle, app->opaque);
+}
+
+void MTY_WindowDestroyWebview(MTY_App *app, MTY_Window window, MTY_Webview **webview)
+{
+	mty_window_destroy_webview(app->webviews, webview);
 }
 
 MTY_Size MTY_WindowGetSize(MTY_App *app, MTY_Window window)

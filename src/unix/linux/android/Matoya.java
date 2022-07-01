@@ -2,6 +2,7 @@ package group.matoya.lib;
 
 import android.app.Activity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.SurfaceHolder;
@@ -18,7 +19,15 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebChromeClient;
+import android.webkit.ConsoleMessage;
+import android.webkit.JavascriptInterface;
 import android.text.InputType;
+import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.content.Context;
@@ -32,8 +41,14 @@ import android.util.Log;
 import android.util.DisplayMetrics;
 import android.util.Base64;
 import android.widget.Scroller;
+import android.widget.FrameLayout;
 import android.os.Vibrator;
 import android.net.Uri;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 
 public class Matoya extends SurfaceView implements
 	SurfaceHolder.Callback,
@@ -45,11 +60,14 @@ public class Matoya extends SurfaceView implements
 	ClipboardManager.OnPrimaryClipChangedListener
 {
 	Activity activity;
+	FrameLayout layout;
 	KeyCharacterMap kbmap;
 	PointerIcon cursor;
 	PointerIcon invisCursor;
 	GestureDetector detector;
 	ScaleGestureDetector sdetector;
+	HashMap<Long, WebView> webviews;
+	HashMap<Long, ArrayList<String>> scripts;
 	Scroller scroller;
 	Vibrator vibrator;
 	boolean hiddenCursor;
@@ -79,6 +97,10 @@ public class Matoya extends SurfaceView implements
 		float lT, float rT, float lTalt, float rTalt);
 	native void app_unhandled_touch(int action, float x, float y, int fingers);
 
+	native void webview_handle_event(long ctx, String json);
+	native byte[] webview_get_resource(long ctx, String url);
+	native String webview_get_mime(long ctx, String url);
+
 	static {
 		System.loadLibrary("main");
 	}
@@ -105,13 +127,18 @@ public class Matoya extends SurfaceView implements
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.invisCursor = PointerIcon.create(bm, 0, 0);
 
-		activity.setContentView(this);
+		this.layout = new FrameLayout(this.activity);
+		this.layout.addView(this);
+		activity.setContentView(this.layout);
 
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.addPrimaryClipChangedListener(this);
 
 		InputManager manager = (InputManager) activity.getSystemService(Context.INPUT_SERVICE);
 		manager.registerInputDeviceListener(this, null);
+
+		webviews = new HashMap<Long, WebView>();
+		scripts = new HashMap<Long, ArrayList<String>>();
 
 		this.getHolder().addCallback(this);
 		this.detector.setOnDoubleTapListener(this);
@@ -528,6 +555,139 @@ public class Matoya extends SurfaceView implements
 		return this.hasPointerCapture();
 	}
 
+
+	// Webview
+
+	public void webviewShow(final long identifier)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				WebView webview = new WebView(self.activity);
+				webview.setBackgroundColor(Color.TRANSPARENT);
+				webview.getSettings().setJavaScriptEnabled(true);
+
+				webview.addJavascriptInterface(new Object() {
+					@JavascriptInterface
+					public void invoke(String json) {
+						webview_handle_event(identifier, json);
+					}
+				}, "external");
+
+				webview.setWebViewClient(new WebViewClient() {
+					@Override
+					public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+						String url = request.getUrl().toString();
+
+						byte[] res = webview_get_resource(identifier, url);
+						if (res == null)
+							return null;
+
+						String mime = webview_get_mime(identifier, url);
+						InputStream stream = new ByteArrayInputStream(res);
+
+						HashMap<String, String> headers = new HashMap<String, String>();
+						headers.put("Access-Control-Allow-Origin", "*");
+
+						return new WebResourceResponse(mime, "utf-8", 200, "OK", headers, stream);
+					}
+				});
+
+				self.layout.addView(webview);
+				self.webviews.put(identifier, webview);
+				self.scripts.put(identifier, new ArrayList<String>());
+			}
+		});
+	}
+
+	public void webviewDestroy(final long identifier)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webviews.remove(identifier).destroy();
+			}
+		});
+	}
+
+	public void webviewResize(final long identifier, final int x, final int y, final int width, final int height)
+	{
+		final WebView webview = this.webviews.get(identifier);
+
+		webview.post(new Runnable() {
+			@Override
+			public void run() {
+				FrameLayout.LayoutParams layout = new FrameLayout.LayoutParams(width, height);
+				layout.leftMargin = x;
+				layout.topMargin = y;
+
+				webview.setLayoutParams(layout);
+			}
+		});
+	}
+
+	public void webviewEnableDevTools(final boolean enabled)
+	{
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				WebView.setWebContentsDebuggingEnabled(enabled);
+			}
+		});
+	}
+
+	public void webviewNavigateURL(final long identifier, final String url)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webviews.get(identifier).loadUrl(url, null);
+			}
+		});
+	}
+
+	public void webviewNavigateHTML(final long identifier, final String html)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				String scriptedHtml = html;
+				ArrayList<String> scripts = self.scripts.get(identifier);
+
+				for (int i = scripts.size() - 1; i >= 0; i--)
+					scriptedHtml = scriptedHtml.replace("<body>", "<body><script>" + scripts.get(i) + "</script>");
+
+				String encodedHtml = Base64.encodeToString(scriptedHtml.getBytes(StandardCharsets.US_ASCII), Base64.DEFAULT);
+				self.webviews.get(identifier).loadData(encodedHtml, "text/html; charset=utf-8", "base64");
+			}
+		});
+	}
+
+	public void webviewJavascriptInit(final long identifier, final String js)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.scripts.get(identifier).add(js);
+			}
+		});
+	}
+
+	public void webviewJavascriptEval(final long identifier, final String js)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webviews.get(identifier).evaluateJavascript(js, null);
+			}
+		});
+	}
 
 	// Misc
 

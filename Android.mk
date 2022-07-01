@@ -46,6 +46,7 @@ LOCAL_SRC_FILES := \
 	src/list.c \
 	src/log.c \
 	src/memory.c \
+	src/mime.c \
 	src/queue.c \
 	src/render.c \
 	src/resample.c \

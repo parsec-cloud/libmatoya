@@ -23,6 +23,7 @@ OBJS = \
 	src/list.o \
 	src/log.o \
 	src/memory.o \
+	src/mime.o \
 	src/queue.o \
 	src/render.o \
 	src/resample.o \

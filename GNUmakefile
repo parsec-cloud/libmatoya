@@ -123,10 +123,11 @@ OBJS := $(OBJS) \
 	src/unix/linux/generic/evdev.o \
 	src/unix/linux/generic/system.o \
 	src/unix/linux/generic/tls.o \
+	src/unix/linux/generic/webview.o \
 	src/unix/linux/generic/gfx/gl-ctx.o
 
 TARGET = linux
-INCLUDES := $(INCLUDES) -Isrc/unix/linux -Isrc/unix/linux/generic
+INCLUDES := $(INCLUDES) $(shell pkg-config --cflags --libs x11 gtk+-3.0 webkit2gtk-4.0) -Isrc/unix/linux -Isrc/unix/linux/generic
 endif
 
 #############

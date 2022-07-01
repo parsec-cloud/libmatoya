@@ -18,10 +18,12 @@
 #include "hid/utils.h"
 #include "evdev.h"
 #include "keymap.h"
+#include "webview.h"
 
 struct window {
 	Window window;
 	MTY_Window index;
+	MTY_Hash *webviews;
 	XIC ic;
 	MTY_GFX api;
 	MTY_Frame frame;
@@ -514,6 +516,8 @@ static void app_event(MTY_App *ctx, XEvent *event)
 					win->frame.size.w = xc->width;
 					win->frame.size.h = xc->height;
 				}
+
+				mty_webviews_resize(win->webviews);
 			}
 
 			if (xc->send_event && (win->frame.x != xc->x || win->frame.y != xc->y)) {
@@ -676,6 +680,9 @@ void MTY_AppDestroy(MTY_App **app)
 		return;
 
 	MTY_App *ctx = *app;
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+		MTY_WindowDestroy(ctx, x);
 
 	if (ctx->empty_cursor)
 		XFreeCursor(ctx->display, ctx->empty_cursor);
@@ -1135,6 +1142,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 
 	window_set_up_wm(app, ctx->window);
 
+	ctx->webviews = MTY_HashCreate(0);
 	ctx->info.display = app->display;
 	ctx->info.vis = app->vis;
 	ctx->info.window = ctx->window;
@@ -1155,6 +1163,8 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return;
 
+	MTY_HashDestroy(&ctx->webviews, (MTY_FreeFunc) mty_webview_destroy);
+
 	if (ctx->ic)
 		XDestroyIC(ctx->ic);
 
@@ -1162,6 +1172,22 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 
 	MTY_Free(ctx);
 	app->windows[window] = NULL;
+}
+
+MTY_Webview *MTY_WindowCreateWebview(MTY_App *app, MTY_Window window)
+{
+	struct window *w = app->windows[window];
+
+	void *handle[2] = { app->display, (void *) w->window };
+
+	return mty_window_create_webview(w->webviews, handle, app->opaque);
+}
+
+void MTY_WindowDestroyWebview(MTY_App *app, MTY_Window window, MTY_Webview **webview)
+{
+	struct window *w = app->windows[window];
+
+	mty_window_destroy_webview(w->webviews, webview);
 }
 
 MTY_Size MTY_WindowGetSize(MTY_App *app, MTY_Window window)

@@ -32,6 +32,7 @@ const MTY = {
 	lastY: 0,
 	keys: {},
 	clip: null,
+	views: {},
 
 	// GL
 	gl: null,
@@ -123,6 +124,10 @@ function MTY_SetUint64(ptr, value) {
 
 function MTY_GetUint32(ptr) {
 	return mty_mem_view().getUint32(ptr, true);
+}
+
+function MTY_GetUint64(ptr) {
+	return mty_mem_view().getBigUint64(ptr, true);
 }
 
 function MTY_Memcpy(cptr, abuffer) {
@@ -767,7 +772,7 @@ function mty_poll_gamepads(app, controller) {
 	}
 }
 
-const MTY_WEB_API = {
+var MTY_WEB_API = {
 	web_alert: function (title, msg) {
 		alert(MTY_StrToJS(title) + '\n\n' + MTY_StrToJS(msg));
 	},
@@ -965,6 +970,7 @@ const MTY_WEB_API = {
 				y = ev.movementY;
 			}
 
+			window.focus();
 			MTY_CFunc(mouse_motion)(app, MTY.relative, x, y);
 		});
 
@@ -1109,6 +1115,153 @@ const MTY_WEB_API = {
 
 		window.requestAnimationFrame(step);
 		throw 'MTY_AppRun halted execution';
+	},
+	web_view_replace_resources: function (ctx, url, res) {
+		let value = res.byteLength ? new TextDecoder().decode(res) : res;
+
+		if (value.match(/[^\u0000-\u007F]+/gu))
+			return res;
+
+		const iterator = value.matchAll(/(\.\.?\/|[a-zA-Z]+:\/\/)[a-zA-Z\/._-]+/g);
+		const matches = [...iterator];
+
+		if (!matches.length)
+			return res;
+
+		for (let match of matches) {
+			let inner_url = new URL(match[0], url).href;
+
+			const [inner_res, inner_mime] = MTY_WEB_API.web_view_get_resource(ctx, inner_url);
+			if (!inner_res)
+				continue;
+
+			const inner_blob = URL.createObjectURL(new Blob([inner_res], { type: inner_mime }));
+			value = value.replace(match[0], inner_blob);
+		}
+
+		return res.byteLength ? new TextEncoder().encode(value) : value;
+	},
+	web_view_get_resource: function (ctx, url) {
+		url = new URL(url, location.origin).href;
+
+		const curl = MTY_Alloc(1, url.length + 1);
+		MTY_StrToC(url, curl, url.length + 1);
+		const csize = MTY_Alloc(4, 1);
+		const cmime = MTY_Alloc(4, 1);
+
+		const get_resource = MTY.views[ctx].get_resource;
+		const cres = MTY_CFunc(get_resource)(ctx, curl, csize, cmime);
+
+		let raw = null;
+		let mime = null;
+
+		if (cres) {
+			const size = Number(BigInt.asUintN(32, MTY_GetUint64(csize)));
+			raw = new Uint8Array(mty_mem(), cres, size);
+			raw = MTY_WEB_API.web_view_replace_resources(ctx, url, raw);
+			mime = MTY_StrToJS(MTY_GetUint32(cmime));
+		}
+
+		MTY_Free(cmime);
+		MTY_Free(csize);
+		MTY_Free(curl);
+
+		return [raw, mime];
+	},
+	web_view_show: function (ctx, on_message, get_resource) {
+		const iframe = document.createElement('iframe');
+
+		iframe.style.visibility = 'hidden';
+		iframe.style.position = 'fixed';
+		iframe.style.border = 'none';
+		iframe.style.left = '0';
+		iframe.style.top = '0';
+
+		iframe.onload = () => setTimeout(() => iframe.style.visibility = 'visible', 250);
+
+		window.addEventListener('message', function (msg) {
+			const buf = MTY_Alloc(1, msg.data.length + 1);
+			MTY_StrToC(msg.data, buf, msg.data.length + 1);
+
+			MTY_CFunc(on_message)(ctx, buf);
+
+			MTY_Free(buf);
+		});
+
+		const external = `
+			window.external = { 
+				invoke: function (s) {
+					parent.postMessage(s, '${location.origin}');
+				},
+			};
+		`;
+		
+		const fetch = `
+			const _fetch = window.fetch;
+			window.fetch = (request, init) => {
+				const [res, mime] = parent.MTY_WEB_API.web_view_get_resource(${ctx}, request);
+				return res ? new Response(res, { headers: { 'Content-Type': mime } }) : _fetch(request, init);
+			};
+		`;
+
+		document.body.appendChild(iframe);
+
+		MTY.views[ctx] = { iframe: iframe, scripts: [external, fetch], get_resource: get_resource };
+
+		MTY_WEB_API.web_view_resize(ctx, 0, 0, window.innerWidth, window.innerHeight);
+	},
+	web_view_destroy: function (ctx) {
+		if (!MTY.views[ctx])
+			return;
+
+		document.removeChild(MTY.views[ctx].iframe);
+		delete MTY.views[ctx];
+	},
+	web_view_resize: function (ctx, x, y, width, height, auto_size) {
+		if (!MTY.views[ctx])
+			return;
+
+		MTY.views[ctx].iframe.style.left   = auto_size ? '0'     : x + 'px';
+		MTY.views[ctx].iframe.style.top    = auto_size ? '0'     : y + 'px';
+		MTY.views[ctx].iframe.style.width  = auto_size ? '100vw' : width + 'px';
+		MTY.views[ctx].iframe.style.height = auto_size ? '100vh' : height + 'px';
+	},
+	web_view_navigate_url: function (ctx, url) {
+		if (!MTY.views[ctx])
+			return;
+
+		MTY.views[ctx].iframe.src = MTY_StrToJS(url);
+	},
+	web_view_navigate_html: function (ctx, html) {
+		if (!MTY.views[ctx])
+			return;
+
+		const content = document.createElement('html');
+		content.innerHTML = MTY_StrToJS(html);
+
+		for (let i = MTY.views[ctx].scripts.length; i > 0 ; i--) {
+			const script = document.createElement('script');
+			script.type = 'text/javascript';
+			script.text = MTY.views[ctx].scripts[i - 1];
+			content.querySelector('body').prepend(script);
+		}
+
+		content.innerHTML = MTY_WEB_API.web_view_replace_resources(ctx, location.origin, content.innerHTML);
+
+		const blob = new Blob(['<!DOCTYPE html>\n' + content.outerHTML], { type: 'text/html' });
+		MTY.views[ctx].iframe.src = URL.createObjectURL(blob);
+	},
+	web_view_javascript_init: function (ctx, js) {
+		if (!MTY.views[ctx])
+			return;
+
+		MTY.views[ctx].scripts.push(MTY_StrToJS(js));
+	},
+	web_view_javascript_eval: function (ctx, js) {
+		if (!MTY.views[ctx])
+			return;
+
+		MTY.views[ctx].iframe.contentWindow.eval(MTY_StrToJS(js));
 	},
 };
 

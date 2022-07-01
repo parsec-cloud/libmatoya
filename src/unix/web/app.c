@@ -14,10 +14,12 @@
 #include "web.h"
 #include "keymap.h"
 #include "hid/utils.h"
+#include "webview.h"
 
 struct MTY_App {
 	MTY_Hash *hotkey;
 	MTY_Hash *deduper;
+	MTY_Hash *webviews;
 	MTY_EventFunc event_func;
 	MTY_AppFunc app_func;
 	MTY_DetachState detach;
@@ -58,6 +60,8 @@ static void window_resize(MTY_App *ctx)
 	evt.type = MTY_EVENT_SIZE;
 
 	ctx->event_func(&evt, ctx->opaque);
+
+	mty_webviews_resize(ctx->webviews);
 }
 
 static void window_move(MTY_App *ctx)
@@ -293,6 +297,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 
 	ctx->hotkey = MTY_HashCreate(0);
 	ctx->deduper = MTY_HashCreate(0);
+	ctx->webviews = MTY_HashCreate(0);
 
 	keymap_set_keys();
 
@@ -308,6 +313,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_HashDestroy(&ctx->deduper, MTY_Free);
+	MTY_HashDestroy(&ctx->webviews, (MTY_FreeFunc) mty_webview_destroy);
 
 	MTY_Free(ctx);
 	*app = NULL;
@@ -498,6 +504,16 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 
 void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
+}
+
+MTY_Webview *MTY_WindowCreateWebview(MTY_App *app, MTY_Window window)
+{
+	return mty_window_create_webview(app->webviews, NULL, app->opaque);
+}
+
+void MTY_WindowDestroyWebview(MTY_App *app, MTY_Window window, MTY_Webview **webview)
+{
+	mty_window_destroy_webview(app->webviews, webview);
 }
 
 MTY_Size MTY_WindowGetSize(MTY_App *app, MTY_Window window)

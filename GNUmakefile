@@ -89,6 +89,7 @@ OBJS := $(OBJS) \
 	src/unix/web/app.o \
 	src/unix/web/dialog.o \
 	src/unix/web/system.o \
+	src/unix/web/webview.o \
 	src/unix/web/gfx/gl-ctx.o
 
 DEFS := $(DEFS) \

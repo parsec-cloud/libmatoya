@@ -1629,6 +1629,9 @@ CJSON_PUBLIC(cJSON_bool) cJSON_ReplaceItemViaPointer(cJSON *const parent, cJSON 
 		replacement->next->prev = replacement;
 	}
 	if (parent->child == item) {
+		if (parent->child->prev == parent->child) {
+			replacement->prev = replacement;
+		}
 		parent->child = replacement;
 	} else { /*
          * To find the last item in array quickly, we use prev in array.
@@ -1636,6 +1639,9 @@ CJSON_PUBLIC(cJSON_bool) cJSON_ReplaceItemViaPointer(cJSON *const parent, cJSON 
          */
 		if (replacement->prev != NULL) {
 			replacement->prev->next = replacement;
+		}
+		if (replacement->next == NULL) {
+			parent->child->prev = replacement;
 		}
 	}
 

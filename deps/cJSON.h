@@ -1809,6 +1809,9 @@ CJSON_PUBLIC(cJSON *) cJSON_Duplicate(const cJSON *item, cJSON_bool recurse)
 		}
 		child = child->next;
 	}
+	if (newitem && newitem->child) {
+		newitem->child->prev = newchild;
+	}
 
 	return newitem;
 

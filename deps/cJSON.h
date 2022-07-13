@@ -1663,6 +1663,10 @@ static cJSON_bool replace_item_in_object(cJSON *object, const char *string, cJSO
 		CJSON_FREE(replacement->string);
 	}
 	replacement->string = (char *) MTY_Strdup(string);
+	if (replacement->string == NULL) {
+		return false;
+	}
+
 	replacement->type &= ~cJSON_StringIsConst;
 
 	return cJSON_ReplaceItemViaPointer(object, get_object_item(object, string), replacement);

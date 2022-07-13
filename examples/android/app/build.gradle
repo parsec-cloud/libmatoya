@@ -1,0 +1,21 @@
+apply plugin: 'com.android.application'
+
+android {
+	compileSdkVersion 30
+
+	defaultConfig {
+		applicationId 'group.matoya'
+		minSdkVersion 26
+		targetSdkVersion 30
+	}
+
+	buildTypes {
+		debug {
+			applicationIdSuffix '.debug'
+		}
+	}
+
+    sourceSets.main {
+        jniLibs.srcDirs = ['libs']
+    }
+}

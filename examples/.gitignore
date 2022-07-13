@@ -1,0 +1,9 @@
+example*
+
+android/.gradle
+android/build
+android/app/build
+android/app/libs
+android/app/src/main/java/group/matoya/lib
+
+web/matoya.js

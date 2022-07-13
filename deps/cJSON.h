@@ -1475,12 +1475,6 @@ static cJSON_bool add_item_to_array(cJSON *array, cJSON *item)
 		if (child->prev) {
 			suffix_object(child->prev, item);
 			array->child->prev = item;
-		} else {
-			while (child->next) {
-				child = child->next;
-			}
-			suffix_object(child, item);
-			array->child->prev = item;
 		}
 	}
 

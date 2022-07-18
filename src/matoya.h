@@ -307,6 +307,7 @@ MTY_FreeRenderState(MTY_RenderState **state);
 
 typedef struct MTY_App MTY_App;
 typedef int8_t MTY_Window;
+typedef struct MTY_Webview MTY_Webview;
 
 /// @brief Function called once per message cycle.
 /// @details A "message cycle" can be thought of as one iteration through all of the
@@ -1090,6 +1091,20 @@ MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *frame, MTY_Wi
 /// @param window An MTY_Window.
 MTY_EXPORT void
 MTY_WindowDestroy(MTY_App *app, MTY_Window window);
+
+/// @brief Create a webview inside a window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @returns The created MTY_Webview.
+MTY_EXPORT MTY_Webview *
+MTY_WindowCreateWebview(MTY_App *app, MTY_Window window);
+
+/// @brief Destroy a webview contained by a window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param webview The MTY_Webview to destroy.
+MTY_EXPORT void
+MTY_WindowDestroyWebview(MTY_App *app, MTY_Window window, MTY_Webview **webview);
 
 /// @brief Get a window's current client area width and height.
 /// @param app The MTY_App.
@@ -3617,6 +3632,154 @@ MTY_RevertTimerResolution(uint32_t res);
 MTY_EXPORT uint32_t
 MTY_GetVersion(void);
 
+
+//- #module Webview
+//- #mbrief Webview creation and configuration.
+
+/// @brief Function called after the webview has been initialized.
+/// @param ctx The MTY_Webview context.
+/// @param opaque The opaque context passed to MTY_AppCreate.
+typedef void (*MTY_WebviewOnCreated)(MTY_Webview *ctx, void *opaque);
+
+/// @brief Function called each time the webview calls the native application.
+/// @param ctx The MTY_Webview context.
+/// @param serial Identifier of the call, used in MTY_WebviewInteropReturn.
+/// @param json JSON payload sent from the webview.
+/// @param opaque The opaque context passed to MTY_AppCreate.
+typedef void (*MTY_WebviewBinding)(MTY_Webview *ctx, uint32_t serial, const MTY_JSON *json, void *opaque);
+
+/// @brief Initialize the webview.
+/// @details The MTY_Webview is created using MTY_WindowCreateWebview.`callback` is
+///   called after all webview resources has been initialized. Depending on the platform,
+///   this can by synchronous or asynchronous. Navigation functions, javascript functions
+///   and interoperability functions are only available after `callback` has been called.
+/// @param ctx The MTY_Webview context.
+/// @param callback Function called after initialization.
+MTY_EXPORT void
+MTY_WebviewShow(MTY_Webview *ctx, MTY_WebviewOnCreated callback);
+
+/// @brief Set the top-left origin of the webview.
+/// @param ctx The MTY_Webview context.
+/// @param x Left offset of the webview.
+/// @param y Top offset of the webview.
+MTY_EXPORT void
+MTY_WebviewSetOrigin(MTY_Webview *ctx, int32_t x, int32_t y);
+
+/// @brief Set the size of the webview.
+/// @param ctx The MTY_Webview context.
+/// @param width Horizontal size of the webview.
+/// @param height Vertical size of the webview.
+MTY_EXPORT void
+MTY_WebviewSetSize(MTY_Webview *ctx, uint32_t width, uint32_t height);
+
+/// @brief Set whether the webview should fill the whole window or not.
+/// @param ctx The MTY_Webview context.
+/// @param enable True to fill the window, false otherwise.
+MTY_EXPORT void
+MTY_WebviewAutomaticSize(MTY_Webview *ctx, bool enable);
+
+/// @brief Enable of disable development tools.
+/// @details Development tools are disabled by default.
+/// @param ctx The MTY_Webview context.
+/// @param enable True to enable, false otherwise.
+//- #support Windows macOS Linux Android
+MTY_EXPORT void
+MTY_WebviewEnableDevTools(MTY_Webview *ctx, bool enable);
+
+/// @brief Open development tools.
+/// @param ctx The MTY_Webview context.
+//- #support Windows
+MTY_EXPORT void
+MTY_WebviewOpenDevTools(MTY_Webview *ctx);
+
+/// @brief Map a host path to a custom scheme.
+/// @details This method allows to configure webview requests interception. For instance,
+///   the `mty` scheme will intercept all requests that start with `mty://`. If `path` is
+///   `NULL`, no physical folder is used and interception only relies on resources added
+///   with MTY_WebviewAddResource. Physical resources are kept in memory for further use,
+///   until the MTY_Webview is destroyed.
+/// @param ctx The MTY_Webview context.
+/// @param scheme Scheme to map, e.g. `mty` allows to intercept `mty://...` requests.
+/// @param path Physical file path. Optional.
+MTY_EXPORT void
+MTY_WebviewMapVirtualHost(MTY_Webview *ctx, const char *scheme, const char *path);
+
+/// @brief Manually add a resource from memory.
+/// @details Resources added with this function have the priority of physical files.
+///   If `size` is 0, `data` is treated as a `const char *` and the size is deduced.
+/// @param ctx The MTY_Webview context.
+/// @param path Virtual path of the file.
+/// @param data Memory buffer of the file.
+/// @param size Size of the file. Optional.
+MTY_EXPORT void
+MTY_WebviewAddResource(MTY_Webview *ctx, const char *path, const void *data, size_t size);
+
+/// @brief Get a previously loaded resource.
+/// @details This will return any resource used after request interception, whether it
+///   has been read from a physical location of it has been manually added.
+/// @param ctx The MTY_Webview context.
+/// @param url Resource URL, including the custom scheme.
+/// @param size Size of the resource. Optional.
+/// @param mime MIME type of the resource. Optional.
+/// @return The resource memory buffer.
+MTY_EXPORT const void *
+MTY_WebviewGetResource(MTY_Webview *ctx, const char *url, size_t *size, const char **mime);
+
+/// @brief Navigate to a remote URL.
+/// @details Javascript initialization, javascript evaluation and request interception
+///   are not available when navigating to a remote URL.
+/// @param ctx The MTY_Webview context.
+/// @param url The remote URL to display.
+MTY_EXPORT void
+MTY_WebviewNavigateURL(MTY_Webview *ctx, const char *url);
+
+/// @brief Navigate to an HTML file stored in memory.
+/// @param ctx The MTY_Webview context.
+/// @param html The HTML string.
+MTY_EXPORT void
+MTY_WebviewNavigateHTML(MTY_Webview *ctx, const char *html);
+
+/// @brief Add javascript to be executed on page load.
+/// @param ctx The MTY_Webview context.
+/// @param js The script to execute on page load.
+MTY_EXPORT void
+MTY_WebviewJavascriptInit(MTY_Webview *ctx, const char *js);
+
+/// @brief Execute javascript inside the displayed page.
+/// @param ctx The MTY_Webview context.
+/// @param js The script to execute.
+MTY_EXPORT void
+MTY_WebviewJavascriptEval(MTY_Webview *ctx, const char *js);
+
+/// @brief Send an event to the displayed page
+/// @details A javascript `CustomEvent` is used under the hood. To catch the event,
+///   use `window.addEventListener(<event_name>, <handler>)`. See the MDN web docs
+///   for a more detailed example.
+/// @param ctx The MTY_Webview context.
+/// @param name The name of the event.
+/// @param json The payload to send.
+MTY_EXPORT void
+MTY_WebviewJavascriptEvent(MTY_Webview *ctx, const char *name, MTY_JSON *json);
+
+/// @brief Bind a native function to the webview.
+/// @details It uses MTY_WebviewJavascriptInit internally to create a function named after
+///   the `name` parameter. This function is defined in the javascript global scope, and is
+///   awaitable: the `Promise` will be resolved or rejected if MTY_WebviewInteropReturn is
+///   called with the corresponding identifier.
+/// @param ctx The MTY_Webview context.
+/// @param name The name of the javascript function.
+/// @param func The native function to bind.
+/// @param opaque An opaque parameter to passe to the native function.
+MTY_EXPORT void
+MTY_WebviewInteropBind(MTY_Webview *ctx, const char *name, MTY_WebviewBinding func, void *opaque);
+
+/// @brief Returns a value from a binding call.
+/// @param ctx The MTY_Webview context.
+/// @param serial The identifier received in MTY_WebviewBinding.
+/// @param success True if the function successfully completed, false otherwise.
+/// @param result A response payload. Optional.
+MTY_EXPORT void
+MTY_WebviewInteropReturn(MTY_Webview *ctx, uint32_t serial, bool success, const MTY_JSON *result);
 
 #ifdef __cplusplus
 }

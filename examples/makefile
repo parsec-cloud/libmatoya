@@ -61,7 +61,8 @@ MTY_LIBS = \
 	uuid.lib
 
 STATIC_LIBS = \
-	..\bin\windows\%Platform%\matoya.lib
+	..\bin\windows\%Platform%\matoya.lib \
+	windows\%Platform%\WebView2LoaderStatic.lib
 
 all: clean clear $(OBJS)
 	link /out:example.exe *.obj $(LD_FLAGS) $(LIBS) $(MTY_LIBS) $(STATIC_LIBS)

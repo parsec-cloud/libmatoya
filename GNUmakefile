@@ -25,13 +25,16 @@ OBJS = \
 	src/memory.o \
 	src/queue.o \
 	src/render.o \
+	src/resample.o \
 	src/system.o \
 	src/thread.o \
 	src/tlocal.o \
 	src/tls.o \
 	src/version.o \
-	src/gfx/gl.o \
-	src/gfx/gl-ui.o \
+	src/gfx/gl/gl.o \
+	src/gfx/gl/gl-ui.o \
+	src/gfx/vk/vk.o \
+	src/gfx/vk/vk-ui.o \
 	src/hid/utils.o \
 	src/unix/file.o \
 	src/unix/image.o \
@@ -41,10 +44,10 @@ OBJS = \
 	src/unix/time.o
 
 SHADERS = \
-	src/gfx/shaders/gl/fs.h \
-	src/gfx/shaders/gl/vs.h \
-	src/gfx/shaders/gl/fsui.h \
-	src/gfx/shaders/gl/vsui.h
+	src/gfx/gl/shaders/fs.h \
+	src/gfx/gl/shaders/vs.h \
+	src/gfx/gl/shaders/fsui.h \
+	src/gfx/gl/shaders/vsui.h
 
 INCLUDES = \
 	-Ideps \
@@ -72,8 +75,11 @@ endif
 ############
 ### WASM ###
 ############
+
+# github.com/WebAssembly/wasi-sdk/releases -> ~/wasi-sdk-xx
+
 ifdef WASM
-WASI_SDK = $(HOME)/wasi-sdk-12.0
+WASI_SDK = $(HOME)/wasi-sdk-16.0
 
 CC = $(WASI_SDK)/bin/clang --sysroot=$(WASI_SDK)/share/wasi-sysroot
 AR = $(WASI_SDK)/bin/ar
@@ -111,17 +117,17 @@ OBJS := $(OBJS) \
 	src/net/ws.o \
 	src/unix/net/request.o \
 	src/unix/linux/dialog.o \
-	src/unix/linux/generic/aes-gcm.o \
-	src/unix/linux/generic/app.o \
-	src/unix/linux/generic/audio.o \
-	src/unix/linux/generic/crypto.o \
-	src/unix/linux/generic/evdev.o \
-	src/unix/linux/generic/system.o \
-	src/unix/linux/generic/tls.o \
-	src/unix/linux/generic/gfx/gl-ctx.o
+	src/unix/linux/x11/aes-gcm.o \
+	src/unix/linux/x11/app.o \
+	src/unix/linux/x11/audio.o \
+	src/unix/linux/x11/crypto.o \
+	src/unix/linux/x11/evdev.o \
+	src/unix/linux/x11/system.o \
+	src/unix/linux/x11/tls.o \
+	src/unix/linux/x11/gfx/gl-ctx.o
 
 TARGET = linux
-INCLUDES := $(INCLUDES) -Isrc/unix/linux -Isrc/unix/linux/generic
+INCLUDES := $(INCLUDES) -Isrc/unix/linux -Isrc/unix/linux/x11
 endif
 
 #############
@@ -211,10 +217,9 @@ objs: $(OBJS)
 ### ANDROID ###
 ###############
 
-### Downloads ###
-# https://developer.android.com/ndk/downloads -> Put in ~/android-ndk-xxx
+# developer.android.com/ndk/downloads -> ~/android-ndk-xxx
 
-ANDROID_NDK = $(HOME)/android-ndk-r23
+ANDROID_NDK = $(HOME)/android-ndk-r23c
 
 android: clean clear $(SHADERS)
 	@$(ANDROID_NDK)/ndk-build -j4 \

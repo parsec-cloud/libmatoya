@@ -1475,12 +1475,6 @@ static cJSON_bool add_item_to_array(cJSON *array, cJSON *item)
 		if (child->prev) {
 			suffix_object(child->prev, item);
 			array->child->prev = item;
-		} else {
-			while (child->next) {
-				child = child->next;
-			}
-			suffix_object(child, item);
-			array->child->prev = item;
 		}
 	}
 
@@ -1539,6 +1533,7 @@ CJSON_PUBLIC(cJSON *) cJSON_DetachItemViaPointer(cJSON *parent, cJSON *const ite
 		/* not the first element */
 		item->prev->next = item->next;
 	}
+
 	if (item->next != NULL) {
 		/* not the last element */
 		item->next->prev = item->prev;
@@ -1547,7 +1542,12 @@ CJSON_PUBLIC(cJSON *) cJSON_DetachItemViaPointer(cJSON *parent, cJSON *const ite
 	if (item == parent->child) {
 		/* first element */
 		parent->child = item->next;
+
+	} else if (item->next == NULL) {
+		/* last element */
+		parent->child->prev = item->prev;
 	}
+
 	/* make sure the detached item doesn't point anywhere anymore */
 	item->prev = NULL;
 	item->next = NULL;
@@ -1623,6 +1623,9 @@ CJSON_PUBLIC(cJSON_bool) cJSON_ReplaceItemViaPointer(cJSON *const parent, cJSON 
 		replacement->next->prev = replacement;
 	}
 	if (parent->child == item) {
+		if (parent->child->prev == parent->child) {
+			replacement->prev = replacement;
+		}
 		parent->child = replacement;
 	} else { /*
          * To find the last item in array quickly, we use prev in array.
@@ -1630,6 +1633,9 @@ CJSON_PUBLIC(cJSON_bool) cJSON_ReplaceItemViaPointer(cJSON *const parent, cJSON 
          */
 		if (replacement->prev != NULL) {
 			replacement->prev->next = replacement;
+		}
+		if (replacement->next == NULL) {
+			parent->child->prev = replacement;
 		}
 	}
 
@@ -1651,6 +1657,10 @@ static cJSON_bool replace_item_in_object(cJSON *object, const char *string, cJSO
 		CJSON_FREE(replacement->string);
 	}
 	replacement->string = (char *) MTY_Strdup(string);
+	if (replacement->string == NULL) {
+		return false;
+	}
+
 	replacement->type &= ~cJSON_StringIsConst;
 
 	return cJSON_ReplaceItemViaPointer(object, get_object_item(object, string), replacement);
@@ -1792,6 +1802,9 @@ CJSON_PUBLIC(cJSON *) cJSON_Duplicate(const cJSON *item, cJSON_bool recurse)
 			next = newchild;
 		}
 		child = child->next;
+	}
+	if (newitem && newitem->child) {
+		newitem->child->prev = newchild;
 	}
 
 	return newitem;

@@ -48,13 +48,16 @@ LOCAL_SRC_FILES := \
 	src/memory.c \
 	src/queue.c \
 	src/render.c \
+	src/resample.c \
 	src/system.c \
 	src/thread.c \
 	src/tlocal.c \
 	src/tls.c \
 	src/version.c \
-	src/gfx/gl.c \
-	src/gfx/gl-ui.c \
+	src/gfx/gl/gl.c \
+	src/gfx/gl/gl-ui.c \
+	src/gfx/vk/vk.c \
+	src/gfx/vk/vk-ui.c \
 	src/hid/utils.c \
 	src/net/async.c \
 	src/net/gzip.c \

@@ -58,36 +58,35 @@ typedef enum {
 
 /// @brief Raw image color formats.
 typedef enum {
-	MTY_COLOR_FORMAT_UNKNOWN  = 0, ///< Unknown color format.
-	MTY_COLOR_FORMAT_BGRA     = 1, ///< 8-bits per channel BGRA.
-	MTY_COLOR_FORMAT_NV12     = 2, ///< 4:2:0 full W/H Y plane followed by an interleaved half
-	                               ///<   W/H UV plane.
-	MTY_COLOR_FORMAT_I420     = 3, ///< 4:2:0 full W/H Y plane followed by a half W/H U plane
-	                               ///<   followed by a half W/H V plane.
-	MTY_COLOR_FORMAT_I444     = 4, ///< 4:4:4 full W/H consecutive Y, U, V planes.
-	MTY_COLOR_FORMAT_NV16     = 5, ///< 4:2:2 full W/H Y plane followed by an interleaved half W
-	                               ///<   full H UV plane.
-	MTY_COLOR_FORMAT_BGR565   = 6, ///< 5-bits blue, 6-bits green, 5-bits red.
-	MTY_COLOR_FORMAT_BGRA5551 = 7, ///< 5-bits per BGR channels, 1-bit alpha.
-	MTY_COLOR_FORMAT_AYUV     = 8, ///< 4:4:4 full W/H interleaved Y, U, V.
-	MTY_COLOR_FORMAT_MAKE_32 = INT32_MAX,
+	MTY_COLOR_FORMAT_UNKNOWN    = 0,  ///< Unknown color format.
+	MTY_COLOR_FORMAT_BGRA       = 1,  ///< 32-bit BGRA, 8 bits per channel.
+	MTY_COLOR_FORMAT_RGBA       = 2,  ///< 32-bit RGBA, 8 bits per channel.
+	MTY_COLOR_FORMAT_BGR565     = 3,  ///< 16-bit BGR, 5 bits B, 6 bits G, 5 bits R.
+	MTY_COLOR_FORMAT_BGRA5551   = 4,  ///< 16-bit BGRA, 5 bits per BGR, 1 bit A.
+	MTY_COLOR_FORMAT_AYUV       = 5,  ///< 32-bit 4:4:4 AYUV, 8 bits per channel.
+	MTY_COLOR_FORMAT_Y410       = 6,  ///< 32-bit 4:4:4 YUVA, 10 bits per YUV, 2 bits A.
+	MTY_COLOR_FORMAT_Y416       = 7,  ///< 64-bit 4:4:4 YUVA, 16 bits per channel.
+	MTY_COLOR_FORMAT_2PLANES    = 8,  ///< 1 plane Y, 1 plane interleaved UV, 8 bits per channel.
+	MTY_COLOR_FORMAT_3PLANES    = 9,  ///< 3 consecutive planes of YUV, 8 bits per channel.
+	MTY_COLOR_FORMAT_2PLANES_16 = 10, ///< 1 plane Y, 1 plane interleaved UV, 16 bits per channel.
+	MTY_COLOR_FORMAT_3PLANES_16 = 11, ///< 3 consecutive planes of YUV, 16 bits per channel.
+	MTY_COLOR_FORMAT_MAX        = 12, ///< Maximum number of color formats.
+	MTY_COLOR_FORMAT_MAKE_32    = INT32_MAX,
 } MTY_ColorFormat;
 
 /// @brief Quad texture filtering.
 typedef enum {
-	MTY_FILTER_NEAREST        = 0, ///< Nearest neighbor filter by the GPU, can cause shimmering.
-	MTY_FILTER_LINEAR         = 1, ///< Bilinear filter by the GPU, can cause noticeable blurring.
-	MTY_FILTER_GAUSSIAN_SOFT  = 2, ///< A softer nearest neighbor filter applied via shader.
-	MTY_FILTER_GAUSSIAN_SHARP = 3, ///< A sharper bilinear filter applied via shader.
-	MTY_FILTER_MAKE_32        = INT32_MAX,
+	MTY_FILTER_NEAREST = 0, ///< Nearest neighbor filter, can cause shimmering.
+	MTY_FILTER_LINEAR  = 1, ///< Bilinear interpolation filter, can cause noticeable blurring.
+	MTY_FILTER_MAKE_32 = INT32_MAX,
 } MTY_Filter;
 
 /// @brief Quad texture effects.
 typedef enum {
-	MTY_EFFECT_NONE         = 0, ///< No effect applied.
-	MTY_EFFECT_SCANLINES    = 1, ///< A scanline effect applied every other line.
-	MTY_EFFECT_SCANLINES_X2 = 2, ///< A scanline effect applied every two lines.
-	MTY_EFFECT_MAKE_32      = INT32_MAX,
+	MTY_EFFECT_NONE      = 0, ///< No effect applied.
+	MTY_EFFECT_SCANLINES = 1, ///< A scanline effect simulating a 480i CRT television.
+	MTY_EFFECT_SHARPEN   = 2, ///< Sharpens bilinear filter.
+	MTY_EFFECT_MAKE_32   = INT32_MAX,
 } MTY_Effect;
 
 /// @brief Quad rotation.
@@ -99,12 +98,23 @@ typedef enum {
 	MTY_ROTATION_MAKE_32 = INT32_MAX,
 } MTY_Rotation;
 
+typedef enum {
+	MTY_CHROMA_444 = 0, ///< Full width, full height UV.
+	MTY_CHROMA_422 = 1, ///< Half width, full height UV.
+	MTY_CHROMA_420 = 2, ///< Half width, half height UV.
+	MTY_CHROMA_MAKE_32 = INT32_MAX,
+} MTY_Chroma;
+
 /// @brief Description of a render operation.
 typedef struct {
 	MTY_ColorFormat format; ///< The color format of a raw image.
 	MTY_Rotation rotation;  ///< Rotation applied to the image.
+	MTY_Chroma chroma;      ///< Color subsampling, chroma layout for planar YUV formats.
 	MTY_Filter filter;      ///< Filter applied to the image.
-	MTY_Effect effect;      ///< Effect applied to the image.
+	MTY_Effect effects[2];  ///< Effects applied to the image.
+	float levels[2];        ///< Intensity of the applied `effects` between `0.0f` and `1.0f`.
+	bool fullRangeYUV;      ///< Use the full 0-255 color range for YUV formats.
+	bool multiplyYUV;       ///< Properly normalize 10-bit YUV formats if not already done.
 	uint32_t imageWidth;    ///< The width in pixels of the image.
 	uint32_t imageHeight;   ///< The height in pixels of the image.
 	uint32_t cropWidth;     ///< Desired crop width of the image from the top left corner.
@@ -277,7 +287,8 @@ MTY_FreeRenderState(MTY_RenderState **state);
 //-   many different dependencies under the hood responsible for input handling,
 //-   graphics API context creation, window creation, and event loop processing.
 
-#define MTY_WINDOW_MAX 8 ///< Maximum number of windows that can be created.
+#define MTY_WINDOW_MAX 8  ///< Maximum number of windows that can be created.
+#define MTY_SCREEN_MAX 32 ///< Maximum size of a screen identifier.
 
 #define MTY_DPAD(c) \
 	((c)->axes[MTY_CAXIS_DPAD].value)
@@ -426,9 +437,9 @@ typedef enum {
 	MTY_KEY_F8             = 0x042, ///< F8
 	MTY_KEY_F9             = 0x043, ///< F9
 	MTY_KEY_F10            = 0x044, ///< F10
-	MTY_KEY_NUM_LOCK       = 0x045, ///< Num Lock
+	MTY_KEY_NUM_LOCK       = 0x145, ///< Num Lock
 	MTY_KEY_SCROLL_LOCK    = 0x046, ///< Scroll Lock
-	MTY_KEY_PAUSE          = 0x146, ///< Pause/Break
+	MTY_KEY_PAUSE          = 0x045, ///< Pause/Break
 	MTY_KEY_NP_7           = 0x047, ///< 7 (numpad)
 	MTY_KEY_HOME           = 0x147, ///< Home
 	MTY_KEY_NP_8           = 0x048, ///< 8 (numpad)
@@ -560,12 +571,15 @@ typedef enum {
 
 /// @brief Pen attributes.
 typedef enum {
-	MTY_PEN_FLAG_LEAVE    = 0x01, ///< Pen has left the drawing surface.
-	MTY_PEN_FLAG_TOUCHING = 0x02, ///< Pen is touching the drawing surface.
-	MTY_PEN_FLAG_INVERTED = 0x04, ///< The pen is inverted.
-	MTY_PEN_FLAG_ERASER   = 0x08, ///< The eraser is touching the drawing surface.
-	MTY_PEN_FLAG_BARREL   = 0x10, ///< The pen's barrel button is held down.
-	MTY_PEN_FLAG_MAKE_32  = INT32_MAX,
+	MTY_PEN_FLAG_LEAVE        = 0x01, ///< Pen has left the drawing surface.
+	MTY_PEN_FLAG_TOUCHING     = 0x02, ///< Pen is touching the drawing surface.
+	MTY_PEN_FLAG_INVERTED     = 0x04, ///< The pen is inverted.
+	MTY_PEN_FLAG_ERASER       = 0x08, ///< The eraser is touching the drawing surface.
+	MTY_PEN_FLAG_BARREL_1     = 0x10, ///< The pen's 1st barrel button is held down.
+	MTY_PEN_FLAG_BARREL_2     = 0x20, ///< The pen's 2nd barrel button is held down.
+	MTY_PEN_FLAG_TIP          = 0x40, ///< One of the physical pen's tips is touching the surface.
+	MTY_PEN_FLAG_DOUBLE_CLICK = 0x80, ///< A double-click has been fired by one of the pen's barrel buttons.
+	MTY_PEN_FLAG_MAKE_32      = INT32_MAX,
 } MTY_PenFlag;
 
 /// @brief Window keyboard/mouse detach states.
@@ -590,13 +604,6 @@ typedef enum {
 	MTY_SCOPE_GLOBAL  = 1, ///< Operation globally affecting the OS.
 	MTY_SCOPE_MAKE_32 = INT32_MAX,
 } MTY_Scope;
-
-/// @brief Origin point for window positioning.
-typedef enum {
-	MTY_ORIGIN_CENTER   = 0, ///< Position window relative to the center of the screen.
-	MTY_ORIGIN_ABSOLUTE = 1, ///< Position widow relative to the top left corner of the screen.
-	MTY_ORIGIN_MAKE_32  = INT32_MAX,
-} MTY_Origin;
 
 /// @brief Mobile input modes.
 typedef enum {
@@ -625,6 +632,15 @@ typedef enum {
 	MTY_WINTAB_TYPE_RING    = 2, ///< The Wintab input comes from a TouchRing manipulation.
 	MTY_WINTAB_TYPE_MAKE_32 = INT32_MAX,
 } MTY_WintabType;
+
+/// @brief Window modes and behaviors.
+typedef enum {
+	MTY_WINDOW_NORMAL     = 0x0, ///< Normal resizable, bordered window.
+	MTY_WINDOW_HIDDEN     = 0x1, ///< Window is hidden without any visible elements.
+	MTY_WINDOW_FULLSCREEN = 0x2, ///< Window is in fullscreen mode.
+	MTY_WINDOW_MAXIMIZED  = 0x4, ///< Window is maximized (zoomed).
+	MTY_WINDOW_MAKE_32    = INT32_MAX,
+} MTY_WindowType;
 
 /// @brief Key event.
 typedef struct {
@@ -741,26 +757,20 @@ typedef struct {
 	                                 ///<   is selected.
 } MTY_MenuItem;
 
-/// @brief Window creation options.
+/// @brief Size struct containing width and height.
 typedef struct {
-	const char *title;  ///< The title of the window.
-	MTY_Origin origin;  ///< The window's origin determining its `x` and `y` position.
-	MTY_GFX api;        ///< Graphics API set on creation.
-	uint32_t width;     ///< Window width.
-	uint32_t height;    ///< Window height.
-	uint32_t minWidth;  ///< Minimum window width.
-	uint32_t minHeight; ///< Minimum window height.
-	uint32_t x;         ///< The window's horizontal position per its `origin`.
-	uint32_t y;         ///< The window's vertical position per its `origin`.
-	float maxHeight;    ///< The maximum height of the window expressed as a percentage of
-	                    ///<   of the screen height.
-	bool fullscreen;    ///< Window is created as a fullscreen window.
-	bool hidden;        ///< Window should be created hidden. If this is set it will not be
-	                    ///<   activated when it is created.
-	bool vsync;         ///< MTY_WindowPresent should wait for monitor's next refresh cycle.
-	MTY_Window index;   ///< Attempt to create the window with the specified index. If the
-	                    ///<   index is already taken, the first available is used.
-} MTY_WindowDesc;
+	uint32_t w; ///< Width.
+	uint32_t h; ///< Height.
+} MTY_Size;
+
+/// @brief Window size and position.
+typedef struct {
+	MTY_WindowType type;         ///< Window type.
+	MTY_Size size;               ///< Window client (content) size.
+	char screen[MTY_SCREEN_MAX]; ///< Screen identifier.
+	int32_t x;                   ///< Window horizontal offset from the left of `screen`.
+	int32_t y;                   ///< Window vertical offset from the top of `screen`.
+} MTY_Frame;
 
 /// @brief Function called for each event sent to the app.
 /// @param evt The MTY_Event received by the app.
@@ -1036,7 +1046,7 @@ MTY_AppEnablePen(MTY_App *ctx, bool enable);
 /// @brief Enable or disable extended tablet controls override.
 /// @details When overriden, tablet controls (e.g. ExpressKeys) will be received as
 ///   through the MTY_EVENT_WINTAB event, and their configured keystrokes will not
-///   be executed. 
+///   be executed.
 /// @param ctx The MTY_App.
 /// @param enable Set true to override controls, false to revert the override.
 //- #support Windows
@@ -1060,22 +1070,20 @@ MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode);
 /// @brief Create an MTY_Window, the primary interactive view of an application.
 /// @details An MTY_Window is a child of the MTY_App object, so everywhere a window
 ///   is referenced the MTY_App comes along with it. All functions taking an MTY_Window
-///   as an argument are designed to handle invalid windows, which are integers.\n\n
-///   A window can be created without a graphics context and once can be set later
-///   via MTY_WindowSetGFX. On Apple platforms the graphics context must be set on
-///   the main thread.\n\n
-///   Direct3D 9 has quirks if the context is created on the main thread and is
-///   then used on a secondary thread, so in this case you should create the window on
-///   the main thread without a graphics context and call MTY_WindowSetGFX on the thread
-///   that is doing the rendering.
+///   as an argument are designed to handle invalid windows, which are integers.
 /// @param app The MTY_App.
-/// @param desc The window's creation properties.
+/// @param title The title of the window.
+/// @param frame The window's size and position. Use MTY_MakeDefaultFrame or MTY_WindowGetFrame
+///   to fill a frame more precisely. This function expects unscaled values. May be NULL
+///   for sensible defaults.
+/// @param index Attempt to create the window with the specified index. If the index is already
+///   taken, the first available is used.
 /// @returns On success, a value between 0 and MTY_WINDOW_MAX is returned.\n\n
 ///   On failure, -1 is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_Window may be destroyed with MTY_WindowDestroy, or destroyed
 ///   during MTY_AppDestroy which destroys all windows.
 MTY_EXPORT MTY_Window
-MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc);
+MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *frame, MTY_Window index);
 
 /// @brief Destroy an MTY_Window.
 /// @param app The MTY_App.
@@ -1083,33 +1091,43 @@ MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc);
 MTY_EXPORT void
 MTY_WindowDestroy(MTY_App *app, MTY_Window window);
 
-/// @brief Get a window's width and height.
+/// @brief Get a window's current client area width and height.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
-/// @param width Set to the width of the client area of the window.
-/// @param height Set to the height of the client area of the window.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-MTY_EXPORT bool
-MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height);
+MTY_EXPORT MTY_Size
+MTY_WindowGetSize(MTY_App *app, MTY_Window window);
 
-/// @brief Get the `x` and `y` coordinates of the window's top left corner.
-/// @details These coordinates include the window border, title bar, and shadows.
+/// @brief Get a window's normalized size and position.
+/// @details This function can be used to query the "restored" size and position of a window
+///   even when it is maximized or in fullscreen mode. It also will always return unscaled values
+///   taking into account the screen's current scaling setting. The returned MTY_Frame can be
+///   passed directly into MTY_WindowCreate or MTY_WindowSetFrame.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
-/// @param x Set to the horizontal position of the window's left edge.
-/// @param y Set to the vertical position of the window's top edge.
+MTY_EXPORT MTY_Frame
+MTY_WindowGetFrame(MTY_App *app, MTY_Window window);
+
+/// @brief Set a window's size and position.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param frame An MTY_Frame containing the window's size and position. This function expects
+///   unscaled values.
 MTY_EXPORT void
-MTY_WindowGetPosition(MTY_App *app, MTY_Window window, int32_t *x, int32_t *y);
+MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame);
+
+/// @brief Set a window's minimum size.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param minWidth The window's minimum possible width.
+/// @param minHeight The window's minimum possible height.
+MTY_EXPORT void
+MTY_WindowSetMinSize(MTY_App *app, MTY_Window window, uint32_t minWidth, uint32_t minHeight);
 
 /// @brief Get the width and height of the screen where the window currently resides.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
-/// @param width The width of the screen where the window resides.
-/// @param height The height of the screen where the window resides.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-MTY_EXPORT bool
-MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width,
-	uint32_t *height);
+MTY_EXPORT MTY_Size
+MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window);
 
 /// @brief Get the scaling factor of the screen where the window currently resides.
 /// @param app The MTY_App.
@@ -1287,6 +1305,19 @@ MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync);
 MTY_EXPORT MTY_ContextState
 MTY_WindowGetContextState(MTY_App *app, MTY_Window window);
 
+/// @brief Fill an MTY_Frame taking the current display settings into account.
+/// @details The returned MTY_Frame can be passed directly to MTY_WindowCreate or
+///   MTY_WindowSetFrame.
+/// @param x The window's horizontal offset from the center of the primary screen.
+/// @param y The window's vertical offset from the center of the primary screen.
+/// @param w The window's unscaled width.
+/// @param h The window's unscaled height.
+/// @param maxHeight Between 0.0f and 1.0f, limit the frame's height to a percentage of the
+///   primary screen's height. The frame's width is adjusted accordingly keeping the original
+///   aspect ratio intact. This calculation is based on the final scaled height of the window.
+MTY_EXPORT MTY_Frame
+MTY_MakeDefaultFrame(int32_t x, int32_t y, uint32_t w, uint32_t h, float maxHeight);
+
 /// @brief Get the string representation of a key combination.
 /// @details This function attempts to use the current locale.
 /// @param mod Combo modifier.
@@ -1324,11 +1355,13 @@ MTY_GLGetProcAddress(const char *name);
 
 
 //- #module Audio
-//- #mbrief Simple audio playback.
+//- #mbrief Simple audio playback and resampling.
 //- #mdetails This is a very minimal interface that assumes 2-channel, 16-bit signed PCM
-//-   submitted by pushing to a queue.
+//-   submitted by pushing to a queue. This module also includes a straightforward
+//-   resampler.
 
 typedef struct MTY_Audio MTY_Audio;
+typedef struct MTY_Resampler MTY_Resampler;
 
 /// @brief Create an MTY_Audio context for playback.
 /// @param sampleRate Audio sample rate in KHz.
@@ -1360,7 +1393,7 @@ MTY_AudioReset(MTY_Audio *ctx);
 MTY_EXPORT uint32_t
 MTY_AudioGetQueued(MTY_Audio *ctx);
 
-/// @brief Queue 16-bit signed PCM for playback.
+/// @brief Queue 2-channel, 16-bit signed PCM audio for playback.
 /// @param ctx An MTY_Audio context.
 /// @param frames Buffer containing 2-channel, 16-bit signed PCM audio frames. In this
 ///   case, one audio frame is two samples, each sample being one channel.
@@ -1368,6 +1401,34 @@ MTY_AudioGetQueued(MTY_Audio *ctx);
 ///   be the size of `frames` in bytes divided by 4.
 MTY_EXPORT void
 MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count);
+
+/// @brief Create and MTY_Resampler for sample rate conversion.
+/// @returns The returned MTY_Resampler must be destroyed with MTY_ResamplerDestroy.
+MTY_EXPORT MTY_Resampler *
+MTY_ResamplerCreate(void);
+
+/// @brief Destroy an MTY_Resampler.
+/// @param resampler Passed by reference and set to NULL after being destroyed.
+MTY_EXPORT void
+MTY_ResamplerDestroy(MTY_Resampler **resampler);
+
+/// @brief Resample 2-channel, 16-bit signed PCM audio.
+/// @param ctx An MTY_Resampler.
+/// @param ratio The output sample rate divided by the input sample rate.
+/// @param in Input buffer containing 2-channel, 16-bit signed PCM audio frames.
+/// @param inFrames The number of frames contained in `in`. The number of frames
+///   would be the size of `in` in bytes divided by 4.
+/// @param outFrames Set to the number of frames in the returned buffer.
+/// @returns Output buffer containing the resampled audio. This pointer remains
+///   valid as long as `ctx` is not destroyed.
+MTY_EXPORT const int16_t *
+MTY_Resample(MTY_Resampler *ctx, float ratio, const int16_t *in, size_t inFrames,
+	size_t *outFrames);
+
+/// @brief Reset all internal state as though the MTY_Resampler was just created.
+/// @param ctx An MTY_Resampler.
+MTY_EXPORT void
+MTY_ResamplerReset(MTY_Resampler *ctx);
 
 
 //- #module Crypto
@@ -1530,6 +1591,14 @@ MTY_HasDialogs(void);
 //- #support Windows macOS
 MTY_EXPORT void
 MTY_ShowMessageBox(const char *title, const char *fmt, ...) MTY_FMT(2, 3);
+
+/// @brief Creates a dialog box for opening files.
+/// @title The title of the dialog. May be NULL for the default behavior.
+/// @app The MTY_App owner of the dialog. May be NULL for none.
+/// @window The MTY_Window owner of the dialog. Ignored if `app` is NULL.
+/// @returns The selected file name allocated in thread local storage. Must not be freed.
+MTY_EXPORT const char *
+MTY_OpenFile(const char *title, MTY_App *app, MTY_Window window);
 
 
 //- #module File
@@ -1784,6 +1853,17 @@ MTY_GetProgramIcon(const char *path, uint32_t *width, uint32_t *height);
 //- #module JSON
 //- #mbrief JSON parsing and construction.
 
+/// @brief JSON types.
+typedef enum {
+	MTY_JSON_NULL    = 0, ///< JSON `null` type.
+	MTY_JSON_BOOL    = 1, ///< JSON boolean.
+	MTY_JSON_NUMBER  = 2, ///< JSON number (double).
+	MTY_JSON_STRING  = 3, ///< JSON string.
+	MTY_JSON_ARRAY   = 4, ///< JSON array.
+	MTY_JSON_OBJECT  = 5, ///< JSON object.
+	MTY_JSON_MAKE_32 = INT32_MAX,
+} MTY_JSONType;
+
 typedef struct MTY_JSON MTY_JSON;
 
 /// @brief Parse a string into an MTY_JSON item.
@@ -1921,6 +2001,15 @@ MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, const MTY_JSON *value);
 MTY_EXPORT void
 MTY_JSONArrayAppendItem(MTY_JSON *json, const MTY_JSON *value);
 
+/// @brief Get the full string from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @returns Returns the string value of the `key` if it exists. This reference
+///   is valid only as long as the `json` item and `key` are also valid.\n\n
+///   If the `key` does not exist, or is not a string, NULL is returned.
+MTY_EXPORT const char *
+MTY_JSONObjGetFullString(const MTY_JSON *json, const char *key);
+
 /// @brief Get a string value from a JSON object.
 /// @param json An MTY_JSON object.
 /// @param key Key to lookup.
@@ -1994,12 +2083,11 @@ MTY_JSONObjGetFloat(const MTY_JSON *json, const char *key, float *val);
 MTY_EXPORT bool
 MTY_JSONObjGetBool(const MTY_JSON *json, const char *key, bool *val);
 
-/// @brief Check if a value is NULL on a JSON object.
+/// @brief Check type of an item in a JSON object.
 /// @param json An MTY_JSON object.
-/// @param key Key to check.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-MTY_EXPORT bool
-MTY_JSONObjIsValNull(const MTY_JSON *json, const char *key);
+/// @param key Key of the item to type check.
+MTY_EXPORT MTY_JSONType
+MTY_JSONObjGetValType(const MTY_JSON *json, const char *key);
 
 /// @brief Set a string value on a JSON object.
 /// @param json An MTY_JSON object.
@@ -2082,12 +2170,11 @@ MTY_JSONArrayGetFloat(const MTY_JSON *json, uint32_t index, float *val);
 MTY_EXPORT bool
 MTY_JSONArrayGetBool(const MTY_JSON *json, uint32_t index, bool *val);
 
-/// @brief Check if a value is NULL in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to check.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-MTY_EXPORT bool
-MTY_JSONArrayIsValNull(const MTY_JSON *json, uint32_t index);
+/// @brief Check type of an item in a JSON array.
+/// @param json An MTY_JSON object.
+/// @param key Index of the item to type check.
+MTY_EXPORT MTY_JSONType
+MTY_JSONArrayGetValType(const MTY_JSON *json, uint32_t index);
 
 /// @brief Set a string value in a JSON array.
 /// @param json An MTY_JSON array.
@@ -2376,6 +2463,12 @@ MTY_WideToMulti(const wchar_t *src, char *dst, size_t size);
 MTY_EXPORT char *
 MTY_WideToMultiD(const wchar_t *src);
 
+/// @brief Thread local version of MTY_WideToMulti.
+/// @param src Source wide character string.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
+MTY_EXPORT const char *
+MTY_WideToMultiDL(const wchar_t *src);
+
 /// @brief Convert a UTF-8 string to its wide character equivalent.
 /// @param src Source UTF-8 string.
 /// @param dst Destination wide character string.
@@ -2391,6 +2484,12 @@ MTY_MultiToWide(const char *src, wchar_t *dst, uint32_t len);
 /// @returns The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT wchar_t *
 MTY_MultiToWideD(const char *src);
+
+/// @brief Thread local version of MTY_MultiToWide.
+/// @param src Source UTF-8 string.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
+MTY_EXPORT const wchar_t *
+MTY_MultiToWideDL(const char *src);
 
 /// @brief Get the bytes of a 16-bit integer in reverse order.
 /// @param value Value to swap.
@@ -3093,7 +3192,7 @@ MTY_QueuePush(MTY_Queue *ctx, size_t size);
 /// @param timeout Time to wait in milliseconds for an output buffer to become available.
 ///   A negative value will not timeout.
 /// @param buffer Reference to the next output buffer.
-/// @param size Set to the size of the data available in `buffer`.
+/// @param size Set to the size of the data available in `buffer`. May be NULL.
 /// @returns Returns true if an output buffer was acquired, false on timeout.
 MTY_EXPORT bool
 MTY_QueueGetOutputBuffer(MTY_Queue *ctx, int32_t timeout, void **buffer, size_t *size);
@@ -3118,7 +3217,7 @@ MTY_QueuePop(MTY_Queue *ctx);
 /// @brief Push a pointer allocated by the caller to a queue.
 /// @param ctx An MTY_Queue.
 /// @param opaque Value you allocated and are responsible for freeing.
-/// @param size Size in bytes of `opaque`.
+/// @param size Size in bytes of `opaque`. This value is returned by MTY_QueuePopPtr.
 /// @returns Returns true if `opaque` was successfully pushed to the queue, otherwise
 ///   false if there was no input buffer available.
 MTY_EXPORT bool
@@ -3129,7 +3228,7 @@ MTY_QueuePushPtr(MTY_Queue *ctx, void *opaque, size_t size);
 /// @param timeout Time to wait in milliseconds for the next pointer to become available.
 ///   A negative value will not timeout.
 /// @param opaque Reference to a pointer set via MTY_QueuePushPtr.
-/// @param size Set to the `size` passed to MTY_QueuePushPtr.
+/// @param size Set to the `size` passed to MTY_QueuePushPtr. May be NULL.
 /// @returns Returns true if an `opaque` was successfully popped from the queue,
 ///   otherwise false on timeout.
 MTY_EXPORT bool
@@ -3191,7 +3290,7 @@ typedef enum {
 	MTY_OS_WINDOWS = 0x01000000, ///< Microsoft Windows.
 	MTY_OS_MACOS   = 0x02000000, ///< Apple macOS.
 	MTY_OS_ANDROID = 0x04000000, ///< Android.
-	MTY_OS_LINUX   = 0x08000000, ///< Generic Linux.
+	MTY_OS_LINUX   = 0x08000000, ///< Linux with X11 windowing system.
 	MTY_OS_WEB     = 0x10000000, ///< Browser environment.
 	MTY_OS_IOS     = 0x20000000, ///< Apple iOS.
 	MTY_OS_TVOS    = 0x40000000, ///< Apple tvOS.
@@ -3242,7 +3341,7 @@ MTY_IsSupported(void);
 /// @returns An MTY_OS value bitwise OR'd with the OS's major and minor version numbers.
 ///   The major version has a mask of `0xFF00` and the minor has a mask of `0xFF`. On
 ///   Android, only a single version number is reported, the API level, in the
-///   position of the minor number.
+///   position of the major number.
 MTY_EXPORT uint32_t
 MTY_GetPlatform(void);
 

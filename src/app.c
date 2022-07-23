@@ -13,6 +13,7 @@
 // GFX
 
 GFX_CTX_PROTOTYPES(_gl_)
+GFX_CTX_PROTOTYPES(_vk_)
 GFX_CTX_PROTOTYPES(_d3d9_)
 GFX_CTX_PROTOTYPES(_d3d11_)
 GFX_CTX_PROTOTYPES(_d3d12_)
@@ -149,7 +150,7 @@ MTY_Frame mty_window_adjust(uint32_t screen_w, uint32_t screen_h, float scale, f
 {
 	if (h * scale > max_h * screen_h) {
 		float aspect = (float) w / h;
-		h = lrint(max_h * screen_h);
+		h = lrint(max_h * screen_h / scale);
 		w = lrint(h * aspect);
 	}
 

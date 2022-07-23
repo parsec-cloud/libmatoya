@@ -464,9 +464,9 @@ typedef enum {
 	MTY_KEY_F8             = 0x042, ///< F8
 	MTY_KEY_F9             = 0x043, ///< F9
 	MTY_KEY_F10            = 0x044, ///< F10
-	MTY_KEY_NUM_LOCK       = 0x045, ///< Num Lock
+	MTY_KEY_NUM_LOCK       = 0x145, ///< Num Lock
 	MTY_KEY_SCROLL_LOCK    = 0x046, ///< Scroll Lock
-	MTY_KEY_PAUSE          = 0x146, ///< Pause/Break
+	MTY_KEY_PAUSE          = 0x045, ///< Pause/Break
 	MTY_KEY_NP_7           = 0x047, ///< 7 (numpad)
 	MTY_KEY_HOME           = 0x147, ///< Home
 	MTY_KEY_NP_8           = 0x048, ///< 8 (numpad)
@@ -598,12 +598,15 @@ typedef enum {
 
 /// @brief Pen attributes.
 typedef enum {
-	MTY_PEN_FLAG_LEAVE    = 0x01, ///< Pen has left the drawing surface.
-	MTY_PEN_FLAG_TOUCHING = 0x02, ///< Pen is touching the drawing surface.
-	MTY_PEN_FLAG_INVERTED = 0x04, ///< The pen is inverted.
-	MTY_PEN_FLAG_ERASER   = 0x08, ///< The eraser is touching the drawing surface.
-	MTY_PEN_FLAG_BARREL   = 0x10, ///< The pen's barrel button is held down.
-	MTY_PEN_FLAG_MAKE_32  = INT32_MAX,
+	MTY_PEN_FLAG_LEAVE        = 0x01, ///< Pen has left the drawing surface.
+	MTY_PEN_FLAG_TOUCHING     = 0x02, ///< Pen is touching the drawing surface.
+	MTY_PEN_FLAG_INVERTED     = 0x04, ///< The pen is inverted.
+	MTY_PEN_FLAG_ERASER       = 0x08, ///< The eraser is touching the drawing surface.
+	MTY_PEN_FLAG_BARREL_1     = 0x10, ///< The pen's 1st barrel button is held down.
+	MTY_PEN_FLAG_BARREL_2     = 0x20, ///< The pen's 2nd barrel button is held down.
+	MTY_PEN_FLAG_TIP          = 0x40, ///< One of the physical pen's tips is touching the surface.
+	MTY_PEN_FLAG_DOUBLE_CLICK = 0x80, ///< A double-click has been fired by one of the pen's barrel buttons.
+	MTY_PEN_FLAG_MAKE_32      = INT32_MAX,
 } MTY_PenFlag;
 
 /// @brief Window keyboard/mouse detach states.
@@ -3321,7 +3324,7 @@ typedef enum {
 	MTY_OS_WINDOWS = 0x01000000, ///< Microsoft Windows.
 	MTY_OS_MACOS   = 0x02000000, ///< Apple macOS.
 	MTY_OS_ANDROID = 0x04000000, ///< Android.
-	MTY_OS_LINUX   = 0x08000000, ///< Generic Linux.
+	MTY_OS_LINUX   = 0x08000000, ///< Linux with X11 windowing system.
 	MTY_OS_WEB     = 0x10000000, ///< Browser environment.
 	MTY_OS_IOS     = 0x20000000, ///< Apple iOS.
 	MTY_OS_TVOS    = 0x40000000, ///< Apple tvOS.

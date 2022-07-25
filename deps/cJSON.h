@@ -1267,8 +1267,8 @@ success:
 	input_buffer->depth--;
 
 	if (head != NULL) {
-        head->prev = current_item;
-    }
+		head->prev = current_item;
+	}
 
 	item->type = cJSON_Object;
 	item->child = head;

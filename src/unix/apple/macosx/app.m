@@ -1359,11 +1359,11 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 	return app.pen_enabled;
 }
 
-void MTY_AppEnablePen(MTY_App *ctx, bool enable)
+void MTY_AppEnablePen(MTY_App *ctx, MTY_PenType type)
 {
 	App *app = (__bridge App *) ctx;
 
-	app.pen_enabled = enable;
+	app.pen_enabled = type != MTY_PEN_TYPE_NONE;
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)

@@ -164,7 +164,7 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 	return false;
 }
 
-void MTY_AppEnablePen(MTY_App *ctx, bool enable)
+void MTY_AppEnablePen(MTY_App *ctx, MTY_PenType type)
 {
 }
 

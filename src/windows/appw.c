@@ -1824,12 +1824,8 @@ void MTY_AppEnablePen(MTY_App *ctx, MTY_PenType type)
 {
 	ctx->pen_enabled = type != MTY_PEN_TYPE_NONE;
 
-	if (type == MTY_PEN_TYPE_WACOM && !ctx->wintab) {
+	if (type == MTY_PEN_TYPE_WACOM && !ctx->wintab)
 		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);
-
-	} else if (type != MTY_PEN_TYPE_WACOM && ctx->wintab) {
-		wintab_destroy(&ctx->wintab, true);
-	}
 }
 
 void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)

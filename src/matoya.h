@@ -569,6 +569,14 @@ typedef enum {
 	MTY_CAXIS_MAKE_32   = INT32_MAX,
 } MTY_CAxis;
 
+/// @brief Pen type.
+typedef enum {
+	MTY_PEN_TYPE_NONE    = 0, ///< Pen is disabled, and pen inputs are processed as mouse events.
+	MTY_PEN_TYPE_GENERIC = 1, ///< Generic pen support is enabled, providing essential features.
+	MTY_PEN_TYPE_WACOM   = 2, ///< Wacom pen support is enabled. Fallbacks to generic support if not available.
+	MTY_PEN_TYPE_MAKE_32 = INT32_MAX,
+} MTY_PenType;
+
 /// @brief Pen attributes.
 typedef enum {
 	MTY_PEN_FLAG_LEAVE        = 0x01, ///< Pen has left the drawing surface.
@@ -1038,10 +1046,10 @@ MTY_AppIsPenEnabled(MTY_App *ctx);
 /// @details The app defaults to having the pen disabled, which means pen events will
 ///   show up as MTY_EVENT_MOTION and MTY_EVENT_BUTTON events.
 /// @param ctx The MTY_App.
-/// @param enable Set true to enable the pen, false to disable it.
+/// @param type The type of pen to use. 
 //- #support Windows macOS
 MTY_EXPORT void
-MTY_AppEnablePen(MTY_App *ctx, bool enable);
+MTY_AppEnablePen(MTY_App *ctx, MTY_PenType type);
 
 /// @brief Enable or disable extended tablet controls override.
 /// @details When overriden, tablet controls (e.g. ExpressKeys) will be received as

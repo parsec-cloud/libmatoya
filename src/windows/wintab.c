@@ -255,14 +255,6 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 		// This is a WinInk special behavior, must be skipped if physical status has to be reported
 		if (right_click && (pressed || prev_pressed))
 			evt->pen.flags |= MTY_PEN_FLAG_BARREL_1;
-
-		// TODO Add a flag to report physical button press instead of WinInk specific behavior
-		// if (pressed || prev_pressed)
-		// 	evt->pen.flags |= 
-		// 		i == 0 ? MTY_PEN_FLAG_TIP :
-		// 		i == 1 ? MTY_PEN_FLAG_BARREL_1 :
-		// 		i == 2 ? MTY_PEN_FLAG_BARREL_2 :
-		// 		0;
 	}
 
 	if (evt->pen.flags & MTY_PEN_FLAG_TOUCHING && evt->pen.flags & MTY_PEN_FLAG_INVERTED)

@@ -209,6 +209,9 @@ void wintab_get_packet(struct wintab *ctx, WPARAM wparam, LPARAM lparam, void *p
 
 void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY_Window window)
 {
+	if (!ctx)
+		return;
+
 	bool double_clicked = false;
 	bool has_double_clicked = ctx->has_double_clicked;
 
@@ -252,12 +255,19 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 		if (double_click)
 			ctx->has_double_clicked = double_clicked = pressed;
 
-		if (pressed || prev_pressed)
-			evt->pen.flags |= 
-				i == 0 ? MTY_PEN_FLAG_TIP :
-				i == 1 ? MTY_PEN_FLAG_BARREL_1 :
-				i == 2 ? MTY_PEN_FLAG_BARREL_2 :
-				0;
+		if (ctx->override) {
+			if (pressed || prev_pressed)
+				evt->pen.flags |=
+					i == 0 ? MTY_PEN_FLAG_TIP :
+					i == 1 ? MTY_PEN_FLAG_BARREL_1 :
+					i == 2 ? MTY_PEN_FLAG_BARREL_2 :
+					0;
+
+		} else {
+			// This is a WinInk special behavior, must be skipped if physical status has to be reported
+			if (right_click && (pressed || prev_pressed))
+				evt->pen.flags |= MTY_PEN_FLAG_BARREL_1;
+		}
 	}
 
 	if (evt->pen.flags & MTY_PEN_FLAG_TOUCHING && evt->pen.flags & MTY_PEN_FLAG_INVERTED)
@@ -289,7 +299,10 @@ static uint16_t wintab_transform_position(DWORD position)
 }
 
 void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pktext)
-{
+{	
+	if (!ctx)
+		return;
+
 	evt->type = MTY_EVENT_WINTAB;
 
 	evt->wintab.device = pktext->pkExpKeys.nTablet;
@@ -321,6 +334,9 @@ void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pk
 
 bool wintab_on_proximity(struct wintab *ctx, MTY_Event *evt, LPARAM lparam)
 {
+	if (!ctx)
+		return;
+
 	bool pen_in_range = LOWORD(lparam) != 0;
 
 	if (!pen_in_range && ctx->pen_in_range) {

@@ -478,7 +478,7 @@ static void window_pen_event(Window *window, NSEvent *event)
 	evt.pen.pressure = (uint16_t) lrint(event.pressure * 1024.0f);
 	evt.pen.rotation = (uint16_t) lrint(event.rotation * 359.0f);
 	evt.pen.tiltX = (int8_t) lrint(event.tilt.x * 90.0f);
-	evt.pen.tiltY = (int8_t) lrint(event.tilt.y * 90.0f);
+	evt.pen.tiltY = (int8_t) lrint(event.tilt.y * -90.0f);
 	evt.pen.x = lrint(p.x * scale);
 	evt.pen.y = lrint(p.y * scale);
 

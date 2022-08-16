@@ -48,11 +48,12 @@ typedef struct MTY_RenderState MTY_RenderState;
 typedef enum {
 	MTY_GFX_NONE    = 0, ///< No 3D graphics API.
 	MTY_GFX_GL      = 1, ///< OpenGL/GLES.
-	MTY_GFX_D3D9    = 2, ///< Direct3D 9. Windows only.
-	MTY_GFX_D3D11   = 3, ///< Direct3D 11. Windows only.
-	MTY_GFX_D3D12   = 4, ///< Direct3D 12. Windows only.
-	MTY_GFX_METAL   = 5, ///< Metal. Apple only.
-	MTY_GFX_MAX     = 6, ///< Maximum number of 3D graphics APIs.
+	MTY_GFX_VK      = 2, ///< Vulkan. Not available on Apple OS's.
+	MTY_GFX_D3D9    = 3, ///< Direct3D 9. Windows only.
+	MTY_GFX_D3D11   = 4, ///< Direct3D 11. Windows only.
+	MTY_GFX_D3D12   = 5, ///< Direct3D 12. Windows only.
+	MTY_GFX_METAL   = 6, ///< Metal. Apple only.
+	MTY_GFX_MAX     = 7, ///< Maximum number of 3D graphics APIs.
 	MTY_GFX_MAKE_32 = INT32_MAX,
 } MTY_GFX;
 
@@ -181,6 +182,12 @@ typedef struct {
 	uint32_t vtxTotalLength; ///< Total number of vertices in all command lists.
 	bool clear;              ///< Surface should be cleared before drawing.
 } MTY_DrawData;
+
+/// @brief Vulkan specific device handles.
+typedef struct {
+	void *device;                               ///< VkDevice
+	const void *physicalDeviceMemoryProperties; ///< VkPhysicalDeviceMemoryProperties
+} MTY_VkDeviceObjects;
 
 /// @brief Create an MTY_Renderer capable of executing drawing commands.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
@@ -1276,11 +1283,8 @@ MTY_WindowMakeCurrent(MTY_App *app, MTY_Window window, bool current);
 /// @brief Present all pending draw operations.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
-/// @param numFrames The number of frames to wait before presenting, otherwise known
-///   as the swap interval. Specifying 0 frames means do not wait, 1 means the next
-///   frame, and so on.
 MTY_EXPORT void
-MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t numFrames);
+MTY_WindowPresent(MTY_App *app, MTY_Window window);
 
 /// @brief Get the current graphics API in use by the window.
 /// @param app The MTY_App.

@@ -238,11 +238,10 @@ objs: $(OBJS)
 ###############
 
 # developer.android.com/ndk/downloads -> ~/android-ndk-xxx
-
-ANDROID_NDK = $(HOME)/android-ndk-r25
+# set an environment variable pointing ANDROID_NDK_ROOT to ~/android-ndk-xxx
 
 android: clean clear $(SHADERS)
-	@$(ANDROID_NDK)/ndk-build -j4 \
+	@$(ANDROID_NDK_ROOT)/ndk-build -j4 \
 		APP_BUILD_SCRIPT=Android.mk \
 		APP_PLATFORM=android-26 \
 		NDK_PROJECT_PATH=. \

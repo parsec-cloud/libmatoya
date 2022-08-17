@@ -21,7 +21,7 @@ struct gfx_ctx;
 #define GFX_CTX_DECLARE_API(api, wrap) \
 	struct gfx_ctx *wrap(api, create)(void *native_window, bool vsync); \
 	void wrap(api, destroy)(struct gfx_ctx **gfx_ctx); \
-	void wrap(api, present)(struct gfx_ctx *gfx_ctx, uint32_t num_frames); \
+	void wrap(api, present)(struct gfx_ctx *gfx_ctx); \
 	MTY_Device *wrap(api, get_device)(struct gfx_ctx *gfx_ctx); \
 	MTY_Context *wrap(api, get_context)(struct gfx_ctx *gfx_ctx); \
 	MTY_Surface *wrap(api, get_surface)(struct gfx_ctx *gfx_ctx); \
@@ -31,7 +31,6 @@ struct gfx_ctx;
 	bool wrap(api, set_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba, \
 		uint32_t width, uint32_t height); \
 	bool wrap(api, has_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id); \
-	bool wrap(api, make_current)(struct gfx_ctx *gfx_ctx, bool current); \
 	bool wrap(api, hdr_supported)(struct gfx_ctx *gfx_ctx);
 
 #define GFX_CTX_PROTOTYPES(api) \
@@ -49,6 +48,5 @@ struct gfx_ctx;
 		mty##api##ctx_draw_ui, \
 		mty##api##ctx_set_ui_texture, \
 		mty##api##ctx_has_ui_texture, \
-		mty##api##ctx_make_current, \
 		mty##api##ctx_hdr_supported, \
 	},

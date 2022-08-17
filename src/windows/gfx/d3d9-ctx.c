@@ -242,7 +242,7 @@ MTY_Surface *mty_d3d9_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 	return (MTY_Surface *) ctx->back_buffer;
 }
 
-void mty_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
+void mty_d3d9_ctx_present(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
@@ -250,9 +250,6 @@ void mty_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 		HRESULT e = IDirect3DDevice9Ex_EndScene(ctx->device);
 
 		if (e == S_OK) {
-			for (uint32_t x = 0; x < interval; x++)
-				IDirect3DDevice9Ex_WaitForVBlank(ctx->device, 0);
-
 			e = IDirect3DDevice9Ex_PresentEx(ctx->device, NULL, NULL, NULL, NULL, 0);
 
 			if (D3D_FATAL(e)) {
@@ -313,11 +310,6 @@ bool mty_d3d9_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
 	return MTY_RendererHasUITexture(ctx->renderer, id);
-}
-
-bool mty_d3d9_ctx_make_current(struct gfx_ctx *gfx_ctx, bool current)
-{
-	return false;
 }
 
 bool mty_d3d9_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)

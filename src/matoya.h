@@ -1268,18 +1268,6 @@ MTY_EXPORT bool
 MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height);
 
-/// @brief Make the window's context current or not current on the calling thread.
-/// @details This has no effect if the window is not using MTY_GFX_GL. It is
-///   recommended that you first make the context not current on one thread before
-///   making it current on another. All windows using MTY_GFX_GL are created with
-///   the context not current.
-/// @param app The MTY_App.
-/// @param window An MTY_Window.
-/// @param current Set true to make the context current, false to make it not current.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-MTY_EXPORT bool
-MTY_WindowMakeCurrent(MTY_App *app, MTY_Window window, bool current);
-
 /// @brief Present all pending draw operations.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
@@ -1293,6 +1281,7 @@ MTY_EXPORT MTY_GFX
 MTY_WindowGetGFX(MTY_App *app, MTY_Window window);
 
 /// @brief Set the window's graphics API.
+/// @details This function should be called on the thread that is doing the rendering.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
 /// @param api Graphics API to set.
@@ -1913,11 +1902,11 @@ MTY_JSONSerialize(const MTY_JSON *json);
 MTY_EXPORT bool
 MTY_JSONWriteFile(const char *path, const MTY_JSON *json);
 
-/// @brief Get the number of items in an MTY_JSON item.
-/// @param json An MTY_JSON item to query.
-/// @returns The length of a JSON array or the number of items in a JSON object.
+/// @brief Get the number of items in a JSON array.
+/// @param json An MTY_JSON array.
+/// @returns The length of a JSON array.
 MTY_EXPORT uint32_t
-MTY_JSONGetLength(const MTY_JSON *json);
+MTY_JSONArrayGetLength(const MTY_JSON *json);
 
 /// @brief Create a new JSON object.
 /// @returns The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
@@ -1926,10 +1915,11 @@ MTY_EXPORT MTY_JSON *
 MTY_JSONObjCreate(void);
 
 /// @brief Create a new JSON array.
+/// @param len Currently ignored.
 /// @returns The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
 ///   remains the root item in the hierarchy.
 MTY_EXPORT MTY_JSON *
-MTY_JSONArrayCreate(void);
+MTY_JSONArrayCreate(uint32_t len);
 
 /// @brief Check if a key exists on a JSON object.
 /// @param json An MTY_JSON object.
@@ -1937,16 +1927,14 @@ MTY_JSONArrayCreate(void);
 MTY_EXPORT bool
 MTY_JSONObjKeyExists(const MTY_JSON *json, const char *key);
 
-/// @brief Get a key on a JSON object by its index.
-/// @details This function can be used as a way to iterate through a JSON object by
-///   first calling MTY_JSONGetLength on the object, then looping through by index.
+/// @brief Iterate through key/value pairs in a JSON object.
 /// @param json An MTY_JSON object.
-/// @param index Index to lookup.
-/// @returns If the `index` exists, the object's key at that position is returned.
-///   This reference is valid only as long as the `json` item is also valid.\n\n
-///   If the `index` does not exist, NULL is returned.
-MTY_EXPORT const char *
-MTY_JSONObjGetKey(const MTY_JSON *json, uint32_t index);
+/// @param iter Iterator that keeps track of the position in the object. Set this
+///   to 0 before the fist call to this function.
+/// @param key Reference to the next string key in the object.
+/// @returns Returns true if there are more keys available, otherwise false.
+MTY_EXPORT bool
+MTY_JSONObjGetNextKey(const MTY_JSON *json, uint64_t *iter, const char **key);
 
 /// @brief Delete an item from a JSON object.
 /// @param json An MTY_JSON object.
@@ -1969,19 +1957,7 @@ MTY_JSONObjGetItem(const MTY_JSON *json, const char *key);
 /// @param key Key to set.
 /// @param value Value associated with `key`.
 MTY_EXPORT void
-MTY_JSONObjSetItem(MTY_JSON *json, const char *key, const MTY_JSON *value);
-
-/// @brief Check if an item exists in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to check.
-MTY_EXPORT bool
-MTY_JSONArrayIndexExists(const MTY_JSON *json, uint32_t index);
-
-/// @brief Delete an item from a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to delete.
-MTY_EXPORT void
-MTY_JSONArrayDeleteItem(MTY_JSON *json, uint32_t index);
+MTY_JSONObjSetItem(MTY_JSON *json, const char *key, MTY_JSON *value);
 
 /// @brief Get an item from a JSON array.
 /// @param json An MTY_JSON array.
@@ -1992,18 +1968,12 @@ MTY_JSONArrayDeleteItem(MTY_JSON *json, uint32_t index);
 MTY_EXPORT const MTY_JSON *
 MTY_JSONArrayGetItem(const MTY_JSON *json, uint32_t index);
 
-/// @brief Set an item in a JSON array.
+/// @brief Set an item in JSON array.
 /// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param value Value set at `index`.
+/// @param index The array index where `value` will be stored.
+/// @param value Value to set at `index`.
 MTY_EXPORT void
-MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, const MTY_JSON *value);
-
-/// @brief Append an item to a JSON array.
-/// @param json An MTY_JSON array.
-/// @param value Value to append.
-MTY_EXPORT void
-MTY_JSONArrayAppendItem(MTY_JSON *json, const MTY_JSON *value);
+MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, MTY_JSON *value);
 
 /// @brief Get the full string from a JSON object.
 /// @param json An MTY_JSON object.
@@ -2182,44 +2152,10 @@ MTY_JSONArrayGetValType(const MTY_JSON *json, uint32_t index);
 
 /// @brief Set a string value in a JSON array.
 /// @param json An MTY_JSON array.
-/// @param index Index to set.
+/// @param index The array index where `val` will be stored.
 /// @param val Value to set at `index`.
 MTY_EXPORT void
 MTY_JSONArraySetString(MTY_JSON *json, uint32_t index, const char *val);
-
-/// @brief Set an int32_t value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param val Value to set at `index`.
-MTY_EXPORT void
-MTY_JSONArraySetInt(MTY_JSON *json, uint32_t index, int32_t val);
-
-/// @brief Set a uint32_t value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param val Value to set at `index`.
-MTY_EXPORT void
-MTY_JSONArraySetUInt(MTY_JSON *json, uint32_t index, uint32_t val);
-
-/// @brief Set a float value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param val Value to set at `index`.
-MTY_EXPORT void
-MTY_JSONArraySetFloat(MTY_JSON *json, uint32_t index, float val);
-
-/// @brief Set a bool value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param val Value to set at `index`.
-MTY_EXPORT void
-MTY_JSONArraySetBool(MTY_JSON *json, uint32_t index, bool val);
-
-/// @brief Set a NULL value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set to `null`.
-MTY_EXPORT void
-MTY_JSONArraySetNull(MTY_JSON *json, uint32_t index);
 
 
 //- #module Log

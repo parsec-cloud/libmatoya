@@ -6,7 +6,7 @@
 
 #include "matoya.h"
 
-#include "dl/libcrypto.h"
+#include "dl/libcrypto.c"
 
 struct MTY_AESGCM {
 	EVP_CIPHER_CTX *enc;

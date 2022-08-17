@@ -7,8 +7,8 @@
 #include "gfx/mod-ctx.h"
 GFX_CTX_PROTOTYPES(_gl_)
 
-#include "gfx/gl/glproc.h"
-#include "dl/libX11.h"
+#include "gfx/gl/glproc.c"
+#include "dl/libX11.c"
 
 struct gl_ctx {
 	Display *display;
@@ -33,7 +33,7 @@ struct gfx_ctx *mty_gl_ctx_create(void *native_window, bool vsync)
 	if (!libX11_global_init())
 		return NULL;
 
-	if (!mty_glproc_global_init())
+	if (!glproc_global_init())
 		return NULL;
 
 	bool r = true;
@@ -59,8 +59,6 @@ struct gfx_ctx *mty_gl_ctx_create(void *native_window, bool vsync)
 
 	if (glXSwapIntervalEXT)
 		glXSwapIntervalEXT(ctx->display, ctx->window, vsync ? 1 : 0);
-
-	glXMakeCurrent(ctx->display, None, NULL);
 
 	except:
 
@@ -143,20 +141,4 @@ bool mty_gl_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	return MTY_RendererHasUITexture(ctx->renderer, id);
-}
-
-bool mty_gl_ctx_make_current(struct gfx_ctx *gfx_ctx, bool current)
-{
-	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
-
-	bool r = false;
-
-	if (current) {
-		r = glXMakeCurrent(ctx->display, ctx->window, ctx->gl);
-
-	} else {
-		r = glXMakeCurrent(ctx->display, None, NULL);
-	}
-
-	return r;
 }

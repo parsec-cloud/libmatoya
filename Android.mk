@@ -61,7 +61,6 @@ LOCAL_SRC_FILES := \
 	src/gfx/gl/gl-ui.c \
 	src/gfx/vk/vk.c \
 	src/gfx/vk/vk-ctx.c \
-	src/gfx/vk/vkproc.c \
 	src/gfx/vk/vk-ui.c \
 	src/hid/utils.c \
 	src/net/async.c \
@@ -77,13 +76,13 @@ LOCAL_SRC_FILES := \
 	src/unix/system.c \
 	src/unix/thread.c \
 	src/unix/time.c \
-	src/unix/net/request.c \
 	src/unix/linux/dialog.c \
 	src/unix/linux/android/aes-gcm.c \
 	src/unix/linux/android/app.c \
 	src/unix/linux/android/audio.c \
 	src/unix/linux/android/crypto.c \
 	src/unix/linux/android/jnih.c \
+	src/unix/linux/android/request.c \
 	src/unix/linux/android/system.c \
 	src/unix/linux/android/tls.c \
 	src/unix/linux/android/gfx/gl-ctx.c

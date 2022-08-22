@@ -2,7 +2,7 @@ TARGET = windows
 ARCH = %%Platform%%
 NAME = matoya
 
-.SUFFIXES : .ps4 .vs4 .ps3 .vs3 .vert .frag
+.SUFFIXES : .ps4 .vs4 .ps3 .vs3 .vert .frag .vert .fragvk .vertvk
 
 .vs4.h:
 	@fxc $(FXCFLAGS) /Fh $@ /T vs_4_0 /Vn $(*B) $<
@@ -21,6 +21,12 @@ NAME = matoya
 
 .frag.h:
 	@echo static const GLchar FRAG[]={ > $@ && powershell "Format-Hex $< | %{$$_ -replace '^.*?   ',''} | %{$$_ -replace '  .*',' '} | %{$$_ -replace '(\w\w)','0x$$1,'}" >> $@ && echo 0x00}; >> $@
+
+.vertvk.h:
+	@deps\bin\glslangValidator -S vert -V --vn VERT $< -o $@
+
+.fragvk.h:
+	@deps\bin\glslangValidator -S frag -V --vn FRAG $< -o $@
 
 OBJS = \
 	src\app.obj \
@@ -42,8 +48,11 @@ OBJS = \
 	src\tls.obj \
 	src\version.obj \
 	src\zoom.obj \
-	src\gfx\gl.obj \
-	src\gfx\gl-ui.obj \
+	src\gfx\gl\gl.obj \
+	src\gfx\gl\gl-ui.obj \
+	src\gfx\vk\vk.obj \
+	src\gfx\vk\vk-ctx.obj \
+	src\gfx\vk\vk-ui.obj \
 	src\hid\hid.obj \
 	src\hid\utils.obj \
 	src\net\async.obj \
@@ -76,14 +85,18 @@ OBJS = \
 	src\windows\gfx\d3d9.obj \
 	src\windows\gfx\d3d9-ctx.obj \
 	src\windows\gfx\d3d9-ui.obj \
-	src\windows\gfx\gl-ctx.obj
+	src\windows\gfx\gl-ctx.obj \
 
 
 SHADERS = \
-	src\gfx\shaders\gl\fs.h \
-	src\gfx\shaders\gl\vs.h \
-	src\gfx\shaders\gl\fsui.h \
-	src\gfx\shaders\gl\vsui.h \
+	src\gfx\gl\shaders\fs.h \
+	src\gfx\gl\shaders\vs.h \
+	src\gfx\gl\shaders\fsui.h \
+	src\gfx\gl\shaders\vsui.h \
+	src\gfx\vk\shaders\fs.h \
+	src\gfx\vk\shaders\vs.h \
+	src\gfx\vk\shaders\fsui.h \
+	src\gfx\vk\shaders\vsui.h \
 	src\windows\gfx\shaders\d3d11\ps.h \
 	src\windows\gfx\shaders\d3d11\vs.h \
 	src\windows\gfx\shaders\d3d11\psui.h \
@@ -98,7 +111,8 @@ INCLUDES = \
 
 DEFS = \
 	-DUNICODE \
-	-DWIN32_LEAN_AND_MEAN
+	-DWIN32_LEAN_AND_MEAN \
+	-DMTY_VK_WIN32
 
 FXCFLAGS = \
 	/O3 \
@@ -126,6 +140,7 @@ OBJS = $(OBJS) src\windows\net\request.obj
 
 !IFDEF DEBUG
 FLAGS = $(FLAGS) /Ob0 /Zi
+DEFS = $(DEFS) -DMTY_VK_DEBUG
 !ELSE
 FLAGS = $(FLAGS) /O2 /GS- /Gw
 !ENDIF

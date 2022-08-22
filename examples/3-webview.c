@@ -24,7 +24,7 @@ static bool app_func(void *opaque)
 {
 	struct context *ctx = opaque;
 
-	MTY_WindowPresent(ctx->app, ctx->window, 1);
+	MTY_WindowPresent(ctx->app, ctx->window);
 
 	return !ctx->quit;
 }
@@ -67,7 +67,6 @@ int main(int argc, char **argv)
 	MTY_WindowSetGFX(ctx.app, 0, MTY_GFX_GL, true);
 	MTY_Frame frame = MTY_MakeDefaultFrame(0, 0, 1000, 700, 0.75);
 	MTY_WindowSetFrame(ctx.app, ctx.window, &frame);
-	MTY_WindowMakeCurrent(ctx.app, 0, true);
 
 	ctx.webview = MTY_WindowCreateWebview(ctx.app, ctx.window);
 	MTY_WebviewAutomaticSize(ctx.webview, true);

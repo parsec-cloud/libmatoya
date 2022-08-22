@@ -57,10 +57,8 @@ MTY_Surface *mty_gl_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 	return (MTY_Surface *) &ctx->fb0;
 }
 
-void mty_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
+void mty_gl_ctx_present(struct gfx_ctx *gfx_ctx)
 {
-	web_set_swap_interval(interval);
-
 	// This helps jitter
 	web_gl_flush();
 }
@@ -95,9 +93,4 @@ bool mty_gl_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	return MTY_RendererHasUITexture(ctx->renderer, id);
-}
-
-bool mty_gl_ctx_make_current(struct gfx_ctx *gfx_ctx, bool current)
-{
-	return false;
 }

@@ -434,7 +434,7 @@ bool mty_vk_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	VkViewport vp = {.maxDepth = 1.0f};
-	mty_viewport(desc, &vp.x, &vp.y, &vp.width, &vp.height);
+	mty_viewport(desc, &vp.x, &vp.y, &vp.width, &vp.height, false);
 
 	vkCmdSetViewport(cmd, 0, 1, &vp);
 

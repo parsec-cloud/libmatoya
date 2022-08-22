@@ -674,7 +674,7 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_
 
 	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
 		if (double_click)
-			*double_click = (evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK ? true : false);
+			*double_click = evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK ? true : false;
 
 		evt->type = MTY_EVENT_BUTTON;
 		evt->button.button = button;

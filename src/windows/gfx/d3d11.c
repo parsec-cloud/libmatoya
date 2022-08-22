@@ -377,12 +377,7 @@ static bool d3d11_refresh_resource_diff(struct gfx *gfx, MTY_Device *_device, MT
 	return r;
 }
 
-inline uint32_t eight_to_ten(uint8_t x)
-{
-	return (uint32_t) roundf((x / 255.0f) * 1023.0f);
-}
-
-static void d3d11_make_test_diff_img_rgba(uint8_t *pixels, uint32_t w, uint32_t h, bool hdr) {
+static void d3d11_make_test_diff_img_sdr(uint8_t *pixels, uint32_t w, uint32_t h) {
 	static const uint8_t SOURCE_COLORS[][3] = {
 		{255, 255, 255},
 		{128, 128, 128},
@@ -406,6 +401,34 @@ static void d3d11_make_test_diff_img_rgba(uint8_t *pixels, uint32_t w, uint32_t 
 		{235, 235, 0},
 		{235, 235, 235},
 	};
+
+	const uint32_t pixel_size = 4;
+	const uint32_t row_width = w * pixel_size;
+	const uint32_t num_colors = sizeof(SOURCE_COLORS) / sizeof(SOURCE_COLORS[0]);
+
+	for (uint32_t r = 0; r < h; r++) {
+		const uint32_t color_index = r * num_colors /  h;
+		const uint8_t *color = SOURCE_COLORS[color_index];
+
+		for (uint32_t c = 0; c < w; c++) {
+			uint8_t *pixel = pixels + row_width * r + c * pixel_size;
+
+			pixel[0] = color[0];
+			pixel[1] = color[1];
+			pixel[2] = color[2];
+			pixel[3] = 0xFF;
+		}
+	}
+}
+
+static void d3d11_make_test_diff_img_hdr(uint8_t *pixels, uint32_t w, uint32_t h) {
+	static const uint16_t SOURCE_COLORS[][3] = {
+		// From DisplayHDR Test #6
+		{618, 402, 194},
+		{546, 660, 336},
+		{357, 0, 663},
+		{668, 667, 667},
+	};
 	struct rgb10a2_pixel {
 		uint32_t r : 10;
 		uint32_t g : 10;
@@ -419,23 +442,16 @@ static void d3d11_make_test_diff_img_rgba(uint8_t *pixels, uint32_t w, uint32_t 
 
 	for (uint32_t r = 0; r < h; r++) {
 		const uint32_t color_index = r * num_colors /  h;
-		const uint8_t *color = SOURCE_COLORS[color_index];
+		const uint16_t *color = SOURCE_COLORS[color_index];
 
 		for (uint32_t c = 0; c < w; c++) {
 			uint8_t *pixel = pixels + row_width * r + c * pixel_size;
 
-			if (hdr) {
-				struct rgb10a2_pixel *pixel10 = (struct rgb10a2_pixel *) pixel;
-				pixel10->r = eight_to_ten(color[0]);
-				pixel10->g = eight_to_ten(color[1]);
-				pixel10->b = eight_to_ten(color[2]);
-				pixel10->a = 1;
-			} else {
-				pixel[0] = color[0];
-				pixel[1] = color[1];
-				pixel[2] = color[2];
-				pixel[3] = 0xFF;
-			}
+			struct rgb10a2_pixel *pixel10 = (struct rgb10a2_pixel *) pixel;
+			pixel10->r = color[0];
+			pixel10->g = color[1];
+			pixel10->b = color[2];
+			pixel10->a = 1;
 		}
 	}
 }
@@ -463,7 +479,10 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	if (1)
 	{
 		uint8_t *diffimage = MTY_Alloc(desc->cropWidth * desc->cropHeight, 4);
-		d3d11_make_test_diff_img_rgba(diffimage, desc->cropWidth, desc->cropHeight, desc->hdr);
+		if (desc->hdr)
+			d3d11_make_test_diff_img_hdr(diffimage, desc->cropWidth, desc->cropHeight);
+		else
+			d3d11_make_test_diff_img_sdr(diffimage, desc->cropWidth, desc->cropHeight);
 		d3d11_refresh_resource_diff(gfx, device, context, desc->hdr ? MTY_COLOR_FORMAT_Y410 : MTY_COLOR_FORMAT_BGRA, diffimage, desc->imageWidth, desc->cropWidth, desc->cropHeight);
 		free(diffimage);
 	}
@@ -536,7 +555,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		.conversion = FMT_CONVERSION(ctx->format, desc->fullRangeYUV, desc->multiplyYUV),
 		.hdr = desc->hdr,
 		.diffmode = 1,
-		.diffbrighten = 7.0f,
+		.diffbrighten = 1.0f,
 	};
 
 	if (memcmp(&ctx->ub, &cb, sizeof(struct gfx_uniforms_difftest))) {

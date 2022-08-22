@@ -3621,12 +3621,25 @@ MTY_GetVersion(void);
 //- #module MIME
 //- #mbrief Helpers related to MIME types
 
+typedef struct MTY_MIME MTY_MIME;
+
+/// @brief Creates a new MTY_MIME context.
+/// @return The MTY_MIME context.
+MTY_EXPORT MTY_MIME *
+MTY_MIMECreate();
+
+/// @brief Destroy an MTY_MIME context.
+/// @param mime The MTY_MIME context to destroy.
+MTY_EXPORT void
+MTY_MIMEDestroy(MTY_MIME **mime);
+
 /// @brief Get MIME type from the file path.
 /// @details Supported MIME types are those found on the MDN web docs.
+/// @param ctx The MTY_MIME context.
 /// @param path The path of the file.
 /// @return The corresponding MIME type, or `application/octet-stream` if not found.
 MTY_EXPORT const char *
-MTY_MIMEGetType(const char *path);
+MTY_MIMEGetType(MTY_MIME *ctx, const char *path);
 
 
 #ifdef __cplusplus

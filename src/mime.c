@@ -4,98 +4,109 @@
 
 #define DEFAULT_TYPE "application/octet-stream"
 
-bool initialized = false;
-MTY_Hash *types = NULL;
+struct MTY_MIME {
+	MTY_Hash *types;
+};
 
-static void mty_mime_initialize()
+MTY_MIME *MTY_MIMECreate()
 {
-	if (initialized)
-		return;
+	MTY_MIME *ctx = MTY_Alloc(1, sizeof(MTY_MIME));
 
-	types = MTY_HashCreate(0);
+	ctx->types = MTY_HashCreate(0);
 
 	// List retrieved from the MDN web docs:
 	// https://developer.mozilla.org/fr/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
-	MTY_HashSet(types, ".aac",   "audio/aac");
-	MTY_HashSet(types, ".abw",   "application/x-abiword");
-	MTY_HashSet(types, ".arc",   "application/octet-stream");
-	MTY_HashSet(types, ".avi",   "video/x-msvideo");
-	MTY_HashSet(types, ".azw",   "application/vnd.amazon.ebook");
-	MTY_HashSet(types, ".bin",   "application/octet-stream");
-	MTY_HashSet(types, ".bmp",   "image/bmp");
-	MTY_HashSet(types, ".bz",    "application/x-bzip");
-	MTY_HashSet(types, ".bz2",   "application/x-bzip2");
-	MTY_HashSet(types, ".csh",   "application/x-csh");
-	MTY_HashSet(types, ".css",   "text/css");
-	MTY_HashSet(types, ".csv",   "text/csv");
-	MTY_HashSet(types, ".doc",   "application/msword");
-	MTY_HashSet(types, ".docx",  "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-	MTY_HashSet(types, ".eot",   "application/vnd.ms-fontobject");
-	MTY_HashSet(types, ".epub",  "application/epub+zip");
-	MTY_HashSet(types, ".gif",   "image/gif");
-	MTY_HashSet(types, ".htm",   "text/html");
-	MTY_HashSet(types, ".html",  "text/html");
-	MTY_HashSet(types, ".ico",   "image/x-icon");
-	MTY_HashSet(types, ".ics",   "text/calendar");
-	MTY_HashSet(types, ".jar",   "application/java-archive");
-	MTY_HashSet(types, ".jpeg",  "image/jpeg");
-	MTY_HashSet(types, ".jpg",   "image/jpeg");
-	MTY_HashSet(types, ".js",    "application/javascript");
-	MTY_HashSet(types, ".json",  "application/json");
-	MTY_HashSet(types, ".mid",   "audio/midi");
-	MTY_HashSet(types, ".midi",  "audio/midi");
-	MTY_HashSet(types, ".mpeg",  "video/mpeg");
-	MTY_HashSet(types, ".mpkg",  "application/vnd.apple.installer+xml");
-	MTY_HashSet(types, ".odp",   "application/vnd.oasis.opendocument.presentation");
-	MTY_HashSet(types, ".ods",   "application/vnd.oasis.opendocument.spreadsheet");
-	MTY_HashSet(types, ".odt",   "application/vnd.oasis.opendocument.text");
-	MTY_HashSet(types, ".oga",   "audio/ogg");
-	MTY_HashSet(types, ".ogv",   "video/ogg");
-	MTY_HashSet(types, ".ogx",   "application/ogg");
-	MTY_HashSet(types, ".otf",   "font/otf");
-	MTY_HashSet(types, ".png",   "image/png");
-	MTY_HashSet(types, ".pdf",   "application/pdf");
-	MTY_HashSet(types, ".ppt",   "application/vnd.ms-powerpoint");
-	MTY_HashSet(types, ".pptx",  "application/vnd.openxmlformats-officedocument.presentationml.presentation");
-	MTY_HashSet(types, ".rar",   "application/x-rar-compressed");
-	MTY_HashSet(types, ".rtf",   "application/rtf");
-	MTY_HashSet(types, ".sh",    "application/x-sh");
-	MTY_HashSet(types, ".svg",   "image/svg+xml");
-	MTY_HashSet(types, ".swf",   "application/x-shockwave-flash");
-	MTY_HashSet(types, ".tar",   "application/x-tar");
-	MTY_HashSet(types, ".tif",   "image/tiff");
-	MTY_HashSet(types, ".tiff",  "image/tiff");
-	MTY_HashSet(types, ".ts",    "application/typescript");
-	MTY_HashSet(types, ".ttf",   "font/ttf");
-	MTY_HashSet(types, ".vsd",   "application/vnd.visio");
-	MTY_HashSet(types, ".wav",   "audio/x-wav");
-	MTY_HashSet(types, ".weba",  "audio/webm");
-	MTY_HashSet(types, ".webm",  "video/webm");
-	MTY_HashSet(types, ".webp",  "image/webp");
-	MTY_HashSet(types, ".woff",  "font/woff");
-	MTY_HashSet(types, ".woff2", "font/woff2");
-	MTY_HashSet(types, ".xhtml", "application/xhtml+xml");
-	MTY_HashSet(types, ".xls",   "application/vnd.ms-excel");
-	MTY_HashSet(types, ".xlsx",  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-	MTY_HashSet(types, ".xml",   "application/xml");
-	MTY_HashSet(types, ".xul",   "application/vnd.mozilla.xul+xml");
-	MTY_HashSet(types, ".zip",   "application/zip");
-	MTY_HashSet(types, ".3gp",   "video/3gpp");
-	MTY_HashSet(types, ".3g2",   "video/3gpp2");
-	MTY_HashSet(types, ".7z",    "application/x-7z-compressed");
+	MTY_HashSet(ctx->types, ".aac",   "audio/aac");
+	MTY_HashSet(ctx->types, ".abw",   "application/x-abiword");
+	MTY_HashSet(ctx->types, ".arc",   "application/octet-stream");
+	MTY_HashSet(ctx->types, ".avi",   "video/x-msvideo");
+	MTY_HashSet(ctx->types, ".azw",   "application/vnd.amazon.ebook");
+	MTY_HashSet(ctx->types, ".bin",   "application/octet-stream");
+	MTY_HashSet(ctx->types, ".bmp",   "image/bmp");
+	MTY_HashSet(ctx->types, ".bz",    "application/x-bzip");
+	MTY_HashSet(ctx->types, ".bz2",   "application/x-bzip2");
+	MTY_HashSet(ctx->types, ".csh",   "application/x-csh");
+	MTY_HashSet(ctx->types, ".css",   "text/css");
+	MTY_HashSet(ctx->types, ".csv",   "text/csv");
+	MTY_HashSet(ctx->types, ".doc",   "application/msword");
+	MTY_HashSet(ctx->types, ".docx",  "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+	MTY_HashSet(ctx->types, ".eot",   "application/vnd.ms-fontobject");
+	MTY_HashSet(ctx->types, ".epub",  "application/epub+zip");
+	MTY_HashSet(ctx->types, ".gif",   "image/gif");
+	MTY_HashSet(ctx->types, ".htm",   "text/html");
+	MTY_HashSet(ctx->types, ".html",  "text/html");
+	MTY_HashSet(ctx->types, ".ico",   "image/x-icon");
+	MTY_HashSet(ctx->types, ".ics",   "text/calendar");
+	MTY_HashSet(ctx->types, ".jar",   "application/java-archive");
+	MTY_HashSet(ctx->types, ".jpeg",  "image/jpeg");
+	MTY_HashSet(ctx->types, ".jpg",   "image/jpeg");
+	MTY_HashSet(ctx->types, ".js",    "application/javascript");
+	MTY_HashSet(ctx->types, ".json",  "application/json");
+	MTY_HashSet(ctx->types, ".mid",   "audio/midi");
+	MTY_HashSet(ctx->types, ".midi",  "audio/midi");
+	MTY_HashSet(ctx->types, ".mpeg",  "video/mpeg");
+	MTY_HashSet(ctx->types, ".mpkg",  "application/vnd.apple.installer+xml");
+	MTY_HashSet(ctx->types, ".odp",   "application/vnd.oasis.opendocument.presentation");
+	MTY_HashSet(ctx->types, ".ods",   "application/vnd.oasis.opendocument.spreadsheet");
+	MTY_HashSet(ctx->types, ".odt",   "application/vnd.oasis.opendocument.text");
+	MTY_HashSet(ctx->types, ".oga",   "audio/ogg");
+	MTY_HashSet(ctx->types, ".ogv",   "video/ogg");
+	MTY_HashSet(ctx->types, ".ogx",   "application/ogg");
+	MTY_HashSet(ctx->types, ".otf",   "font/otf");
+	MTY_HashSet(ctx->types, ".png",   "image/png");
+	MTY_HashSet(ctx->types, ".pdf",   "application/pdf");
+	MTY_HashSet(ctx->types, ".ppt",   "application/vnd.ms-powerpoint");
+	MTY_HashSet(ctx->types, ".pptx",  "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+	MTY_HashSet(ctx->types, ".rar",   "application/x-rar-compressed");
+	MTY_HashSet(ctx->types, ".rtf",   "application/rtf");
+	MTY_HashSet(ctx->types, ".sh",    "application/x-sh");
+	MTY_HashSet(ctx->types, ".svg",   "image/svg+xml");
+	MTY_HashSet(ctx->types, ".swf",   "application/x-shockwave-flash");
+	MTY_HashSet(ctx->types, ".tar",   "application/x-tar");
+	MTY_HashSet(ctx->types, ".tif",   "image/tiff");
+	MTY_HashSet(ctx->types, ".tiff",  "image/tiff");
+	MTY_HashSet(ctx->types, ".ts",    "application/typescript");
+	MTY_HashSet(ctx->types, ".ttf",   "font/ttf");
+	MTY_HashSet(ctx->types, ".vsd",   "application/vnd.visio");
+	MTY_HashSet(ctx->types, ".wav",   "audio/x-wav");
+	MTY_HashSet(ctx->types, ".weba",  "audio/webm");
+	MTY_HashSet(ctx->types, ".webm",  "video/webm");
+	MTY_HashSet(ctx->types, ".webp",  "image/webp");
+	MTY_HashSet(ctx->types, ".woff",  "font/woff");
+	MTY_HashSet(ctx->types, ".woff2", "font/woff2");
+	MTY_HashSet(ctx->types, ".xhtml", "application/xhtml+xml");
+	MTY_HashSet(ctx->types, ".xls",   "application/vnd.ms-excel");
+	MTY_HashSet(ctx->types, ".xlsx",  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+	MTY_HashSet(ctx->types, ".xml",   "application/xml");
+	MTY_HashSet(ctx->types, ".xul",   "application/vnd.mozilla.xul+xml");
+	MTY_HashSet(ctx->types, ".zip",   "application/zip");
+	MTY_HashSet(ctx->types, ".3gp",   "video/3gpp");
+	MTY_HashSet(ctx->types, ".3g2",   "video/3gpp2");
+	MTY_HashSet(ctx->types, ".7z",    "application/x-7z-compressed");
 
-	initialized = true;
+	return ctx;
 }
 
-const char *MTY_MIMEGetType(const char *path)
+void MTY_MIMEDestroy(MTY_MIME **mime)
 {
-	mty_mime_initialize();
+	if (!mime || !*mime)
+		return;
 
+	MTY_MIME *ctx = *mime;
+
+	MTY_HashDestroy(&ctx->types, NULL);
+
+	MTY_Free(ctx);
+	*mime = NULL;
+}
+
+const char *MTY_MIMEGetType(MTY_MIME *ctx, const char *path)
+{
 	const char *extension = strrchr(path, '.');
 	if (!extension)
 		return DEFAULT_TYPE;
 
-	const char *type = MTY_HashGet(types, extension);
+	const char *type = MTY_HashGet(ctx->types, extension);
 	if (!type)
 		return DEFAULT_TYPE;
 

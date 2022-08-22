@@ -381,7 +381,7 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 			// It seems that touch input reports lastX and lastY as screen coordinates,
 			// not normalized coordinates between 0-65535 as the documentation says
 			if (!app->touch_active) {
-				bool virt = (mouse->usFlags & MOUSE_VIRTUAL_DESKTOP) ? true : false;
+				bool virt = (mouse->usFlags & MOUSE_VIRTUAL_DESKTOP) == MOUSE_VIRTUAL_DESKTOP;
 				int32_t w = GetSystemMetrics(virt ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
 				int32_t h = GetSystemMetrics(virt ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
 				x = (int32_t) (((float) mouse->lLastX / 65535.0f) * w);
@@ -561,7 +561,7 @@ static void app_apply_keyboard_state(MTY_App *app, bool focus)
 
 static bool app_button_is_pressed(MTY_Button button)
 {
-	return (GetAsyncKeyState(APP_MOUSE_MAP[button]) & 0x8000) ? true : false;
+	return (GetAsyncKeyState(APP_MOUSE_MAP[button]) & 0x8000) == 0x8000;
 }
 
 static void app_fix_mouse_buttons(MTY_App *ctx)
@@ -1104,7 +1104,9 @@ static float monitor_get_scale(HMONITOR mon)
 
 	UINT x = 0;
 	UINT y = 0;
-	_GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y);
+	HRESULT e = _GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y);
+	if (e != S_OK || x == 0)
+		return 1.0f;
 
 	return x / 96.0f;
 }
@@ -1848,6 +1850,10 @@ static void window_denormalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
 	r->right = r->right + px_w + mi.rcWork.left;
 	r->bottom = r->bottom + px_h + mi.rcWork.top;
 	r->left = r->left - px_w + mi.rcWork.left;
+
+	// Ensure the title bar is visible
+	if (r->top < mi.rcWork.top)
+		r->top = mi.rcWork.top;
 }
 
 static void window_normalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
@@ -2186,7 +2192,7 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 
 bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 {
-	return app_get_window(app, window) ? true : false;
+	return app_get_window(app, window) != NULL;
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
@@ -2330,7 +2336,7 @@ void *MTY_GLGetProcAddress(const char *name)
 	void *p = wglGetProcAddress(name);
 
 	if (!p)
-		p = GetProcAddress(GetModuleHandleA("opengl32.dll"), name);
+		p = GetProcAddress(GetModuleHandle(L"opengl32.dll"), name);
 
 	return p;
 }

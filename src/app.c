@@ -13,6 +13,7 @@
 // GFX
 
 GFX_CTX_PROTOTYPES(_gl_)
+GFX_CTX_PROTOTYPES(_vk_)
 GFX_CTX_PROTOTYPES(_d3d9_)
 GFX_CTX_PROTOTYPES(_d3d11_)
 GFX_CTX_PROTOTYPES(_d3d12_)
@@ -77,21 +78,13 @@ bool MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const 
 	return api != MTY_GFX_NONE && GFX_CTX_API[api].set_ui_texture(gfx_ctx, id, rgba, width, height);
 }
 
-bool MTY_WindowMakeCurrent(MTY_App *app, MTY_Window window, bool current)
-{
-	struct gfx_ctx *gfx_ctx = NULL;
-	MTY_GFX api = mty_window_get_gfx(app, window, &gfx_ctx);
-
-	return api != MTY_GFX_NONE && GFX_CTX_API[api].make_current(gfx_ctx, current);
-}
-
-void MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t numFrames)
+void MTY_WindowPresent(MTY_App *app, MTY_Window window)
 {
 	struct gfx_ctx *gfx_ctx = NULL;
 	MTY_GFX api = mty_window_get_gfx(app, window, &gfx_ctx);
 
 	if (api != MTY_GFX_NONE)
-		GFX_CTX_API[api].present(gfx_ctx, numFrames);
+		GFX_CTX_API[api].present(gfx_ctx);
 }
 
 MTY_GFX MTY_WindowGetGFX(MTY_App *app, MTY_Window window)
@@ -109,9 +102,9 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 		mty_window_set_gfx(app, window, MTY_GFX_NONE, NULL);
 	}
 
-	void *native = mty_window_get_native(app, window);
+	if (api != MTY_GFX_NONE && MTY_WindowExists(app, window)) {
+		void *native = mty_window_get_native(app, window);
 
-	if (native && api != MTY_GFX_NONE) {
 		gfx_ctx = GFX_CTX_API[api].create(native, vsync);
 
 		// Fallback
@@ -130,7 +123,7 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 		}
 	}
 
-	return gfx_ctx ? true : false;
+	return gfx_ctx != NULL;
 }
 
 
@@ -141,7 +134,7 @@ MTY_Frame mty_window_adjust(uint32_t screen_w, uint32_t screen_h, float scale, f
 {
 	if (h * scale > max_h * screen_h) {
 		float aspect = (float) w / h;
-		h = lrint(max_h * screen_h);
+		h = lrint(max_h * screen_h / scale);
 		w = lrint(h * aspect);
 	}
 

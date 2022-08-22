@@ -1113,6 +1113,10 @@ static cJSON_bool parse_array(cJSON *const item, parse_buffer *const input_buffe
 success:
 	input_buffer->depth--;
 
+	if (head != NULL) {
+		head->prev = current_item;
+	}
+
 	item->type = cJSON_Array;
 	item->child = head;
 
@@ -1261,6 +1265,10 @@ static cJSON_bool parse_object(cJSON *const item, parse_buffer *const input_buff
 
 success:
 	input_buffer->depth--;
+
+	if (head != NULL) {
+		head->prev = current_item;
+	}
 
 	item->type = cJSON_Object;
 	item->child = head;
@@ -1475,12 +1483,6 @@ static cJSON_bool add_item_to_array(cJSON *array, cJSON *item)
 		if (child->prev) {
 			suffix_object(child->prev, item);
 			array->child->prev = item;
-		} else {
-			while (child->next) {
-				child = child->next;
-			}
-			suffix_object(child, item);
-			array->child->prev = item;
 		}
 	}
 
@@ -1629,6 +1631,9 @@ CJSON_PUBLIC(cJSON_bool) cJSON_ReplaceItemViaPointer(cJSON *const parent, cJSON 
 		replacement->next->prev = replacement;
 	}
 	if (parent->child == item) {
+		if (parent->child->prev == parent->child) {
+			replacement->prev = replacement;
+		}
 		parent->child = replacement;
 	} else { /*
          * To find the last item in array quickly, we use prev in array.
@@ -1636,6 +1641,9 @@ CJSON_PUBLIC(cJSON_bool) cJSON_ReplaceItemViaPointer(cJSON *const parent, cJSON 
          */
 		if (replacement->prev != NULL) {
 			replacement->prev->next = replacement;
+		}
+		if (replacement->next == NULL) {
+			parent->child->prev = replacement;
 		}
 	}
 
@@ -1657,6 +1665,10 @@ static cJSON_bool replace_item_in_object(cJSON *object, const char *string, cJSO
 		CJSON_FREE(replacement->string);
 	}
 	replacement->string = (char *) MTY_Strdup(string);
+	if (replacement->string == NULL) {
+		return false;
+	}
+
 	replacement->type &= ~cJSON_StringIsConst;
 
 	return cJSON_ReplaceItemViaPointer(object, get_object_item(object, string), replacement);
@@ -1798,6 +1810,9 @@ CJSON_PUBLIC(cJSON *) cJSON_Duplicate(const cJSON *item, cJSON_bool recurse)
 			next = newchild;
 		}
 		child = child->next;
+	}
+	if (newitem && newitem->child) {
+		newitem->child->prev = newchild;
 	}
 
 	return newitem;

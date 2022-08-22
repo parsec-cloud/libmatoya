@@ -3570,7 +3570,7 @@ MTY_ZoomCreate();
 
 /// @brief Destroy the scaling context.
 /// @param ctx The MTY_Zoom.
-MTY_EXPORT void 
+MTY_EXPORT void
 MTY_ZoomDestroy(MTY_Zoom **ctx);
 
 /// @brief Update the context with the window and image sizes.
@@ -3582,7 +3582,7 @@ MTY_ZoomDestroy(MTY_Zoom **ctx);
 /// @param windowHeight The window height.
 /// @param imageWidth The image width.
 /// @param imageHeight The image height.
-MTY_EXPORT void 
+MTY_EXPORT void
 MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, uint32_t imageWidth, uint32_t imageHeight);
 
 /// @brief Apply a scaling data to the context.
@@ -3591,7 +3591,7 @@ MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, uint3
 /// @param scaleFactor The new relative scale factor.
 /// @param focusX The new horizontal coordinate of the focal point.
 /// @param focusY The new vertical coordinate of the focal point.
-MTY_EXPORT void 
+MTY_EXPORT void
 MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY);
 
 /// @brief Notify the context of a cursor move.
@@ -3609,50 +3609,50 @@ MTY_ZoomMove(MTY_Zoom *ctx, int32_t x, int32_t y, bool start);
 /// @param ctx The MTY_Zoom.
 /// @param value The absolute X position.
 /// @returns The zoom-relative X position.
-MTY_EXPORT int32_t 
+MTY_EXPORT int32_t
 MTY_ZoomTranformX(MTY_Zoom *ctx, int32_t value);
 
 /// @brief Tranform an absolute Y position to one relative to the zoomed area.
 /// @param ctx The MTY_Zoom.
 /// @param value The absolute Y position.
 /// @returns The zoom-relative Y position.
-MTY_EXPORT int32_t 
+MTY_EXPORT int32_t
 MTY_ZoomTranformY(MTY_Zoom *ctx, int32_t value);
 
 /// @brief Get the most recently computed image scale value.
 /// @param ctx The MTY_Zoom.
 /// @returns The computed scale value.
-MTY_EXPORT float 
+MTY_EXPORT float
 MTY_ZoomGetScale(MTY_Zoom *ctx);
 
-/// @brief Get the most recently computed horizontal position of the image. 
+/// @brief Get the most recently computed horizontal position of the image.
 /// @param ctx The MTY_Zoom.
 /// @returns The computed horizontal position.
-MTY_EXPORT int32_t 
+MTY_EXPORT int32_t
 MTY_ZoomGetImageX(MTY_Zoom *ctx);
 
 /// @brief Get the most recently computed vertical position of the image.
 /// @param ctx The MTY_Zoom.
 /// @returns The computed vertical position.
-MTY_EXPORT int32_t 
+MTY_EXPORT int32_t
 MTY_ZoomGetImageY(MTY_Zoom *ctx);
 
-/// @brief Get the current horizontal position of the cursor. 
+/// @brief Get the current horizontal position of the cursor.
 /// @param ctx The MTY_Zoom.
 /// @returns The horizontal position, in screen coordinates.
-MTY_EXPORT int32_t 
+MTY_EXPORT int32_t
 MTY_ZoomGetCursorX(MTY_Zoom *ctx);
 
 /// @brief Get the current vertical position of the cursor.
 /// @param ctx The MTY_Zoom.
 /// @returns The vertical position, in screen coordinates.
-MTY_EXPORT int32_t 
+MTY_EXPORT int32_t
 MTY_ZoomGetCursorY(MTY_Zoom *ctx);
 
 /// @brief Check whether a scaling gesture is in progress or not.
 /// @param ctx The MTY_Zoom.
 /// @returns True when scaling, otherwise false.
-MTY_EXPORT bool 
+MTY_EXPORT bool
 MTY_ZoomIsScaling(MTY_Zoom *ctx);
 
 /// @brief Set whether a scaling gesture is in progress or not.
@@ -3660,13 +3660,13 @@ MTY_ZoomIsScaling(MTY_Zoom *ctx);
 ///   A disabled state is useful when preparing the context before actually scaling.
 /// @param ctx The MTY_Zoom.
 /// @param scaling True when scaling, otherwise false.
-MTY_EXPORT void 
+MTY_EXPORT void
 MTY_ZoomSetScaling(MTY_Zoom *ctx, bool scaling);
 
 /// @brief Check whether the context treats data as relative inputs or not.
 /// @param ctx The MTY_Zoom.
 /// @returns True when relative, otherwise false.
-MTY_EXPORT bool 
+MTY_EXPORT bool
 MTY_ZoomIsRelative(MTY_Zoom *ctx);
 
 /// @brief Set whether the context treats data as relative inputs or not.
@@ -3688,7 +3688,7 @@ MTY_ZoomIsTrackpadEnabled(MTY_Zoom *ctx);
 ///   * When enabled, the cursor is moved relatively to its previous
 ///     position and the zoomed area is panned if the cursor goes out.
 ///   * When disabled, the zoomed area does not move and the cursor is
-///     positioned within this area. 
+///     positioned within this area.
 /// @param ctx The MTY_Zoom.
 /// @param enable True to enable trackpad mode, false otherwise.
 MTY_EXPORT void
@@ -3705,7 +3705,7 @@ MTY_ZoomHasMoved(MTY_Zoom *ctx);
 ///   MTY_INPUT_MODE_TRACKPAD and the context is not relative, and to hide it otherwise.
 /// @param ctx The MTY_Zoom.
 /// @returns True if the cursor should be shown, false otherwise.
-MTY_EXPORT bool 
+MTY_EXPORT bool
 MTY_ZoomShouldShowCursor(MTY_Zoom *ctx);
 
 /// @brief Set the scale limits of the context.
@@ -3715,7 +3715,7 @@ MTY_ZoomShouldShowCursor(MTY_Zoom *ctx);
 /// @param ctx The MTY_Zoom.
 /// @param min The minimum scaling factor.
 /// @param max The maximum scaling factor.
-MTY_EXPORT void 
+MTY_EXPORT void
 MTY_ZoomSetLimits(MTY_Zoom *ctx, float min, float max);
 
 
@@ -3772,8 +3772,8 @@ MTY_EXPORT void
 MTY_CursorMoveFromZoom(MTY_Cursor *ctx, MTY_Zoom *zoom);
 
 /// @brief Draw the cursor on the specified window
-/// @details The configured cursor will be drawn on top of any other drawing operation 
-///   in the current loop iteration by adding the cursor's draw data at the end of the 
+/// @details The configured cursor will be drawn on top of any other drawing operation
+///   in the current loop iteration by adding the cursor's draw data at the end of the
 ///   provided `dd` parameter.
 /// @param ctx The MTY_Cursor.
 /// @param dd The existing draw data.

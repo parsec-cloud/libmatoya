@@ -295,7 +295,7 @@ static uint16_t wintab_transform_position(DWORD position)
 }
 
 void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pktext)
-{	
+{
 	evt->type = MTY_EVENT_WINTAB;
 
 	evt->wintab.device = pktext->pkExpKeys.nTablet;

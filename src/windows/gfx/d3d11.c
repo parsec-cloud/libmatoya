@@ -33,7 +33,22 @@ struct d3d11_res {
 struct d3d11 {
 	MTY_ColorFormat format;
 	struct d3d11_res staging[D3D11_NUM_STAGING];
-	struct gfx_uniforms ub;
+	struct d3d11_res staging_diff[2]; // 0 for RGBA, 1 for RGB10A2
+	struct gfx_uniforms_difftest {
+		float width;
+		float height;
+		float vp_height;
+		float pad0;
+		uint32_t effects[4];
+		float levels[4];
+		uint32_t planes;
+		uint32_t rotation;
+		uint32_t conversion;
+		uint32_t hdr;
+		uint32_t diffmode;
+		float diffbrighten;
+		uint32_t pad[2];
+	} ub;
 
 	ID3D11VertexShader *vs;
 	ID3D11PixelShader *ps;
@@ -106,7 +121,7 @@ struct gfx *mty_d3d11_create(MTY_Device *device)
 	}
 
 	D3D11_BUFFER_DESC psbd = {0};
-	psbd.ByteWidth = sizeof(struct gfx_uniforms);
+	psbd.ByteWidth = sizeof(struct gfx_uniforms_difftest);
 	psbd.Usage = D3D11_USAGE_DYNAMIC;
 	psbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	psbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -282,6 +297,149 @@ static bool d3d11_refresh_resource(struct gfx *gfx, MTY_Device *_device, MTY_Con
 	return r;
 }
 
+static bool d3d11_refresh_resource_diff(struct gfx *gfx, MTY_Device *_device, MTY_Context *context, MTY_ColorFormat fmt,
+	const uint8_t *image, uint32_t full_w, uint32_t w, uint32_t h)
+{
+	if (fmt == MTY_COLOR_FORMAT_UNKNOWN)
+		return false;
+
+	struct d3d11 *ctx = (struct d3d11 *) gfx;
+
+	bool r = true;
+
+	uint8_t idx_res = (fmt == MTY_COLOR_FORMAT_RGBA || fmt == MTY_COLOR_FORMAT_BGRA) ? 0 : 1;
+	struct d3d11_res *res = &ctx->staging_diff[idx_res];
+	DXGI_FORMAT format = (fmt == MTY_COLOR_FORMAT_RGBA || fmt == MTY_COLOR_FORMAT_BGRA) ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_R10G10B10A2_UNORM;
+
+	ID3D11Texture2D *texture = NULL;
+
+	// Resize
+	if (!res->resource || w != res->width || h != res->height || format != res->format) {
+		ID3D11Device *device = (ID3D11Device *) _device;
+
+		d3d11_destroy_resource(res);
+
+		D3D11_TEXTURE2D_DESC desc = {0};
+		desc.Width = w;
+		desc.Height = h;
+		desc.MipLevels = 1;
+		desc.ArraySize = 1;
+		desc.Format = format;
+		desc.SampleDesc.Count = 1;
+		desc.Usage = D3D11_USAGE_DYNAMIC;
+		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+		HRESULT e = ID3D11Device_CreateTexture2D(device, &desc, NULL, &texture);
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Device_CreateTexture2D' failed with HRESULT 0x%X", e);
+			r = false;
+			goto except;
+		}
+
+		e = ID3D11Texture2D_QueryInterface(texture, &IID_ID3D11Resource, &res->resource);
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Texture2D_QueryInterface' failed with HRESULT 0x%X", e);
+			r = false;
+			goto except;
+		}
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {0};
+		srvd.Format = format;
+		srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		srvd.Texture2D.MipLevels = 1;
+
+		e = ID3D11Device_CreateShaderResourceView(device, res->resource, &srvd, &res->srv);
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Device_CreateShaderResourceView' failed with HRESULT 0x%X", e);
+			r = false;
+			goto except;
+		}
+
+		res->width = w;
+		res->height = h;
+		res->format = format;
+	}
+
+	except:
+
+	if (texture)
+		ID3D11Texture2D_Release(texture);
+
+	if (r) {
+		// Upload
+		r = d3d11_crop_copy(res, context, image, full_w, w, h, 4); // RGBA and RGB10A2 are always 4 bytes per pixel
+
+	} else {
+		d3d11_destroy_resource(res);
+	}
+
+	return r;
+}
+
+inline uint32_t eight_to_ten(uint8_t x)
+{
+	return (uint32_t) roundf((x / 255.0f) * 1023.0f);
+}
+
+static void d3d11_make_test_diff_img_rgba(uint8_t *pixels, uint32_t w, uint32_t h, bool hdr) {
+	static const uint8_t SOURCE_COLORS[][3] = {
+		{255, 255, 255},
+		{128, 128, 128},
+		{64, 64, 64},
+		{0, 0, 0},
+		{0, 1, 0},
+		{96, 64, 45},
+		{191, 0, 0},
+		{0, 191, 0},
+		{0, 0, 191},
+		{235, 0, 0},
+		{0, 235, 0},
+		{0, 0, 235},
+		{237, 154, 113},
+		{0, 191, 191},
+		{191, 0, 191},
+		{191, 191, 0},
+		{191, 191, 191},
+		{0, 235, 235},
+		{235, 0, 235},
+		{235, 235, 0},
+		{235, 235, 235},
+	};
+	struct rgb10a2_pixel {
+		uint32_t r : 10;
+		uint32_t g : 10;
+		uint32_t b : 10;
+		uint32_t a :  2;
+	};
+
+	const uint32_t pixel_size = 4;
+	const uint32_t row_width = w * pixel_size;
+	const uint32_t num_colors = sizeof(SOURCE_COLORS) / sizeof(SOURCE_COLORS[0]);
+
+	for (uint32_t r = 0; r < h; r++) {
+		const uint32_t color_index = r * num_colors /  h;
+		const uint8_t *color = SOURCE_COLORS[color_index];
+
+		for (uint32_t c = 0; c < w; c++) {
+			uint8_t *pixel = pixels + row_width * r + c * pixel_size;
+
+			if (hdr) {
+				struct rgb10a2_pixel *pixel10 = (struct rgb10a2_pixel *) pixel;
+				pixel10->r = eight_to_ten(color[0]);
+				pixel10->g = eight_to_ten(color[1]);
+				pixel10->b = eight_to_ten(color[2]);
+				pixel10->a = 1;
+			} else {
+				pixel[0] = color[0];
+				pixel[1] = color[1];
+				pixel[2] = color[2];
+				pixel[3] = 0xFF;
+			}
+		}
+	}
+}
+
 bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	const void *image, const MTY_RenderDesc *desc, MTY_Surface *dest)
 {
@@ -301,6 +459,14 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	// If format == MTY_COLOR_FORMAT_UNKNOWN, texture refreshing/loading is skipped and the previous frame is rendered
 	if (!fmt_reload_textures(gfx, device, context, image, desc, d3d11_refresh_resource))
 		return false;
+
+	if (1)
+	{
+		uint8_t *diffimage = MTY_Alloc(desc->cropWidth * desc->cropHeight, 4);
+		d3d11_make_test_diff_img_rgba(diffimage, desc->cropWidth, desc->cropHeight, desc->hdr);
+		d3d11_refresh_resource_diff(gfx, device, context, desc->hdr ? MTY_COLOR_FORMAT_Y410 : MTY_COLOR_FORMAT_BGRA, diffimage, desc->imageWidth, desc->cropWidth, desc->cropHeight);
+		free(diffimage);
+	}
 
 	// Viewport
 	D3D11_VIEWPORT vp = {0};
@@ -353,7 +519,11 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		if (ctx->staging[x].srv)
 			ID3D11DeviceContext_PSSetShaderResources(_context, x, 1, &ctx->staging[x].srv);
 
-	struct gfx_uniforms cb = {
+	for (uint8_t x = 0; x < 2; x++)
+		if (ctx->staging_diff[x].srv)
+			ID3D11DeviceContext_PSSetShaderResources(_context, D3D11_NUM_STAGING + x, 1, &ctx->staging_diff[x].srv);
+
+	struct gfx_uniforms_difftest cb = {
 		.width = (float) desc->cropWidth,
 		.height = (float) desc->cropHeight,
 		.vp_height = (float) vp.Height,
@@ -365,9 +535,11 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		.rotation = desc->rotation,
 		.conversion = FMT_CONVERSION(ctx->format, desc->fullRangeYUV, desc->multiplyYUV),
 		.hdr = desc->hdr,
+		.diffmode = 1,
+		.diffbrighten = 7.0f,
 	};
 
-	if (memcmp(&ctx->ub, &cb, sizeof(struct gfx_uniforms))) {
+	if (memcmp(&ctx->ub, &cb, sizeof(struct gfx_uniforms_difftest))) {
 		D3D11_MAPPED_SUBRESOURCE res = {0};
 		e = ID3D11DeviceContext_Map(_context, ctx->psbres, 0, D3D11_MAP_WRITE_DISCARD, 0, &res);
 		if (e != S_OK) {
@@ -375,7 +547,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 			goto except;
 		}
 
-		memcpy(res.pData, &cb, sizeof(struct gfx_uniforms));
+		memcpy(res.pData, &cb, sizeof(struct gfx_uniforms_difftest));
 
 		ID3D11DeviceContext_Unmap(_context, ctx->psbres, 0);
 
@@ -407,6 +579,9 @@ void mty_d3d11_destroy(struct gfx **gfx, MTY_Device *device)
 
 	for (uint8_t x = 0; x < D3D11_NUM_STAGING; x++)
 		d3d11_destroy_resource(&ctx->staging[x]);
+
+	for (uint8_t x = 0; x < 2; x++)
+		d3d11_destroy_resource(&ctx->staging_diff[x]);
 
 	if (ctx->rs)
 		ID3D11RasterizerState_Release(ctx->rs);

@@ -20,6 +20,8 @@ cbuffer VS_CONSTANT_BUFFER : register(b0) {
 	uint rotation;
 	uint conversion;
 	uint hdr;
+	uint diffmode;
+	float diffbrighten;
 };
 
 SamplerState ss {
@@ -28,6 +30,8 @@ SamplerState ss {
 Texture2D tex0 : register(t0);
 Texture2D tex1 : register(t1);
 Texture2D tex2 : register(t2);
+Texture2D texdiffrgba : register(t3);
+Texture2D texdiffrgb10a2 : register(t4);
 
 inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 {
@@ -172,6 +176,25 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 
 	// Sample
 	float4 rgba = sample_rgba(planes, conversion, hdr, uv);
+
+	// Compare sample with a diff texture
+	if (diffmode) {
+		float4 rgba_diff = 0;
+
+		if (hdr) {
+			rgba_diff = texdiffrgb10a2.Sample(ss, uv);
+		} else {
+			rgba_diff = texdiffrgba.Sample(ss, uv);
+
+			if (conversion & 0x2) // 10-bit SDR
+				// Final output is normed 8-bit but the decoded frame is normed 10-bit, handle this
+				// TODO: Do we actually need to do this?
+				rgba = round(rgba * 255.0f) / 255.0f;
+		}
+
+		rgba = abs(rgba - rgba_diff);
+		rgba *= diffbrighten; // brighten a bit so the diff is staggering
+	}
 
 	// Effects
 	for (uint y = 0; y < 2; y++)

@@ -5,6 +5,7 @@
 struct webview {
 	MTY_Hash *bindings;
 	MTY_Hash *resources;
+	MTY_MIME *mime;
 	MTY_Rect bounds;
 	uint32_t identifier;
 	const char *scheme;

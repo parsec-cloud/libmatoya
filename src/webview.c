@@ -46,6 +46,7 @@ void mty_webview_create_common(MTY_Webview *ctx, uint32_t identifier, void *opaq
 
 	common->bindings    = MTY_HashCreate(0);
 	common->resources   = MTY_HashCreate(0);
+	common->mime        = MTY_MIMECreate();
 	common->identifier  = identifier;
 	common->opaque      = opaque;
 }
@@ -54,11 +55,9 @@ void mty_webview_destroy_common(MTY_Webview *ctx)
 {
 	struct webview *common = (struct webview *) ctx;
 
-	if (common->resources)
-		MTY_HashDestroy(&common->resources, mty_webview_destroy_resource);
-
-	if (common->bindings)
-		MTY_HashDestroy(&common->bindings, NULL);
+	MTY_MIMEDestroy(&common->mime);
+	MTY_HashDestroy(&common->resources, mty_webview_destroy_resource);
+	MTY_HashDestroy(&common->bindings, NULL);
 }
 
 
@@ -204,7 +203,7 @@ const void *MTY_WebviewGetResource(MTY_Webview *ctx, const char *url, size_t *si
 		*size = resource->size;
 
 		if (mime)
-			*mime = MTY_MIMEGetType(path);
+			*mime = MTY_MIMEGetType(common->mime, path);
 
 		return resource->data;
 	}
@@ -220,7 +219,7 @@ const void *MTY_WebviewGetResource(MTY_Webview *ctx, const char *url, size_t *si
 		MTY_WebviewAddResource(ctx, path, data, *size);
 
 	if (mime)
-		*mime = MTY_MIMEGetType(path);
+		*mime = MTY_MIMEGetType(common->mime, path);
 
 	return data;
 }

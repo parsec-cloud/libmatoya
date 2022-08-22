@@ -16,12 +16,12 @@ struct MTY_Webview {
 };
 
 API_AVAILABLE(macos(10.13)) 
-@interface MySchemeHandler : NSObject <WKURLSchemeHandler>
+@interface SchemeHandler : NSObject <WKURLSchemeHandler>
 	@property MTY_Webview *webview;
 @end
 
-@implementation MySchemeHandler
-	- (MySchemeHandler *)init:(MTY_Webview *)webview
+@implementation SchemeHandler
+	- (SchemeHandler *)init:(MTY_Webview *)webview
 	{
 		self.webview = webview;
 		return self;
@@ -32,11 +32,11 @@ API_AVAILABLE(macos(10.13))
 	{
 		NSURL *url = urlSchemeTask.request.URL;
 		size_t size = 0;
+		const char *mime = NULL;
 		const char *curl = [[url absoluteString] UTF8String];
-		const void *res = MTY_WebviewGetResource(self.webview, curl, &size, NULL);
+		const void *res = MTY_WebviewGetResource(self.webview, curl, &size, &mime);
 
 		if (res) {
-			const char *mime = MTY_MIMEGetType(curl);
 			NSDictionary* headers = @{ @"Content-Type": [NSString stringWithUTF8String:mime], @"Access-Control-Allow-Origin": @"*" };
 
 			NSURLResponse *response = [[NSHTTPURLResponse alloc] initWithURL:url statusCode:200 HTTPVersion:@"HTTP/1.1" headerFields:headers];
@@ -131,7 +131,7 @@ void MTY_WebviewShow(MTY_Webview *ctx, MTY_WebviewOnCreated callback)
 	if (@available(macOS 10.13, *)) {
 		if (ctx->common.scheme) {
 			NSString *ns_scheme = [NSString stringWithUTF8String:ctx->common.scheme];
-			[configuration setURLSchemeHandler:[[MySchemeHandler alloc] init:ctx] forURLScheme:ns_scheme];
+			[configuration setURLSchemeHandler:[[SchemeHandler alloc] init:ctx] forURLScheme:ns_scheme];
 		}
 	}
 	ctx->webview = [[WKWebView alloc] initWithFrame:ctx->view.frame configuration:configuration];

@@ -162,7 +162,7 @@ static void mty_webview_handle_request(WebKitURISchemeRequest *request, void *op
 	GInputStream *stream = g_memory_input_stream_new_from_data(res, size, NULL);
 
 	WebKitURISchemeResponse *response = webkit_uri_scheme_response_new(stream, size);
- 	webkit_uri_scheme_response_set_content_type(response, MTY_MIMEGetType(uri));
+ 	webkit_uri_scheme_response_set_content_type(response, mime);
 	webkit_uri_scheme_response_set_status(response, 200, "OK");
 	webkit_uri_scheme_response_set_http_headers(response, headers);
 

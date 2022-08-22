@@ -10,11 +10,19 @@ FLAGS = \
 	-Wno-switch \
 	-Wno-unused-parameter \
 	-Wno-atomic-alignment \
+	-Wno-missing-field-initializers \
 	-std=c99 \
 	-fPIC
 
+DEFS = \
+	-D_POSIX_C_SOURCE=200112L \
+	-DMTY_VK_ANDROID \
+	-DMTY_GL_ES \
+	-DMTY_GL_EXTERNAL
+
 ifdef DEBUG
 FLAGS := $(FLAGS) -O0 -g
+DEFS := $(DEFS) -DMTY_VK_DEBUG
 else
 FLAGS := $(FLAGS) -O3 -g0 -fvisibility=hidden
 endif
@@ -28,11 +36,6 @@ LOCAL_C_INCLUDES := \
 	src/unix \
 	src/unix/linux \
 	src/unix/linux/android
-
-DEFS = \
-	-D_POSIX_C_SOURCE=200112L \
-	-DMTY_GL_ES \
-	-DMTY_GL_EXTERNAL
 
 LOCAL_CFLAGS = $(DEFS) $(FLAGS)
 
@@ -55,8 +58,11 @@ LOCAL_SRC_FILES := \
 	src/tls.c \
 	src/version.c \
 	src/webview.c \
-	src/gfx/gl.c \
-	src/gfx/gl-ui.c \
+	src/gfx/gl/gl.c \
+	src/gfx/gl/gl-ui.c \
+	src/gfx/vk/vk.c \
+	src/gfx/vk/vk-ctx.c \
+	src/gfx/vk/vk-ui.c \
 	src/hid/utils.c \
 	src/net/async.c \
 	src/net/gzip.c \
@@ -71,13 +77,13 @@ LOCAL_SRC_FILES := \
 	src/unix/system.c \
 	src/unix/thread.c \
 	src/unix/time.c \
-	src/unix/net/request.c \
 	src/unix/linux/dialog.c \
 	src/unix/linux/android/aes-gcm.c \
 	src/unix/linux/android/app.c \
 	src/unix/linux/android/audio.c \
 	src/unix/linux/android/crypto.c \
 	src/unix/linux/android/jnih.c \
+	src/unix/linux/android/request.c \
 	src/unix/linux/android/system.c \
 	src/unix/linux/android/tls.c \
 	src/unix/linux/android/webview.c \

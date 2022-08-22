@@ -13,6 +13,20 @@
 
 #include "gfx/mod-support.h"
 
+// https://docs.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-packing-rules
+struct gfx_uniforms {
+	float width;
+	float height;
+	float vp_height;
+	float pad0;
+	uint32_t effects[4];
+	float levels[4];
+	uint32_t planes;
+	uint32_t rotation;
+	uint32_t conversion;
+	uint32_t pad1;
+};
+
 struct gfx;
 
 #define GFX_PROTO(api, name) mty##api##name
@@ -20,7 +34,7 @@ struct gfx;
 
 #define GFX_DECLARE_API(api, wrap) \
 	struct gfx *wrap(api, create)(MTY_Device *device); \
-	void wrap(api, destroy)(struct gfx **gfx); \
+	void wrap(api, destroy)(struct gfx **gfx, MTY_Device *device); \
 	bool wrap(api, render)(struct gfx *gfx, MTY_Device *device, MTY_Context *context, \
 		const void *image, const MTY_RenderDesc *desc, MTY_Surface *dest); \
 	void *wrap(api, get_state)(MTY_Device *device, MTY_Context *context); \

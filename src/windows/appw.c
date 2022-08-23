@@ -997,7 +997,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			pkt.pkY = position.y;
 
 			wintab_on_packet(app->wintab, &evt, &pkt, focused_window->window);
-			
+
 			if (!app->pen_enabled || !app->pen_in_range)
 				app_convert_pen_to_mouse(app, &evt, &double_click);
 
@@ -1820,11 +1820,11 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 	return ctx->pen_enabled;
 }
 
-void MTY_AppEnablePen(MTY_App *ctx, MTY_PenType type)
+void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
-	ctx->pen_enabled = type != MTY_PEN_TYPE_NONE;
+	ctx->pen_enabled = enable;
 
-	if (type == MTY_PEN_TYPE_WACOM && !ctx->wintab)
+	if (enable && !ctx->wintab)
 		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);
 }
 

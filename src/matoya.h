@@ -153,6 +153,9 @@ typedef struct {
 	                           ///<   based on the rec709/sRGB primaries and transfer function.
 	bool hdrDescSpecified;     ///< Is HDR metadata provided. Only relevant if `hdr` is true.
 	MTY_HDRDesc hdrDesc;       ///< HDR metadata for the image. Only relevant if `hdr` is true.
+	bool diffMode;             ///< Instead of rendering the quad, show a diff of it with the provided frame.
+	uint8_t diffBrightFactor;  ///< Brightens the diff output to make the visual more staggering. Min 1, Max 100.
+	uint8_t *diffImage;        ///< Pixel data for the frame which will be diff'd with the quad.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.

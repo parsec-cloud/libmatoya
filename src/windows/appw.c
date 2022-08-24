@@ -50,6 +50,7 @@ struct MTY_App {
 	HINSTANCE instance;
 	HHOOK kbhook;
 	DWORD cb_seq;
+	MTY_PenType pen_type;
 	bool pen_in_range;
 	bool pen_enabled;
 	bool pen_had_barrel;
@@ -907,6 +908,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
 			app->pen_had_barrel = pen_barrel;
 
+			if (app->pen_enabled && evt.pen.flags & MTY_PEN_FLAG_TOUCHING)
+				app->pen_type = MTY_PEN_TYPE_GENERIC;
+
 			if (!app->pen_enabled)
 				app_convert_pen_to_mouse(app, &evt, NULL);
 
@@ -997,6 +1001,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			pkt.pkY = position.y;
 
 			wintab_on_packet(app->wintab, &evt, &pkt, focused_window->window);
+
+			if (app->pen_enabled && evt.pen.flags & MTY_PEN_FLAG_TOUCHING)
+				app->pen_type = MTY_PEN_TYPE_WACOM;
 
 			if (!app->pen_enabled || !app->pen_in_range)
 				app_convert_pen_to_mouse(app, &evt, &double_click);
@@ -1813,6 +1820,11 @@ void MTY_AppRumbleController(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t h
 const void *MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size)
 {
 	return id >= 4 ? mty_hid_device_get_touchpad(ctx->hid, id, size) : NULL;
+}
+
+MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
+{
+	return ctx->pen_type;
 }
 
 bool MTY_AppIsPenEnabled(MTY_App *ctx)

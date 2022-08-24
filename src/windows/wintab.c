@@ -24,8 +24,7 @@ static struct wt {
 	WTOVERLAP overlap;
 } wt;
 
-struct wintab
-{
+struct wintab {
 	HCTX context;
 	MTY_PenEvent prev_evt;
 	PACKETEXT prev_pktext;
@@ -163,8 +162,11 @@ struct wintab *wintab_create(HWND hwnd, bool override)
 	except:
 
 	if (!r) {
-		MTY_Log("Wintab is not available, fallback to WinInk");
+		MTY_LogParams("Wacom", "Wintab context failed to initialize");
 		wintab_destroy(&ctx, true);
+
+	} else {
+		MTY_LogParams("Wacom", "Wintab context successfully created");
 	}
 
 	return ctx;
@@ -249,7 +251,7 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 		if ((left_click || right_click) && pressed)
 			evt->pen.flags |= MTY_PEN_FLAG_TOUCHING;
 
-		if (double_click)
+		if (double_click && !double_clicked)
 			ctx->has_double_clicked = double_clicked = pressed;
 
 		// This is a WinInk special behavior, must be skipped if physical status has to be reported
@@ -279,7 +281,7 @@ static uint16_t wintab_transform_position(DWORD position)
 
 	} else if (position >= 73) {
 		return (uint16_t) ((int16_t) position - UINT8_MAX + 73);
-	
+
 	} else {
 		return (uint16_t) position;
 	}

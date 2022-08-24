@@ -33,6 +33,8 @@ Texture2D tex2 : register(t2);
 Texture2D texdiffrgba : register(t3);
 Texture2D texdiffrgb10a2 : register(t4);
 
+static const float SDR_MAX_NITS = 80.0f; // the reference sRGB luminance is 80 nits (aka the brightness of paper white)
+
 inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 {
 	// 10-bit -> 16-bit
@@ -164,6 +166,67 @@ inline float2 rotate(uint rotation, float2 texcoord)
 	return uv;
 }
 
+float lab_lightness(const float x)
+{
+	const float epsilon = 216.0f / 24389.0f;
+	const float kappa = 24389.0f / 27.0f / 116.0f;
+
+	// TODO: Do we need signed power here to handle negative values instead of abs()???
+	return x > epsilon ? pow(abs(x), 1.0f / 3.0f) : (kappa * x + 16.0f / 116.0f);
+}
+
+float3 rgb_to_lab(const float3 rgb, const float3x3 rgb_to_xyz, const float3 xyz_white)
+{
+	// Courtesy of Bruce Lindbloom	
+
+	// RGB to XYZ
+	// http://brucelindbloom.com/Eqn_RGB_to_XYZ.html
+	const float3 xyz = mul(rgb_to_xyz, rgb);
+
+	// XYZ to Lab	
+	// http://brucelindbloom.com/Eqn_XYZ_to_Lab.html
+	const float3 r = rgb / xyz_white;
+	const float3 f = float3(
+		lab_lightness(r.x),
+		lab_lightness(r.y),
+		lab_lightness(r.z)
+	);
+	return float3(
+		116.0f * f.y - 16.0f,
+		500.0f * (f.x - f.y),
+		200.0f * (f.y - f.z)
+	);
+}
+
+float delta_e(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_xyz, const float3 xyz_white)
+{	
+	float3 lab_A = rgb_to_lab(rgb_A, rgb_to_xyz, xyz_white);
+	float3 lab_B = rgb_to_lab(rgb_B, rgb_to_xyz, xyz_white);
+
+	const float3 sqdist = pow(lab_B - lab_A, 2);
+	const float variance = sqdist[0] + sqdist[1] + sqdist[2];
+	return sqrt(variance);
+}
+
+// Thanks to colour.py module for these constants
+static const float3x3 REC709_TO_XYZ =
+{
+	{0.4124,  0.3576,  0.1805},
+	{0.2126,  0.7152,  0.0722},
+	{0.0193,  0.1192,  0.9505}
+};
+
+// Thanks to colour.py module for these constants
+static const float3x3 REC2020_TO_XYZ =
+{
+	{0.63696,  0.14462,  0.16889},
+	{0.26270,  0.677998, 0.59302},
+	{0.49941,  0.28073,  0.106098}
+};
+
+// Thanks to https://www.mathworks.com/help/images/ref/whitepoint.html
+static const float3 D65_WHITE = {0.95047, 1, 1.08883};
+
 float4 main(VS_OUTPUT input) : SV_TARGET
 {
 	// Rotate
@@ -179,6 +242,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 
 	// Compare sample with a diff texture
 	if (diffmode) {
+
 		float4 rgba_diff = 0;
 
 		if (hdr) {
@@ -192,8 +256,32 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 				rgba = round(rgba * 255.0f) / 255.0f;
 		}
 
-		rgba = abs(rgba - rgba_diff);
-		rgba *= diffbrighten; // brighten a bit so the diff is staggering
+		// TODO: Switch between diff modes....if delta_e, show delta_e, otherwise show what we have now
+		if (0) {
+			rgba = abs(rgba - rgba_diff);
+			rgba *= diffbrighten; // brighten a bit so the diff is staggering
+
+		} else {
+			float de = delta_e(
+				rgba.rgb,
+				rgba_diff.rgb, 
+				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
+				D65_WHITE);
+
+			// de = de / 2.0f;
+			// rgba = float4(de, de, de, 1.0f);
+			
+			if (de >= 2.0f) {
+				rgba = float4(1, 0, 0, 1.0f);
+			} else if (de >= 0.5f) {
+				de = (de - 0.5f) / 1.5f;
+				rgba = float4(de, de, 0, 1.0f);
+			} else {
+				de = de / 0.5f;
+				rgba = float4(0, de, 0, 1.0f);
+			}
+
+		}
 	}
 
 	// Effects

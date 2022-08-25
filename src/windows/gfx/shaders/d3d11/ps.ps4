@@ -171,8 +171,7 @@ float lab_lightness(const float x)
 	const float epsilon = 216.0f / 24389.0f;
 	const float kappa = 24389.0f / 27.0f / 116.0f;
 
-	// TODO: Do we need signed power here to handle negative values instead of abs()???
-	return x > epsilon ? pow(abs(x), 1.0f / 3.0f) : (kappa * x + 16.0f / 116.0f);
+	return x > epsilon ? sign(x) * pow(abs(x), 1.0f / 3.0f) : (kappa * x + 16.0f / 116.0f);
 }
 
 float3 rgb_to_lab(const float3 rgb, const float3x3 rgb_to_xyz, const float3 xyz_white)
@@ -256,8 +255,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 				rgba = round(rgba * 255.0f) / 255.0f;
 		}
 
-		// TODO: Switch between diff modes....if delta_e, show delta_e, otherwise show what we have now
-		if (0) {
+		if (diffmode == 1) {
 			rgba = abs(rgba - rgba_diff);
 			rgba *= diffbrighten; // brighten a bit so the diff is staggering
 

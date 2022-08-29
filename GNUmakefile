@@ -237,7 +237,12 @@ objs: $(OBJS)
 ###############
 
 # developer.android.com/ndk/downloads -> ~/android-ndk-xxx
-# set an environment variable pointing ANDROID_NDK_ROOT to ~/android-ndk-xxx
+# override the ANDROID_NDK_ROOT environment variable to target your NDK install path
+# example: export ANDROID_NDK_ROOT=~/android-ndk-r25
+
+ifndef ANDROID_NDK_ROOT
+ANDROID_NDK_ROOT = $(HOME)/android-ndk-r25
+endif
 
 android: clean clear $(SHADERS)
 	@$(ANDROID_NDK_ROOT)/ndk-build -j4 \

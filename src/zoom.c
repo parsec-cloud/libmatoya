@@ -67,7 +67,7 @@ static bool mty_zoom_context_initialized(MTY_Zoom *ctx)
 	return ctx && ctx->window_w && ctx->window_h && ctx->image_w && ctx->image_h;
 }
 
-static float mty_zoom_tranform_x(MTY_Zoom *ctx, float value)
+static float mty_zoom_transform_x(MTY_Zoom *ctx, float value)
 {
 	float offset_x = -ctx->image.x / ctx->scale_screen + ctx->image_min.x;
 	float zoom_w   = ctx->window_w / ctx->scale_screen;
@@ -76,7 +76,7 @@ static float mty_zoom_tranform_x(MTY_Zoom *ctx, float value)
 	return offset_x + zoom_w * ratio_x;
 }
 
-static float mty_zoom_tranform_y(MTY_Zoom *ctx, float value)
+static float mty_zoom_transform_y(MTY_Zoom *ctx, float value)
 {
 	float offset_y = -ctx->image.y / ctx->scale_screen + ctx->image_min.y;
 	float zoom_h   = ctx->window_h / ctx->scale_screen;
@@ -181,8 +181,8 @@ void MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY)
 	mty_zoom_restrict_image(ctx);
 
 	if (ctx->scaling) {
-		ctx->cursor.x = mty_zoom_tranform_x(ctx, ctx->window_w / 2.0f);
-		ctx->cursor.y = mty_zoom_tranform_y(ctx, ctx->window_h / 2.0f);
+		ctx->cursor.x = mty_zoom_transform_x(ctx, ctx->window_w / 2.0f);
+		ctx->cursor.y = mty_zoom_transform_y(ctx, ctx->window_h / 2.0f);
 	}
 }
 
@@ -194,8 +194,8 @@ void MTY_ZoomMove(MTY_Zoom *ctx, int32_t x, int32_t y, bool start)
 		return;
 
 	if (ctx->mode == MTY_INPUT_MODE_TOUCHSCREEN) {
-		ctx->cursor.x = mty_zoom_tranform_x(ctx, (float) x);
-		ctx->cursor.y = mty_zoom_tranform_y(ctx, (float) y);
+		ctx->cursor.x = mty_zoom_transform_x(ctx, (float) x);
+		ctx->cursor.y = mty_zoom_transform_y(ctx, (float) y);
 		return;
 	}
 
@@ -228,10 +228,10 @@ void MTY_ZoomMove(MTY_Zoom *ctx, int32_t x, int32_t y, bool start)
 	if (ctx->cursor.y > ctx->window_h - ctx->image_min.y - EDGE_PADDING)
 		ctx->cursor.y = ctx->window_h - ctx->image_min.y - EDGE_PADDING;
 
-	float left   = mty_zoom_tranform_x(ctx, ctx->margin);
-	float right  = mty_zoom_tranform_x(ctx, ctx->window_w - ctx->margin);
-	float top    = mty_zoom_tranform_y(ctx, ctx->margin);
-	float bottom = mty_zoom_tranform_y(ctx, ctx->window_h - ctx->margin);
+	float left   = mty_zoom_transform_x(ctx, ctx->margin);
+	float right  = mty_zoom_transform_x(ctx, ctx->window_w - ctx->margin);
+	float top    = mty_zoom_transform_y(ctx, ctx->margin);
+	float bottom = mty_zoom_transform_y(ctx, ctx->window_h - ctx->margin);
 
 	if (delta_x < 0 && ctx->cursor.x < left)
 		ctx->image.x -= delta_x;
@@ -251,7 +251,7 @@ void MTY_ZoomMove(MTY_Zoom *ctx, int32_t x, int32_t y, bool start)
 	ctx->origin.y = (float) y;
 }
 
-int32_t MTY_ZoomTranformX(MTY_Zoom *ctx, int32_t value)
+int32_t MTY_ZoomTransformX(MTY_Zoom *ctx, int32_t value)
 {
 	VALIDATE_CTX(ctx, value);
 
@@ -261,10 +261,10 @@ int32_t MTY_ZoomTranformX(MTY_Zoom *ctx, int32_t value)
 	if (ctx->mode == MTY_INPUT_MODE_TRACKPAD)
 		return lrint(ctx->cursor.x);
 
-	return lrint(mty_zoom_tranform_x(ctx, (float) value));
+	return lrint(mty_zoom_transform_x(ctx, (float) value));
 }
 
-int32_t MTY_ZoomTranformY(MTY_Zoom *ctx, int32_t value)
+int32_t MTY_ZoomTransformY(MTY_Zoom *ctx, int32_t value)
 {
 	VALIDATE_CTX(ctx, value);
 
@@ -274,7 +274,7 @@ int32_t MTY_ZoomTranformY(MTY_Zoom *ctx, int32_t value)
 	if (ctx->mode == MTY_INPUT_MODE_TRACKPAD)
 		return lrint(ctx->cursor.y);
 
-	return lrint(mty_zoom_tranform_y(ctx, (float) value));
+	return lrint(mty_zoom_transform_y(ctx, (float) value));
 }
 
 float MTY_ZoomGetScale(MTY_Zoom *ctx)
@@ -302,8 +302,8 @@ int32_t MTY_ZoomGetCursorX(MTY_Zoom *ctx)
 {
 	VALIDATE_CTX(ctx, 0);
 
-	float left  = mty_zoom_tranform_x(ctx, 0);
-	float right = mty_zoom_tranform_x(ctx, ctx->window_w);
+	float left  = mty_zoom_transform_x(ctx, 0);
+	float right = mty_zoom_transform_x(ctx, ctx->window_w);
 
 	return lrint(ctx->window_w * (ctx->cursor.x - left) / (right - left));
 }
@@ -312,8 +312,8 @@ int32_t MTY_ZoomGetCursorY(MTY_Zoom *ctx)
 {
 	VALIDATE_CTX(ctx, 0);
 
-	float top    = mty_zoom_tranform_y(ctx, 0);
-	float bottom = mty_zoom_tranform_y(ctx, ctx->window_h);
+	float top    = mty_zoom_transform_y(ctx, 0);
+	float bottom = mty_zoom_transform_y(ctx, ctx->window_h);
 
 	return lrint(ctx->window_h * (ctx->cursor.y - top) / (bottom - top));
 }

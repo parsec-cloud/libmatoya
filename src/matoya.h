@@ -3605,19 +3605,19 @@ MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY);
 MTY_EXPORT void
 MTY_ZoomMove(MTY_Zoom *ctx, int32_t x, int32_t y, bool start);
 
-/// @brief Tranform an absolute X position to one relative to the zoomed area.
+/// @brief Transform an absolute X position to one relative to the zoomed area.
 /// @param ctx The MTY_Zoom.
 /// @param value The absolute X position.
 /// @returns The zoom-relative X position.
 MTY_EXPORT int32_t
-MTY_ZoomTranformX(MTY_Zoom *ctx, int32_t value);
+MTY_ZoomTransformX(MTY_Zoom *ctx, int32_t value);
 
-/// @brief Tranform an absolute Y position to one relative to the zoomed area.
+/// @brief Transform an absolute Y position to one relative to the zoomed area.
 /// @param ctx The MTY_Zoom.
 /// @param value The absolute Y position.
 /// @returns The zoom-relative Y position.
 MTY_EXPORT int32_t
-MTY_ZoomTranformY(MTY_Zoom *ctx, int32_t value);
+MTY_ZoomTransformY(MTY_Zoom *ctx, int32_t value);
 
 /// @brief Get the most recently computed image scale value.
 /// @param ctx The MTY_Zoom.
@@ -3671,7 +3671,7 @@ MTY_ZoomIsRelative(MTY_Zoom *ctx);
 
 /// @brief Set whether the context treats data as relative inputs or not.
 /// @details In relative mode, transform functions return a scaled version of the provided
-///   relative coordinates (e.g. 1 will be tranformed to 0.5 if the current scale factor is 2).
+///   relative coordinates (e.g. 1 will be transformed to 0.5 if the current scale factor is 2).
 /// @param ctx The MTY_Zoom.
 /// @param scaling True when relative, otherwise false.
 MTY_EXPORT void

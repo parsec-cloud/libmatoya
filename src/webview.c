@@ -55,6 +55,10 @@ void mty_webview_destroy_common(MTY_Webview *ctx)
 {
 	struct webview *common = (struct webview *) ctx;
 
+	MTY_Free(common->physical_path);
+	MTY_Free(common->virtual_path);
+	MTY_Free(common->scheme);
+
 	MTY_MIMEDestroy(&common->mime);
 	MTY_HashDestroy(&common->resources, mty_webview_destroy_resource);
 	MTY_HashDestroy(&common->bindings, NULL);
@@ -156,12 +160,13 @@ void MTY_WebviewAutomaticSize(MTY_Webview *ctx, bool enable)
 	common->auto_size = enable;
 }
 
-void MTY_WebviewMapVirtualHost(MTY_Webview *ctx, const char *scheme, const char *path)
+void MTY_WebviewMapVirtualHost(MTY_Webview *ctx, const char *scheme, const char *host, const char *path)
 {
 	struct webview *common = (struct webview *) ctx;
 
-	common->scheme = scheme;
-	common->vpath = path;
+	common->scheme = MTY_Strdup(scheme);
+	common->virtual_path = MTY_SprintfD("%s://%s", scheme, host);
+	common->physical_path = path ? MTY_Strdup(path) : NULL;
 }
 
 void MTY_WebviewAddResource(MTY_Webview *ctx, const char *path, const void *data, size_t size)
@@ -190,13 +195,11 @@ const void *MTY_WebviewGetResource(MTY_Webview *ctx, const char *url, size_t *si
 	if (!common->scheme)
 		return NULL;
 
-	char *full_scheme = MTY_SprintfD("%s://", common->scheme);
-	size_t full_scheme_len = strlen(full_scheme);
-	if (strncmp(full_scheme, url, full_scheme_len))
+	size_t virtual_path_len = strlen(common->virtual_path);
+	if (strncmp(common->virtual_path, url, virtual_path_len))
 		return NULL;
-	MTY_Free(full_scheme);
 
-	const char *path = &url[full_scheme_len];
+	const char *path = &url[virtual_path_len + 1];
 
 	struct webview_resource *resource = MTY_HashGet(common->resources, path);
 	if (resource) {
@@ -208,12 +211,11 @@ const void *MTY_WebviewGetResource(MTY_Webview *ctx, const char *url, size_t *si
 		return resource->data;
 	}
 
-	if (!common->vpath)
+	if (!common->physical_path)
 		return NULL;
 
-	char *vpath = MTY_SprintfD("%s%s", common->vpath, path);
-	void *data = MTY_ReadFile(vpath, size);
-	MTY_Free(vpath);
+	const char *physical_path = MTY_JoinPath(common->physical_path, path);
+	void *data = MTY_ReadFile(physical_path, size);
 
 	if (data)
 		MTY_WebviewAddResource(ctx, path, data, *size);
@@ -227,27 +229,24 @@ const void *MTY_WebviewGetResource(MTY_Webview *ctx, const char *url, size_t *si
 void MTY_WebviewJavascriptEvent(MTY_Webview *ctx, const char *name, MTY_JSON *json)
 {
 	char *serialized = MTY_JSONSerialize(json);
-	char *javascript = MTY_SprintfD("window.dispatchEvent(new CustomEvent('%s', { detail: %s } ));", name, serialized);
 
+	const char *javascript = MTY_SprintfDL("window.dispatchEvent(new CustomEvent('%s', { detail: %s } ));", name, serialized);
 	MTY_WebviewJavascriptEval(ctx, javascript);
 
-	MTY_Free(javascript);
 	MTY_Free(serialized);
 }
 
 void MTY_WebviewInteropReturn(MTY_Webview *ctx, uint32_t serial, bool success, const MTY_JSON *result)
 {
 	char *json = result ? MTY_JSONSerialize(result) : NULL;
-	char *method = success ? "resolve" : "reject";
+	const char *method = success ? "resolve" : "reject";
 
-	char *js_resolve = MTY_SprintfD("window._rpc[%d].%s(%s);", serial, method, json ? json : "null");
-	char *js_destroy = MTY_SprintfD("delete window._rpc[%d];", serial);
-
+	const char *js_resolve = MTY_SprintfDL("window._rpc[%d].%s(%s);", serial, method, json ? json : "null");
 	MTY_WebviewJavascriptEval(ctx, js_resolve);
+
+	const char *js_destroy = MTY_SprintfDL("delete window._rpc[%d];", serial);
 	MTY_WebviewJavascriptEval(ctx, js_destroy);
 
-	MTY_Free(js_destroy);
-	MTY_Free(js_resolve);
 	MTY_Free(json);
 }
 
@@ -257,7 +256,7 @@ void MTY_WebviewInteropBind(MTY_Webview *ctx, const char *name, MTY_WebviewBindi
 
 	MTY_HashSet(common->bindings, name, func);
 
-	char *binding = MTY_SprintfD("(function () { \
+	const char *binding = MTY_SprintfDL("(function () { \
 		const name = '%s'; \
 		const RPC = window._rpc = (window._rpc || { nextSeq: 1 }); \
 		window[name] = function (param) { \
@@ -279,5 +278,4 @@ void MTY_WebviewInteropBind(MTY_Webview *ctx, const char *name, MTY_WebviewBindi
 	})()", name);
 
 	MTY_WebviewJavascriptInit(ctx, binding);
-	MTY_Free(binding);
 }

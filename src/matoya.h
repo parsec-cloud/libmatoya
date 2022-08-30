@@ -3634,15 +3634,16 @@ MTY_WebviewOpenDevTools(MTY_Webview *ctx);
 
 /// @brief Map a host path to a custom scheme.
 /// @details This method allows to configure webview requests interception. For instance,
-///   the `mty` scheme will intercept all requests that start with `mty://`. If `path` is
-///   `NULL`, no physical folder is used and interception only relies on resources added
-///   with MTY_WebviewAddResource. Physical resources are kept in memory for further use,
-///   until the MTY_Webview is destroyed.
+///   the `mty` scheme and the `app.local` host will intercept all requests that start with
+///   `mty://app.local/`. If `path` is `NULL`, no physical folder is used and interception
+///   only relies on resources added with MTY_WebviewAddResource. Physical resources are kept
+///   in memory for further use, until the MTY_Webview is destroyed.
 /// @param ctx The MTY_Webview context.
-/// @param scheme Scheme to map, e.g. `mty` allows to intercept `mty://...` requests.
+/// @param scheme Scheme to map.
+/// @param host Virtual host to map.
 /// @param path Physical file path. Optional.
 MTY_EXPORT void
-MTY_WebviewMapVirtualHost(MTY_Webview *ctx, const char *scheme, const char *path);
+MTY_WebviewMapVirtualHost(MTY_Webview *ctx, const char *scheme, const char *host, const char *path);
 
 /// @brief Manually add a resource from memory.
 /// @details Resources added with this function have the priority of physical files.

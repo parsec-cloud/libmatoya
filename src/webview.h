@@ -8,8 +8,9 @@ struct webview {
 	MTY_MIME *mime;
 	MTY_Rect bounds;
 	uint32_t identifier;
-	const char *scheme;
-	const char *vpath;
+	char *scheme;
+	char *virtual_path;
+	char *physical_path;
 	bool has_focus;
 	bool auto_size;
 	void *opaque;

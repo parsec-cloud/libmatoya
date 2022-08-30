@@ -43,9 +43,9 @@ struct focus_changed {
 
 struct MTY_Webview {
 	struct webview common;
-	
+
 	MTY_WebviewOnCreated on_created;
-	
+
 	HWND hwnd;
 	MTY_Thread *thread;
 	DWORD thread_id;
@@ -152,23 +152,19 @@ static HRESULT STDMETHODCALLTYPE mty_webview_resource_requested(ICoreWebView2Web
 
 	size_t size = 0;
 	const char *mime = NULL;
-	char *url = MTY_WideToMultiD(url_w);
+	const char *url = MTY_WideToMultiDL(url_w);
 	const void *resource = MTY_WebviewGetResource(ctx, url, &size, &mime);
-	MTY_Free(url);
 
 	if (!resource)
 		return S_OK;
 
-	char *header = MTY_SprintfD("Content-Type: %s", mime);
-	wchar_t *header_w = MTY_MultiToWideD(header);
+	const char *header = MTY_SprintfDL("Content-Type: %s", mime);
+	const wchar_t *header_w = MTY_MultiToWideDL(header);
 
 	ICoreWebView2WebResourceResponse *response = NULL;
 	IStream *stream = SHCreateMemStream(resource, (UINT) size);
 	ICoreWebView2Environment_CreateWebResourceResponse(ctx->environment, stream, 200, L"OK", header_w, &response);
 	ICoreWebView2WebResourceRequestedEventArgs_put_Response(args, response);
-
-	MTY_Free(header_w);
-	MTY_Free(header);
 
 	ICoreWebView2WebResourceResponse_Release(response);
 	IStream_Release(stream);
@@ -192,7 +188,7 @@ MTY_Webview *mty_webview_create(uint32_t identifier, void *handle, void *opaque)
 	MTY_Webview *ctx = MTY_Alloc(1, sizeof(MTY_Webview));
 
 	mty_webview_create_common(ctx, identifier, opaque);
-	
+
 	ctx->hwnd = (HWND) handle;
 
 	ctx->environment_completed.context  = ctx;
@@ -363,10 +359,9 @@ void MTY_WebviewNavigateHTML(MTY_Webview *ctx, const char *html)
 	char *base64 = MTY_Alloc(base64_size + 1, 1);
 	MTY_BytesToBase64(html, size, base64, base64_size);
 
-	char *encoded = MTY_SprintfD("data:text/html;charset=UTF-8;base64, %s", base64);
+	const char *encoded = MTY_SprintfDL("data:text/html;charset=UTF-8;base64, %s", base64);
 	MTY_WebviewNavigateURL(ctx, encoded);
 
-	MTY_Free(encoded);
 	MTY_Free(base64);
 }
 

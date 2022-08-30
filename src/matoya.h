@@ -714,6 +714,7 @@ typedef struct {
 	uint16_t pid;                  ///< HID Product ID.
 	uint8_t numButtons;            ///< Number of buttons in `buttons`.
 	uint8_t numAxes;               ///< Number of axes in `axes`.
+	bool is_virtual;               ///< The controller originates from an emulator.
 } MTY_ControllerEvent;
 
 /// @brief Pen event.

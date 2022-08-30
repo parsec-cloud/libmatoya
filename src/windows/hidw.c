@@ -8,6 +8,11 @@
 
 #include "hidpi.h"
 
+#include <cfgmgr32.h>
+#include <initguid.h>
+#include <devpkey.h>
+#include <tchar.h>
+
 struct hid {
 	uint32_t id;
 	MTY_Hash *devices;
@@ -28,6 +33,7 @@ struct hid_dev {
 	bool is_xinput;
 	void *state;
 	uint32_t id;
+	bool is_virtual;
 };
 
 static void hid_device_destroy(void *opaque)
@@ -45,11 +51,147 @@ static void hid_device_destroy(void *opaque)
 	MTY_Free(ctx);
 }
 
+static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
+{
+	if (!is_virtual)
+		return false;
+
+	bool r = false;
+	WCHAR *symlink = NULL;
+	WCHAR *instanceId = NULL;
+	WCHAR *rootInstanceId = NULL;
+
+	UINT size = 0;
+	// get symlink buffer required size
+	UINT e = GetRawInputDeviceInfo(device, RIDI_DEVICENAME, NULL, &size);
+	if (e != 0) {
+		r = false;
+		MTY_Log("'GetRawInputDeviceInfo' (symlink) failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	symlink = MTY_Alloc(size + 1, sizeof(WCHAR));
+	// get symlink buffer content
+	e = GetRawInputDeviceInfo(device, RIDI_DEVICENAME, symlink, &size);
+	if (e <= 0) {
+		r = false;
+		MTY_Log("'GetRawInputDeviceInfo' (symlink) failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	ULONG bytes = 0, chars = 0;
+	DEVPROPTYPE type = 0;
+	// get instance ID required buffer size
+	CONFIGRET ret = CM_Get_Device_Interface_Property(
+		symlink,
+		&DEVPKEY_Device_InstanceId,
+		&type,
+		NULL,
+		&bytes,
+		0
+	);
+	if (ret != CR_BUFFER_SMALL) {
+		r = false;
+		MTY_Log("'CM_Get_Device_Interface_Property' (size) failed with error 0x%X", ret);
+		goto except;
+	}
+
+	instanceId = MTY_Alloc(bytes, 1);
+	// get instance ID buffer content
+	ret = CM_Get_Device_Interface_Property(
+		symlink,
+		&DEVPKEY_Device_InstanceId,
+		&type,
+		(PBYTE)instanceId,
+		&bytes,
+		0
+	);
+	if (ret != CR_SUCCESS) {
+		r = false;
+		MTY_Log("'CM_Get_Device_Interface_Property' (content) failed with error 0x%X", ret);
+		goto except;
+	}
+
+	DEVINST instance = 0;
+	// get instance handle from instance ID
+	ret = CM_Locate_DevNode(&instance, instanceId, CM_LOCATE_DEVNODE_NORMAL);
+	if (ret != CR_SUCCESS) {
+		r = false;
+		MTY_Log("'CM_Locate_DevNode' failed with error 0x%X", ret);
+		goto except;
+	}
+	
+	DEVINST parent = 0, dev = instance;
+	// walk up to topmost parent
+	do {
+		ret = CM_Get_Parent(&parent, dev, 0);
+		if (ret != CR_SUCCESS)
+			break;
+		
+		chars = 0;
+		ret = CM_Get_Device_ID_Size(&chars, parent, 0);
+		if (ret != CR_SUCCESS)
+			break;
+
+		WCHAR *parentId = MTY_Alloc(chars + 1, sizeof(WCHAR));
+		ret = CM_Get_Device_ID(parent, parentId, chars, 0);
+		if (ret != CR_SUCCESS)
+			break;
+		
+		bool matches = !_wcsicmp(parentId, L"HTREE\\ROOT\\0");
+
+		if (parentId)
+			MTY_Free(parentId);
+
+		if (matches)
+			break;
+		
+		dev = parent;
+
+	} while (ret == CR_SUCCESS);
+
+	chars = 0;
+	ret = CM_Get_Device_ID_Size(&chars, dev, 0);
+	if (ret != CR_SUCCESS) {
+		r = false;
+		MTY_Log("'CM_Get_Device_ID_Size' failed with error 0x%X", ret);
+		goto except;
+	}
+
+	rootInstanceId = MTY_Alloc(chars + 1, sizeof(WCHAR));
+	ret = CM_Get_Device_ID(dev, rootInstanceId, size, 0);
+	if (ret != CR_SUCCESS) {
+		r = false;
+		MTY_Log("'CM_Get_Device_ID' failed with error 0x%X", ret);
+		goto except;
+	}
+
+	*is_virtual = (wcsstr(rootInstanceId, L"ROOT\\SYSTEM") != NULL || wcsstr(rootInstanceId, L"ROOT\\USB") != NULL);
+	r = true;
+
+	except:
+
+	if (rootInstanceId)
+		MTY_Free(rootInstanceId);
+	if (instanceId)
+		MTY_Free(instanceId);
+	if (symlink)
+		MTY_Free(symlink);
+
+	return r;
+}
+
 static struct hid_dev *hid_device_create(HANDLE device)
 {
 	struct hid_dev *ctx = MTY_Alloc(1, sizeof(struct hid_dev));
 
-	bool r = true;
+	bool r = hid_device_is_virtual(device, &ctx->is_virtual);
+	if (!r) {
+		MTY_Log("'hid_device_is_virtual' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	MTY_Log("ctx->is_virtual: %d", ctx->is_virtual);
 
 	UINT size = 0;
 	UINT e = GetRawInputDeviceInfo(device, RIDI_PREPARSEDDATA, NULL, &size);
@@ -267,6 +409,11 @@ uint32_t mty_hid_device_get_input_report_size(struct hid_dev *ctx)
 	return ctx->caps.InputReportByteLength;
 }
 
+bool mty_hid_device_get_is_virtual(struct hid_dev *ctx)
+{
+	return ctx->is_virtual;
+}
+
 void mty_hid_default_state(struct hid_dev *ctx, const void *buf, size_t size, MTY_ControllerEvent *c)
 {
 	// Note: Some of these functions use PCHAR for a const buffer, thus the cast
@@ -326,6 +473,7 @@ void mty_hid_default_state(struct hid_dev *ctx, const void *buf, size_t size, MT
 	c->vid = (uint16_t) ctx->di.hid.dwVendorId;
 	c->pid = (uint16_t) ctx->di.hid.dwProductId;
 	c->id = ctx->id;
+	c->is_virtual = ctx->is_virtual;
 }
 
 void mty_hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)

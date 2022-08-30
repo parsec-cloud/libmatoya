@@ -39,11 +39,11 @@ static void on_webview_created(MTY_Webview *webview, void *opaque)
 	MTY_WebviewNavigateHTML(webview, 
 		"<html>"
 		"  <head>"
-		"    <link rel='stylesheet' href='mty://style.css'>"
+		"    <link rel='stylesheet' href='mty://app.local/style.css'>"
 		"  </head>"
 		"  <body>"
 		"    <span id='my_id'>Hello World!</span>"
-		"    <script src='mty://script.js'></script>"
+		"    <script src='mty://app.local/script.js'></script>"
 		"  </body>"
 		"</html>"
 	);
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 
 	ctx.webview = MTY_WindowCreateWebview(ctx.app, ctx.window);
 	MTY_WebviewAutomaticSize(ctx.webview, true);
-	MTY_WebviewMapVirtualHost(ctx.webview, "mty", NULL);
+	MTY_WebviewMapVirtualHost(ctx.webview, "mty", "app.local", NULL);
 	MTY_WebviewShow(ctx.webview, on_webview_created);
 
 	MTY_AppRun(ctx.app);

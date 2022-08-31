@@ -199,17 +199,110 @@ float3 rgb_to_lab(const float3 rgb, const float3x3 rgb_to_xyz, const float3 xyz_
 	);
 }
 
-float delta_e(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_xyz, const float3 xyz_white)
+float deltaE_76(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_xyz, const float3 xyz_white)
 {	
 	float3 lab_A = rgb_to_lab(rgb_A, rgb_to_xyz, xyz_white);
 	float3 lab_B = rgb_to_lab(rgb_B, rgb_to_xyz, xyz_white);
 
-	// TODO: This Delta-E algo is Delta-E 76, which is pretty bad. Look at implementing Delta-E ITP or at minimum Delta-E 2000. Hopefully it solves 10-bit inflation issues too.
-	// TODO: Adapt the colsquares app to show HDR colors, along with the epic colors colors too. Or Perhaps show a mix of SDR colors in general.
-
 	const float3 sqdist = pow(lab_B - lab_A, 2);
 	const float variance = sqdist[0] + sqdist[1] + sqdist[2];
 	return sqrt(variance);
+}
+
+inline float deg2rad(float deg)
+{
+	return deg * 3.14159f / 180.0f;
+}
+
+inline float rad2deg(float rad)
+{
+	return rad * 180.0f / 3.14159f;
+}
+
+float deltaE_2000(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_xyz, const float3 xyz_white)
+{
+	float3 lab_A = rgb_to_lab(rgb_A, rgb_to_xyz, xyz_white);
+	float3 lab_B = rgb_to_lab(rgb_B, rgb_to_xyz, xyz_white);
+
+	// Courtesy of http://brucelindbloom.com/index.html?Eqn_DeltaE_CIE2000.html
+
+	const float L_1 = lab_A.x;
+	const float a_1 = lab_A.y;
+	const float b_1 = lab_A.z;
+	const float L_2 = lab_B.x;
+	const float a_2 = lab_B.y;
+	const float b_2 = lab_B.z;
+
+	// These  K_* constants are always 1 for computer displays
+	const float K_L = 1.0f;
+	const float K_C = 1.0f;
+	const float K_H = 1.0f;
+
+	const float C_1 = sqrt(a_1 * a_1 + b_1 * b_1);
+	const float C_2 = sqrt(a_2 * a_2 + b_2 * b_2);
+	const float C_bar = 0.5f * (C_1 + C_2);
+
+	const float C_bar_pow7 = pow(C_bar, 7);
+	const float G = 0.5f * (1.0f - sqrt(C_bar_pow7 / (C_bar_pow7 + pow(25, 7))));
+
+	const float a_1_prime = a_1 * (1.0f + G);
+	const float a_2_prime = a_2 * (1.0f + G);
+	const float C_1_prime = sqrt(a_1_prime * a_1_prime + b_1 * b_1);
+	const float C_2_prime = sqrt(a_2_prime * a_2_prime + b_2 * b_2);
+	const float C_bar_prime = 0.5f * (C_1_prime + C_2_prime);
+
+	float h_1_prime = rad2deg(atan2(b_1, a_1_prime));
+	if (h_1_prime < 0)
+		h_1_prime += 360.0f;
+	float h_2_prime = rad2deg(atan2(b_2, a_2_prime));
+	if (h_2_prime < 0)
+		h_2_prime += 360.0f;
+	const float H_bar_prime = abs(h_1_prime - h_2_prime) > 180.0f ?
+		(0.5f * (h_1_prime + h_2_prime + 360.0f)) :
+		(0.5f * (h_1_prime + h_2_prime));
+
+	const float T = 1.0f -
+		(0.17f * cos(deg2rad(H_bar_prime - 30))) +
+		(0.24f * cos(deg2rad(2 * H_bar_prime))) +
+		(0.32f * cos(deg2rad(3 * H_bar_prime + 6))) -
+		(0.20f * cos(deg2rad(4 * H_bar_prime - 63)));
+
+	const float L_bar_prime = 0.5f * (L_1 + L_2);
+	const float minus50sq = (L_bar_prime - 50.0f) * (L_bar_prime - 50.0f);
+
+	const float S_L = 1.0f + (0.015f * minus50sq / sqrt(20.0f + minus50sq));
+	const float S_C = 1.0f + 0.045f * C_bar_prime;
+	const float S_H = 1.0f + 0.015f * C_bar_prime * T;
+
+	const float C_bar_prime_pow7 = pow(C_bar_prime, 7);
+	const float R_C = 2.0f * sqrt(C_bar_prime_pow7 / (C_bar_prime_pow7 + pow(25, 7)));
+	const float delta_theta = 30.0f * exp(-pow(H_bar_prime - 275.0f / 25.0f, 2));
+	const float R_T = -R_C * sin(deg2rad(2.0f * delta_theta));
+
+	const float dt_h_prime = h_2_prime - h_1_prime;
+	const float abs_dt_h_prime = abs(dt_h_prime);
+	const float delta_h_prime = abs_dt_h_prime <= 180.0f ? dt_h_prime : abs_dt_h_prime > 180.0f && h_2_prime <= h_1_prime ? dt_h_prime + 360.0f : dt_h_prime - 360.0f;
+
+	const float delta_L_prime = L_2 - L_1;
+	const float delta_C_prime = C_2_prime - C_1_prime;
+	const float delta_H_prime = 2.0f * sqrt(C_1_prime * C_2_prime) * sin(deg2rad(delta_h_prime * 0.5f));
+
+	const float final_term_1 = delta_L_prime / (K_L * S_L);
+	const float final_term_2 = delta_C_prime / (K_C * S_C);
+	const float final_term_3 = delta_H_prime / (K_H * S_H);
+	const float final_term_4 = R_T * final_term_2 * final_term_3;
+
+	const float delta_E = sqrt(final_term_1 * final_term_1 + final_term_2 * final_term_2 + final_term_3 * final_term_3 + final_term_4);
+	return delta_E;
+}
+
+float deltaE_ITP(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_xyz, const float3 xyz_white)
+{
+	float3 lab_A = rgb_to_lab(rgb_A, rgb_to_xyz, xyz_white);
+	float3 lab_B = rgb_to_lab(rgb_B, rgb_to_xyz, xyz_white);
+
+	// TODO:
+	return 10.0f;
 }
 
 // Thanks to colour.py module for these constants
@@ -255,21 +348,31 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			rgba_diff = texdiffrgba.Sample(ss, uv);
 
 			if (conversion & 0x2) // 10-bit SDR
-				// Final output is normed 8-bit but the decoded frame is normed 10-bit, handle this
-				// TODO: Do we actually need to do this?
+				// Final output is normed 8-bit but the decoded frame is normed 10-bit, so we re-normalize
 				rgba = round(rgba * 255.0f) / 255.0f;
 		}
 
 		if (diffmode == 1) {
 			rgba = abs(rgba - rgba_diff);
-			rgba *= diffbrighten; // brighten a bit so the diff is staggering
+			rgba *= diffbrighten; // brighten so the diff is stark
 
-		} else if (diffmode == 2) {
-			float de = delta_e(
+		} else if (diffmode >= 2 && diffmode <= 4) {
+			float de = diffmode == 2 ? deltaE_76(
 				rgba.rgb,
 				rgba_diff.rgb, 
 				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
-				D65_WHITE);
+				D65_WHITE
+			) : diffmode == 3 ? deltaE_2000(
+				rgba.rgb,
+				rgba_diff.rgb, 
+				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
+				D65_WHITE
+			) : deltaE_ITP(
+				rgba.rgb,
+				rgba_diff.rgb, 
+				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
+				D65_WHITE
+			); 
 			
 			if (de >= 2.0f) { // unacceptable - show as bright red
 				rgba = float4(1, 0, 0, 1);

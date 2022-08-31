@@ -35,10 +35,8 @@ Texture2D texdiffrgb10a2 : register(t4);
 
 static const float SDR_MAX_NITS = 80.0f; // the reference sRGB luminance is 80 nits (aka the brightness of paper white)
 
-inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v, float2 uv)
+inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 {
-	const float4 yuv_orig = float4(y, u, v, 1);
-
 	// 10-bit -> 16-bit
 	if (conversion & 0x4) {
 		y *= 64.0;
@@ -73,27 +71,14 @@ inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v, 
 		}
 	}
 
-	if (hdr) {
-		// TODO: Test...do YCgCo inverse as per H.265 appendix equations E-37 to E3-40.
+	float kr = hdr ? 0.2627 : 0.2126;
+	float kb = hdr ? 0.0593 : 0.0722;
 
-		const float t = y - u;
-		float g = y + u;
-		float r = t - v;
-		float b = t + v;
+	float r = y + (2.0 - 2.0 * kr) * v;
+	float b = y + (2.0 - 2.0 * kb) * u;
+	float g = (y - kr * r - kb * b) / (1.0 - kr - kb);
 
-		return float4(r, g, b, 1.0);
-
-	} else {
-		float kr = hdr ? 0.2627 : 0.2126;
-		float kb = hdr ? 0.0593 : 0.0722;
-
-		float r = y + (2.0 - 2.0 * kr) * v;
-		float b = y + (2.0 - 2.0 * kb) * u;
-		float g = (y - kr * r - kb * b) / (1.0 - kr - kb);
-
-		return uv.x < 0.5 ? yuv_orig : float4(r, g, b, 1.0);
-		// return float4(r, g, b, 1.0);
-	}
+	return float4(r, g, b, 1.0);
 }
 
 inline float4 sample_rgba(uint planes, uint conversion, uint hdr, float2 uv)
@@ -106,14 +91,14 @@ inline float4 sample_rgba(uint planes, uint conversion, uint hdr, float2 uv)
 		float u = pixel1.r;
 		float v = pixel1.g;
 
-		return yuv_to_rgba(conversion, hdr, y, u, v, uv);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else if (planes == 3) {
 		float y = pixel0.r;
 		float u = tex1.Sample(ss, uv).r;
 		float v = tex2.Sample(ss, uv).r;
 
-		return yuv_to_rgba(conversion, hdr, y, u, v, uv);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else if (conversion & 0x8) {
 		// AYUV
@@ -127,7 +112,7 @@ inline float4 sample_rgba(uint planes, uint conversion, uint hdr, float2 uv)
 			u = pixel0.r;
 		}
 
-		return yuv_to_rgba(conversion, hdr, y, u, v, uv);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else {
 		return pixel0;
@@ -274,7 +259,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			rgba = abs(rgba - rgba_diff);
 			rgba *= diffbrighten; // brighten a bit so the diff is staggering
 
-		} else if (diffmode == 2) {
+		} else {
 			float de = delta_e(
 				rgba.rgb,
 				rgba_diff.rgb, 
@@ -290,8 +275,6 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			} else { // great/perfect - lerp from green to black
 				rgba = float4(0, lerp(0, 1, de * 2.0f), 0, 1);
 			}
-		} else {
-			rgba = rgba_diff;
 		}
 	}
 

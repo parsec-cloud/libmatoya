@@ -71,6 +71,8 @@ inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 		}
 	}
 
+	// TODO: Yo......what if we did 10-bit YCgCo for SDR instead of YCbCr????? Would that improve color accuracy????? Let's try it out!!!
+
 	float kr = hdr ? 0.2627 : 0.2126;
 	float kb = hdr ? 0.0593 : 0.0722;
 
@@ -202,6 +204,9 @@ float delta_e(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_xyz,
 	float3 lab_A = rgb_to_lab(rgb_A, rgb_to_xyz, xyz_white);
 	float3 lab_B = rgb_to_lab(rgb_B, rgb_to_xyz, xyz_white);
 
+	// TODO: This Delta-E algo is Delta-E 76, which is pretty bad. Look at implementing Delta-E ITP or at minimum Delta-E 2000. Hopefully it solves 10-bit inflation issues too.
+	// TODO: Adapt the colsquares app to show HDR colors, along with the epic colors colors too. Or Perhaps show a mix of SDR colors in general.
+
 	const float3 sqdist = pow(lab_B - lab_A, 2);
 	const float variance = sqdist[0] + sqdist[1] + sqdist[2];
 	return sqrt(variance);
@@ -259,7 +264,7 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			rgba = abs(rgba - rgba_diff);
 			rgba *= diffbrighten; // brighten a bit so the diff is staggering
 
-		} else {
+		} else if (diffmode == 2) {
 			float de = delta_e(
 				rgba.rgb,
 				rgba_diff.rgb, 
@@ -275,6 +280,8 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			} else { // great/perfect - lerp from green to black
 				rgba = float4(0, lerp(0, 1, de * 2.0f), 0, 1);
 			}
+		} else {
+			rgba = rgba_diff;
 		}
 	}
 

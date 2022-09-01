@@ -88,6 +88,9 @@ bool MTY_ArchiveReadFile(MTY_Archive *ctx, MTY_ArchiveFile **file)
 
 bool MTY_ArchiveUnpack(MTY_Archive *ctx, MTY_ArchiveFile *file)
 {
+	if (!ctx || !file)
+		return false;
+
 	file->data = mz_zip_reader_extract_file_to_heap(ctx->zip, file->path, NULL, 0);
 
 	return file->data != NULL;

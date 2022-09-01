@@ -253,18 +253,14 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 		if (double_click && !double_clicked)
 			ctx->has_double_clicked = double_clicked = pressed;
 
-		if (ctx->override) {
-			if (pressed || prev_pressed)
-				evt->pen.flags |=
-					i == 0 ? MTY_PEN_FLAG_TIP :
-					i == 1 ? MTY_PEN_FLAG_BARREL_1 :
-					i == 2 ? MTY_PEN_FLAG_BARREL_2 :
-					0;
+		if (pressed || prev_pressed) {
+			if (ctx->override) {
+				evt->pen.flags |= i == 0 ? MTY_PEN_FLAG_TIP : (i == 1 ? MTY_PEN_FLAG_BARREL_1 : (i == 2 ? MTY_PEN_FLAG_BARREL_2 : 0));
 
-		} else {
 			// This is a WinInk special behavior, must be skipped if physical status has to be reported
-			if (right_click && (pressed || prev_pressed))
+			} else if (right_click) {
 				evt->pen.flags |= MTY_PEN_FLAG_BARREL_1;
+			}
 		}
 	}
 

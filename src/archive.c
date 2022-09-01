@@ -9,6 +9,9 @@ struct MTY_Archive {
 
 MTY_Archive *MTY_ArchiveOpen(const void *data, size_t size)
 {
+	if (!data)
+		return NULL;
+
 	MTY_Archive *ctx = MTY_Alloc(1, sizeof(MTY_Archive));
 
 	ctx->zip = MTY_Alloc(1, sizeof(mz_zip_archive));

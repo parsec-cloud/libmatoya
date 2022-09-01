@@ -344,7 +344,10 @@ bool wintab_on_proximity(struct wintab *ctx, MTY_Event *evt, LPARAM lparam)
 
 void wintab_on_infochange(struct wintab **ctx, HWND hwnd)
 {
-	bool override = ctx && *ctx && (*ctx)->override;
+	if (!ctx)
+		return;
+
+	bool override = *ctx && (*ctx)->override;
 	wintab_destroy(ctx, false);
 	*ctx = wintab_create(hwnd, override);
 }

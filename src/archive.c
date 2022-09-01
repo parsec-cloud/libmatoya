@@ -68,6 +68,9 @@ void MTY_ArchiveDestroy(MTY_Archive **archive)
 
 bool MTY_ArchiveReadFile(MTY_Archive *ctx, MTY_ArchiveFile **file)
 {
+	if (!ctx || !file)
+		return false;
+	
 	if (*file == NULL) {
 		ctx->current_file = MTY_ListGetFirst(ctx->files);
 

@@ -4,6 +4,8 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
+#include "hdr10.hlsl"
+
 struct VS_OUTPUT {
 	float4 position : SV_POSITION;
 	float2 texcoord : TEXCOORD;
@@ -32,8 +34,6 @@ Texture2D tex1 : register(t1);
 Texture2D tex2 : register(t2);
 Texture2D texdiffrgba : register(t3);
 Texture2D texdiffrgb10a2 : register(t4);
-
-static const float SDR_MAX_NITS = 80.0f; // the reference sRGB luminance is 80 nits (aka the brightness of paper white)
 
 inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 {
@@ -296,13 +296,33 @@ float deltaE_2000(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_
 	return delta_E;
 }
 
-float deltaE_ITP(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_xyz, const float3 xyz_white)
+float deltaE_ITP(const float3 rgb_A, const float3 rgb_B)
 {
-	float3 lab_A = rgb_to_lab(rgb_A, rgb_to_xyz, xyz_white);
-	float3 lab_B = rgb_to_lab(rgb_B, rgb_to_xyz, xyz_white);
+	// Courtesy of the official BT.2124 spec: https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2124-0-201901-I!!PDF-E.pdf
 
-	// TODO:
-	return 10.0f;
+	const float3 ictcp_A = rec2020_linear_to_ictcp(rgb_A);
+	const float3 ictcp_B = rec2020_linear_to_ictcp(rgb_B);
+
+	const float3 itp_A = ictcp_A * float3(1.0f, 0.5f, 1.0f);
+	const float3 itp_B = ictcp_B * float3(1.0f, 0.5f, 1.0f);
+
+	const float dt_I = itp_A[0] - itp_B[0];
+	const float dt_T = itp_A[1] - itp_B[1];
+	const float dt_P = itp_A[2] - itp_B[2];
+
+	const float delta_E = 720.0f * sqrt(dt_I * dt_I + dt_T * dt_T + dt_P * dt_P);
+	return delta_E;
+}
+
+float3 sRGB_to_linear(const float3 rgb)
+{
+	float3 rgb_linear = float3(0, 0, 0);
+
+	for (uint i = 0; i < 3; i++) {
+		rgb_linear[i] = rgb[i] > 0.04045f ? pow((rgb[i] + 0.055f) / 1.055f, 2.4f) : rgb[i] / 12.92f;
+	}
+
+	return rgb_linear;
 }
 
 // Thanks to colour.py module for these constants
@@ -357,22 +377,20 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			rgba *= diffbrighten; // brighten so the diff is stark
 
 		} else if (diffmode >= 2 && diffmode <= 4) {
+			float3 actual_linear = hdr ? rgba.rgb : sRGB_to_linear(rgba.rgb);
+			float3 diff_linear = hdr ? rgba_diff.rgb : sRGB_to_linear(rgba_diff.rgb);
+
 			float de = diffmode == 2 ? deltaE_76(
-				rgba.rgb,
-				rgba_diff.rgb, 
+				actual_linear,
+				diff_linear, 
 				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
 				D65_WHITE
 			) : diffmode == 3 ? deltaE_2000(
-				rgba.rgb,
-				rgba_diff.rgb, 
+				actual_linear,
+				diff_linear, 
 				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
 				D65_WHITE
-			) : deltaE_ITP(
-				rgba.rgb,
-				rgba_diff.rgb, 
-				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
-				D65_WHITE
-			); 
+			) : deltaE_ITP(actual_linear, diff_linear); 
 			
 			if (de >= 2.0f) { // unacceptable - show as bright red
 				rgba = float4(1, 0, 0, 1);

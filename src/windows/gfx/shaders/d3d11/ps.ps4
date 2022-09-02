@@ -199,16 +199,6 @@ float3 rgb_to_lab(const float3 rgb, const float3x3 rgb_to_xyz, const float3 xyz_
 	);
 }
 
-float deltaE_76(const float3 rgb_A, const float3 rgb_B, const float3x3 rgb_to_xyz, const float3 xyz_white)
-{	
-	float3 lab_A = rgb_to_lab(rgb_A, rgb_to_xyz, xyz_white);
-	float3 lab_B = rgb_to_lab(rgb_B, rgb_to_xyz, xyz_white);
-
-	const float3 sqdist = pow(lab_B - lab_A, 2);
-	const float variance = sqdist[0] + sqdist[1] + sqdist[2];
-	return sqrt(variance);
-}
-
 inline float deg2rad(float deg)
 {
 	return deg * 3.14159f / 180.0f;
@@ -314,17 +304,6 @@ float deltaE_ITP(const float3 rgb_A, const float3 rgb_B)
 	return delta_E;
 }
 
-float3 sRGB_to_linear(const float3 rgb)
-{
-	float3 rgb_linear = float3(0, 0, 0);
-
-	for (uint i = 0; i < 3; i++) {
-		rgb_linear[i] = rgb[i] > 0.04045f ? pow((rgb[i] + 0.055f) / 1.055f, 2.4f) : rgb[i] / 12.92f;
-	}
-
-	return rgb_linear;
-}
-
 // Thanks to colour.py module for these constants
 static const float3x3 REC709_TO_XYZ =
 {
@@ -376,31 +355,30 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			rgba = abs(rgba - rgba_diff);
 			rgba *= diffbrighten; // brighten so the diff is stark
 
-		} else if (diffmode >= 2 && diffmode <= 4) {
-			float3 actual_linear = hdr ? rgba.rgb : sRGB_to_linear(rgba.rgb);
-			float3 diff_linear = hdr ? rgba_diff.rgb : sRGB_to_linear(rgba_diff.rgb);
+		} else if (diffmode == 2) {
+			float3 actual = hdr ? rgba.rgb : rgba.rgb;
+			float3 diff = hdr ? rgba_diff.rgb : rgba_diff.rgb;
 
-			float de = diffmode == 2 ? deltaE_76(
-				actual_linear,
-				diff_linear, 
+			float de = hdr ? deltaE_ITP(actual, diff) : deltaE_2000(
+				actual,
+				diff, 
 				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
 				D65_WHITE
-			) : diffmode == 3 ? deltaE_2000(
-				actual_linear,
-				diff_linear, 
-				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
-				D65_WHITE
-			) : deltaE_ITP(actual_linear, diff_linear); 
+			); 
 			
 			if (de >= 2.0f) { // unacceptable - show as bright red
 				rgba = float4(1, 0, 0, 1);
+
 			} else if (de >= 1.0f) { // mediocre - lerp from red to yellow
 				rgba = float4(1, lerp(1, 0, de - 1.0f), 0, 1);
+
 			} else if (de >= 0.5f) { // satisfactory - lerp from yellow to green
 				rgba = float4(lerp(0, 1, (de - 0.5f) * 2.0f), 1, 0, 1);
+
 			} else { // great/perfect - lerp from green to black
 				rgba = float4(0, lerp(0, 1, de * 2.0f), 0, 1);
 			}
+
 		} else {
 			rgba = rgba_diff;
 		}

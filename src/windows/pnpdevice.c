@@ -1,6 +1,9 @@
 #include "matoya.h"
 #include "pnpdevice.h"
 
+#define DRIVER_VERSION_VALUE_NAME	"DriverVersion"
+
+
 static MTY_PnPDeviceStatus dev_node_status_to_mty(ULONG devStatus, ULONG devProblemCode)
 {
 	// Device is operational
@@ -266,6 +269,181 @@ except:
 	if (detailDataBuffer)
 		free(detailDataBuffer);
 
+	err = GetLastError();
+	if (hDevInfo)
+		SetupDiDestroyDeviceInfoList(hDevInfo);
+	SetLastError(err);
+
+	return succeeded;
+}
+
+bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId, uint32_t instanceIndex, uint32_t* version)
+{
+	if (!classGuid || !hardwareId)
+		return false;
+
+	DWORD err = ERROR_SUCCESS;
+	bool found = false, succeeded = false;
+
+	SP_DEVINFO_DATA spDevInfoData;
+
+	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(
+		classGuid,
+		NULL,
+		NULL,
+		DIGCF_PRESENT
+	);
+
+	if (hDevInfo == INVALID_HANDLE_VALUE)
+	{
+		return succeeded;
+	}
+
+	spDevInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
+
+	for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &spDevInfoData); i++)
+	{
+		LPSTR buffer = NULL;
+		DWORD bufferSize = 0;
+		uint32_t instance = 0;
+
+		// get hardware ID(s) property
+		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo,
+			&spDevInfoData,
+			SPDRP_HARDWAREID,
+			NULL,
+			(PBYTE)buffer,
+			bufferSize,
+			&bufferSize))
+		{
+			if (GetLastError() == ERROR_INVALID_DATA)
+			{
+				break;
+			}
+			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+			{
+				if (buffer)
+					LocalFree(buffer);
+				buffer = LocalAlloc(LPTR, bufferSize);
+			}
+			else
+			{
+				goto except;
+			}
+		}
+
+		if (GetLastError() == ERROR_INVALID_DATA)
+			continue;
+
+		// Find device with matching Hardware ID
+		for (LPSTR p = buffer; p && *p && (p < &buffer[bufferSize]); p += lstrlenA(p) + sizeof(char))
+		{
+			if (!strcmp(hardwareId, p))
+			{
+				// multiple device instances with the same hardware ID may exist
+				if (instance++ == instanceIndex)
+				{
+					found = true;
+					break;
+				}
+			}
+		}
+
+		if (buffer)
+			LocalFree(buffer);
+
+		if (found)
+		{
+			bufferSize = 0;
+			// get driver key name size
+			SetupDiGetDeviceRegistryPropertyA(
+				hDevInfo,
+				&spDevInfoData,
+				SPDRP_DRIVER,
+				NULL,
+				NULL,
+				bufferSize,
+				&bufferSize
+			);
+
+			buffer = LocalAlloc(LPTR, bufferSize);
+			// get driver key name content
+			if (!SetupDiGetDeviceRegistryPropertyA(
+				hDevInfo,
+				&spDevInfoData,
+				SPDRP_DRIVER,
+				NULL,
+				(PBYTE)buffer,
+				bufferSize,
+				&bufferSize
+			))
+			{
+				LocalFree(buffer);
+				goto except;
+			}
+
+			HKEY hKey;
+			CHAR subKey[MAX_PATH];
+			// build driver key path
+			(void)sprintf_s(subKey, MAX_PATH, "SYSTEM\\CurrentControlSet\\Control\\Class\\%s", buffer);
+
+			LocalFree(buffer);
+
+			if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, subKey, 0, KEY_READ | KEY_QUERY_VALUE, &hKey))
+				goto except;
+
+			bufferSize = 0;
+			RegGetValueA(
+				hKey,
+				NULL,
+				DRIVER_VERSION_VALUE_NAME,
+				RRF_RT_REG_SZ | RRF_ZEROONFAILURE,
+				NULL,
+				NULL,
+				&bufferSize
+			);
+
+			buffer = LocalAlloc(LPTR, bufferSize);
+
+			if (RegGetValueA(
+				hKey,
+				NULL,
+				DRIVER_VERSION_VALUE_NAME,
+				RRF_RT_REG_SZ | RRF_ZEROONFAILURE,
+				NULL,
+				buffer,
+				&bufferSize
+			))
+			{
+				LocalFree(buffer);
+				goto except;
+			}
+
+			uint32_t mjr = 0, mnr = 0, rev = 0, bld = 0;
+			if (sscanf_s(buffer, "%u.%u.%u.%u", &mjr, &mnr, &rev, &bld) != 4)
+			{
+				LocalFree(buffer);
+				goto except;
+			}
+
+			*version |= ((UCHAR)(bld & UCHAR_MAX)) << 0;
+			*version |= ((UCHAR)(rev & UCHAR_MAX)) << 8;
+			*version |= ((UCHAR)(mnr & UCHAR_MAX)) << 16;
+			*version |= ((UCHAR)(mjr & UCHAR_MAX)) << 24;
+
+			LocalFree(buffer);
+			RegCloseKey(hKey);
+			succeeded = true;
+		}
+	}
+
+	// device not found but no enumeration error
+	if (!found && GetLastError() == ERROR_SUCCESS)
+	{
+		succeeded = false;
+	}
+
+except:
 	err = GetLastError();
 	if (hDevInfo)
 		SetupDiDestroyDeviceInfoList(hDevInfo);

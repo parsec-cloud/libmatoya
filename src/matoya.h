@@ -3627,6 +3627,19 @@ MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint32_t i
 MTY_EXPORT bool
 MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanceIndex, MTY_PnPDeviceStatus* status);
 
+/// @brief Queries a pnp device for its current driver version.
+/// @details Attempts to enumerate pnp devices belonging to a given device class with a 
+///   specified hardware ID and optional instance index.
+/// @param classGuid The GUID of the device class.
+/// @param hardwareId One of the hardware ID strings of the device.
+/// @param instanceIndex A zero-based index to differentiate between multiple instances
+///   of the same device.
+/// @param version The driver version.
+/// @returns True on success, false otherwise.
+//- #support Windows
+MTY_EXPORT bool 
+MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId, uint32_t instanceIndex, uint32_t* version);
+
 
 #ifdef __cplusplus
 }

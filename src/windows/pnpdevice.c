@@ -279,7 +279,7 @@ except:
 
 bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId, uint32_t instanceIndex, uint32_t* version)
 {
-	if (!classGuid || !hardwareId)
+	if (!classGuid || !hardwareId || !version)
 		return false;
 
 	DWORD err = ERROR_SUCCESS;

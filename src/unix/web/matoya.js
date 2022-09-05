@@ -1238,13 +1238,13 @@ var MTY_WEB_API = {
 		});
 
 		const external = `
-			window.external = { 
+			window.external = {
 				invoke: function (s) {
 					parent.postMessage(s, '${location.origin}');
 				},
 			};
 		`;
-		
+
 		const fetch = `
 			const _fetch = window.fetch;
 			window.fetch = (request, init) => {

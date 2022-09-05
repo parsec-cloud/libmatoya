@@ -121,7 +121,7 @@ static jbyteArray mty_webview_get_java_resource(JNIEnv *env, jlong jctx, jstring
 
 	if (jmime)
 		*jmime = mty_jni_strdup(env, mime);
-	
+
 	return mty_jni_dup(env, res, size);
 }
 

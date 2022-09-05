@@ -238,20 +238,11 @@ void mty_webview_destroy(MTY_Webview *ctx)
 		MTY_ThreadDestroy(&ctx->thread);
 	}
 
-	if (ctx->focus_changed.handler.lpVtbl)
-		MTY_Free(ctx->focus_changed.handler.lpVtbl);
-
-	if (ctx->web_resource_requested.handler.lpVtbl)
-		MTY_Free(ctx->web_resource_requested.handler.lpVtbl);
-
-	if (ctx->web_message_received.handler.lpVtbl)
-		MTY_Free(ctx->web_message_received.handler.lpVtbl);
-
-	if (ctx->controller_completed.handler.lpVtbl)
-		MTY_Free(ctx->controller_completed.handler.lpVtbl);
-
-	if (ctx->environment_completed.handler.lpVtbl)
-		MTY_Free(ctx->environment_completed.handler.lpVtbl);
+	MTY_Free(ctx->focus_changed.handler.lpVtbl);
+	MTY_Free(ctx->web_resource_requested.handler.lpVtbl);
+	MTY_Free(ctx->web_message_received.handler.lpVtbl);
+	MTY_Free(ctx->controller_completed.handler.lpVtbl);
+	MTY_Free(ctx->environment_completed.handler.lpVtbl);
 
 	mty_webview_destroy_common(ctx);
 

@@ -15,7 +15,7 @@ struct MTY_Webview {
 	WKWebView *webview;
 };
 
-API_AVAILABLE(macos(10.13)) 
+API_AVAILABLE(macos(10.13))
 @interface SchemeHandler : NSObject <WKURLSchemeHandler>
 	@property MTY_Webview *webview;
 @end
@@ -27,8 +27,8 @@ API_AVAILABLE(macos(10.13))
 		return self;
 	}
 
-	- (void)webView:(WKWebView *)webView 
-		startURLSchemeTask:(id<WKURLSchemeTask>)urlSchemeTask 
+	- (void)webView:(WKWebView *)webView
+		startURLSchemeTask:(id<WKURLSchemeTask>)urlSchemeTask
 	{
 		NSURL *url = urlSchemeTask.request.URL;
 		size_t size = 0;
@@ -51,7 +51,7 @@ API_AVAILABLE(macos(10.13))
 		[urlSchemeTask didFinish];
 	}
 
-	- (void)webView:(WKWebView *)webView 
+	- (void)webView:(WKWebView *)webView
 		stopURLSchemeTask:(id<WKURLSchemeTask>)urlSchemeTask {
 	}
 @end
@@ -68,7 +68,7 @@ API_AVAILABLE(macos(10.13))
 	}
 
 	- (void)userContentController:(WKUserContentController *)userContentController
-		didReceiveScriptMessage:(WKScriptMessage *)message 
+		didReceiveScriptMessage:(WKScriptMessage *)message
 	{
 		NSString *msg = (NSString *) message.body;
 		const char *raw = [msg UTF8String];
@@ -91,7 +91,7 @@ void mty_webview_destroy(MTY_Webview *ctx)
 {
 	if (!ctx)
 		return;
-	
+
 	WKUserContentController *controller = ctx->webview.configuration.userContentController;
 	[controller removeScriptMessageHandlerForName:@"external"];
 

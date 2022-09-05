@@ -48,11 +48,12 @@ typedef struct MTY_RenderState MTY_RenderState;
 typedef enum {
 	MTY_GFX_NONE    = 0, ///< No 3D graphics API.
 	MTY_GFX_GL      = 1, ///< OpenGL/GLES.
-	MTY_GFX_D3D9    = 2, ///< Direct3D 9. Windows only.
-	MTY_GFX_D3D11   = 3, ///< Direct3D 11. Windows only.
-	MTY_GFX_D3D12   = 4, ///< Direct3D 12. Windows only.
-	MTY_GFX_METAL   = 5, ///< Metal. Apple only.
-	MTY_GFX_MAX     = 6, ///< Maximum number of 3D graphics APIs.
+	MTY_GFX_VK      = 2, ///< Vulkan. Not available on Apple OS's.
+	MTY_GFX_D3D9    = 3, ///< Direct3D 9. Windows only.
+	MTY_GFX_D3D11   = 4, ///< Direct3D 11. Windows only.
+	MTY_GFX_D3D12   = 5, ///< Direct3D 12. Windows only.
+	MTY_GFX_METAL   = 6, ///< Metal. Apple only.
+	MTY_GFX_MAX     = 7, ///< Maximum number of 3D graphics APIs.
 	MTY_GFX_MAKE_32 = INT32_MAX,
 } MTY_GFX;
 
@@ -181,6 +182,12 @@ typedef struct {
 	uint32_t vtxTotalLength; ///< Total number of vertices in all command lists.
 	bool clear;              ///< Surface should be cleared before drawing.
 } MTY_DrawData;
+
+/// @brief Vulkan specific device handles.
+typedef struct {
+	void *device;                               ///< VkDevice
+	const void *physicalDeviceMemoryProperties; ///< VkPhysicalDeviceMemoryProperties
+} MTY_VkDeviceObjects;
 
 /// @brief Create an MTY_Renderer capable of executing drawing commands.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
@@ -438,9 +445,9 @@ typedef enum {
 	MTY_KEY_F8             = 0x042, ///< F8
 	MTY_KEY_F9             = 0x043, ///< F9
 	MTY_KEY_F10            = 0x044, ///< F10
-	MTY_KEY_NUM_LOCK       = 0x045, ///< Num Lock
+	MTY_KEY_NUM_LOCK       = 0x145, ///< Num Lock
 	MTY_KEY_SCROLL_LOCK    = 0x046, ///< Scroll Lock
-	MTY_KEY_PAUSE          = 0x146, ///< Pause/Break
+	MTY_KEY_PAUSE          = 0x045, ///< Pause/Break
 	MTY_KEY_NP_7           = 0x047, ///< 7 (numpad)
 	MTY_KEY_HOME           = 0x147, ///< Home
 	MTY_KEY_NP_8           = 0x048, ///< 8 (numpad)
@@ -570,14 +577,25 @@ typedef enum {
 	MTY_CAXIS_MAKE_32   = INT32_MAX,
 } MTY_CAxis;
 
+/// @brief Pen type.
+typedef enum {
+	MTY_PEN_TYPE_NONE    = 0, ///< Pen is disabled, and pen inputs are processed as mouse events.
+	MTY_PEN_TYPE_GENERIC = 1, ///< Generic pen support is enabled, providing essential features.
+	MTY_PEN_TYPE_WACOM   = 2, ///< Wacom pen support is enabled. Fallbacks to generic support if not available.
+	MTY_PEN_TYPE_MAKE_32 = INT32_MAX,
+} MTY_PenType;
+
 /// @brief Pen attributes.
 typedef enum {
-	MTY_PEN_FLAG_LEAVE    = 0x01, ///< Pen has left the drawing surface.
-	MTY_PEN_FLAG_TOUCHING = 0x02, ///< Pen is touching the drawing surface.
-	MTY_PEN_FLAG_INVERTED = 0x04, ///< The pen is inverted.
-	MTY_PEN_FLAG_ERASER   = 0x08, ///< The eraser is touching the drawing surface.
-	MTY_PEN_FLAG_BARREL   = 0x10, ///< The pen's barrel button is held down.
-	MTY_PEN_FLAG_MAKE_32  = INT32_MAX,
+	MTY_PEN_FLAG_LEAVE        = 0x01, ///< Pen has left the drawing surface.
+	MTY_PEN_FLAG_TOUCHING     = 0x02, ///< Pen is touching the drawing surface.
+	MTY_PEN_FLAG_INVERTED     = 0x04, ///< The pen is inverted.
+	MTY_PEN_FLAG_ERASER       = 0x08, ///< The eraser is touching the drawing surface.
+	MTY_PEN_FLAG_BARREL_1     = 0x10, ///< The pen's 1st barrel button is held down.
+	MTY_PEN_FLAG_BARREL_2     = 0x20, ///< The pen's 2nd barrel button is held down.
+	MTY_PEN_FLAG_TIP          = 0x40, ///< One of the physical pen's tips is touching the surface.
+	MTY_PEN_FLAG_DOUBLE_CLICK = 0x80, ///< A double-click has been fired by one of the pen's barrel buttons.
+	MTY_PEN_FLAG_MAKE_32      = INT32_MAX,
 } MTY_PenFlag;
 
 /// @brief Window keyboard/mouse detach states.
@@ -1051,8 +1069,16 @@ MTY_AppRumbleController(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t high);
 MTY_EXPORT const void *
 MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size);
 
+/// @brief Get the last pen type used.
+/// @param ctx The MTY_App.
+/// @return The last pen type used.
+//- #support Windows macOS
+MTY_EXPORT MTY_PenType
+MTY_AppGetPenType(MTY_App *ctx);
+
 /// @brief Check if pen events are enabled.
 /// @param ctx The MTY_App.
+/// @return True if pen is enabled, false otherwise.
 //- #support Windows macOS
 MTY_EXPORT bool
 MTY_AppIsPenEnabled(MTY_App *ctx);
@@ -1284,26 +1310,11 @@ MTY_EXPORT bool
 MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height);
 
-/// @brief Make the window's context current or not current on the calling thread.
-/// @details This has no effect if the window is not using MTY_GFX_GL. It is
-///   recommended that you first make the context not current on one thread before
-///   making it current on another. All windows using MTY_GFX_GL are created with
-///   the context not current.
-/// @param app The MTY_App.
-/// @param window An MTY_Window.
-/// @param current Set true to make the context current, false to make it not current.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-MTY_EXPORT bool
-MTY_WindowMakeCurrent(MTY_App *app, MTY_Window window, bool current);
-
 /// @brief Present all pending draw operations.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
-/// @param numFrames The number of frames to wait before presenting, otherwise known
-///   as the swap interval. Specifying 0 frames means do not wait, 1 means the next
-///   frame, and so on.
 MTY_EXPORT void
-MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t numFrames);
+MTY_WindowPresent(MTY_App *app, MTY_Window window);
 
 /// @brief Get the current graphics API in use by the window.
 /// @param app The MTY_App.
@@ -1312,6 +1323,7 @@ MTY_EXPORT MTY_GFX
 MTY_WindowGetGFX(MTY_App *app, MTY_Window window);
 
 /// @brief Set the window's graphics API.
+/// @details This function should be called on the thread that is doing the rendering.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
 /// @param api Graphics API to set.
@@ -1822,6 +1834,13 @@ typedef enum {
 	MTY_IMAGE_COMPRESSION_MAKE_32 = INT32_MAX,
 } MTY_ImageCompression;
 
+/// @brief Function called after decompression is finished.
+/// @param image The decompressed image on success, or NULL if there was an error.
+/// @param width The width of `image`.
+/// @param height The height of `image`.
+/// @param opaque Pointer supplied to MTY_DecompressImageAsync.
+typedef void (*MTY_ImageFunc)(void *image, uint32_t width, uint32_t height, void *opaque);
+
 /// @brief Compress an RGBA image.
 /// @param method The compression method to be used on `input`.
 /// @param input RGBA 8-bits per channel image data.
@@ -1845,6 +1864,16 @@ MTY_CompressImage(MTY_ImageCompression method, const void *input, uint32_t width
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT void *
 MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint32_t *height);
+
+/// @brief Decompress an image asynchronously into RGBA.
+/// @details This function is synchronous and functionally equivalent to MTY_DecompressImage on
+///   all platforms except the Web.
+/// @param input The compressed image data.
+/// @param size The size in bytes of `input`.
+/// @param func Function called after decompression is finished.
+/// @param opaque Passed to `func` when it is called.
+MTY_EXPORT void
+MTY_DecompressImageAsync(const void *input, size_t size, MTY_ImageFunc func, void *opaque);
 
 /// @brief Center crop an RGBA image.
 /// @param image RGBA 8-bits per channel image to be cropped.
@@ -1932,11 +1961,11 @@ MTY_JSONSerialize(const MTY_JSON *json);
 MTY_EXPORT bool
 MTY_JSONWriteFile(const char *path, const MTY_JSON *json);
 
-/// @brief Get the number of items in an MTY_JSON item.
-/// @param json An MTY_JSON item to query.
-/// @returns The length of a JSON array or the number of items in a JSON object.
+/// @brief Get the number of items in a JSON array.
+/// @param json An MTY_JSON array.
+/// @returns The length of a JSON array.
 MTY_EXPORT uint32_t
-MTY_JSONGetLength(const MTY_JSON *json);
+MTY_JSONArrayGetLength(const MTY_JSON *json);
 
 /// @brief Create a new JSON object.
 /// @returns The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
@@ -1945,10 +1974,11 @@ MTY_EXPORT MTY_JSON *
 MTY_JSONObjCreate(void);
 
 /// @brief Create a new JSON array.
+/// @param len Currently ignored.
 /// @returns The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
 ///   remains the root item in the hierarchy.
 MTY_EXPORT MTY_JSON *
-MTY_JSONArrayCreate(void);
+MTY_JSONArrayCreate(uint32_t len);
 
 /// @brief Check if a key exists on a JSON object.
 /// @param json An MTY_JSON object.
@@ -1956,16 +1986,14 @@ MTY_JSONArrayCreate(void);
 MTY_EXPORT bool
 MTY_JSONObjKeyExists(const MTY_JSON *json, const char *key);
 
-/// @brief Get a key on a JSON object by its index.
-/// @details This function can be used as a way to iterate through a JSON object by
-///   first calling MTY_JSONGetLength on the object, then looping through by index.
+/// @brief Iterate through key/value pairs in a JSON object.
 /// @param json An MTY_JSON object.
-/// @param index Index to lookup.
-/// @returns If the `index` exists, the object's key at that position is returned.
-///   This reference is valid only as long as the `json` item is also valid.\n\n
-///   If the `index` does not exist, NULL is returned.
-MTY_EXPORT const char *
-MTY_JSONObjGetKey(const MTY_JSON *json, uint32_t index);
+/// @param iter Iterator that keeps track of the position in the object. Set this
+///   to 0 before the fist call to this function.
+/// @param key Reference to the next string key in the object.
+/// @returns Returns true if there are more keys available, otherwise false.
+MTY_EXPORT bool
+MTY_JSONObjGetNextKey(const MTY_JSON *json, uint64_t *iter, const char **key);
 
 /// @brief Delete an item from a JSON object.
 /// @param json An MTY_JSON object.
@@ -1988,19 +2016,7 @@ MTY_JSONObjGetItem(const MTY_JSON *json, const char *key);
 /// @param key Key to set.
 /// @param value Value associated with `key`.
 MTY_EXPORT void
-MTY_JSONObjSetItem(MTY_JSON *json, const char *key, const MTY_JSON *value);
-
-/// @brief Check if an item exists in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to check.
-MTY_EXPORT bool
-MTY_JSONArrayIndexExists(const MTY_JSON *json, uint32_t index);
-
-/// @brief Delete an item from a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to delete.
-MTY_EXPORT void
-MTY_JSONArrayDeleteItem(MTY_JSON *json, uint32_t index);
+MTY_JSONObjSetItem(MTY_JSON *json, const char *key, MTY_JSON *value);
 
 /// @brief Get an item from a JSON array.
 /// @param json An MTY_JSON array.
@@ -2011,18 +2027,12 @@ MTY_JSONArrayDeleteItem(MTY_JSON *json, uint32_t index);
 MTY_EXPORT const MTY_JSON *
 MTY_JSONArrayGetItem(const MTY_JSON *json, uint32_t index);
 
-/// @brief Set an item in a JSON array.
+/// @brief Set an item in JSON array.
 /// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param value Value set at `index`.
+/// @param index The array index where `value` will be stored.
+/// @param value Value to set at `index`.
 MTY_EXPORT void
-MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, const MTY_JSON *value);
-
-/// @brief Append an item to a JSON array.
-/// @param json An MTY_JSON array.
-/// @param value Value to append.
-MTY_EXPORT void
-MTY_JSONArrayAppendItem(MTY_JSON *json, const MTY_JSON *value);
+MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, MTY_JSON *value);
 
 /// @brief Get the full string from a JSON object.
 /// @param json An MTY_JSON object.
@@ -2201,44 +2211,10 @@ MTY_JSONArrayGetValType(const MTY_JSON *json, uint32_t index);
 
 /// @brief Set a string value in a JSON array.
 /// @param json An MTY_JSON array.
-/// @param index Index to set.
+/// @param index The array index where `val` will be stored.
 /// @param val Value to set at `index`.
 MTY_EXPORT void
 MTY_JSONArraySetString(MTY_JSON *json, uint32_t index, const char *val);
-
-/// @brief Set an int32_t value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param val Value to set at `index`.
-MTY_EXPORT void
-MTY_JSONArraySetInt(MTY_JSON *json, uint32_t index, int32_t val);
-
-/// @brief Set a uint32_t value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param val Value to set at `index`.
-MTY_EXPORT void
-MTY_JSONArraySetUInt(MTY_JSON *json, uint32_t index, uint32_t val);
-
-/// @brief Set a float value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param val Value to set at `index`.
-MTY_EXPORT void
-MTY_JSONArraySetFloat(MTY_JSON *json, uint32_t index, float val);
-
-/// @brief Set a bool value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set.
-/// @param val Value to set at `index`.
-MTY_EXPORT void
-MTY_JSONArraySetBool(MTY_JSON *json, uint32_t index, bool val);
-
-/// @brief Set a NULL value in a JSON array.
-/// @param json An MTY_JSON array.
-/// @param index Index to set to `null`.
-MTY_EXPORT void
-MTY_JSONArraySetNull(MTY_JSON *json, uint32_t index);
 
 
 //- #module Log
@@ -2889,16 +2865,6 @@ MTY_GlobalUnlock(MTY_Atomic32 *lock);
 
 typedef struct MTY_WebSocket MTY_WebSocket;
 
-/// @brief Function that is executed on a thread after an HTTP response is received.
-/// @details If set, this callback allows you to intercept and modify an HTTP response
-///   before it is returned via MTY_HttpAsyncPoll. The advantage is that this function
-///   is executed on a thread so it can be parallelized.
-/// @param code The HTTP response status code.
-/// @param body A reference to the response. This value may be mutated by this function.
-/// @param size A reference to the response size. This value may be mutated by this
-///   function.
-typedef void (*MTY_HttpAsyncFunc)(uint16_t code, void **body, size_t *size);
-
 /// @brief Parse a URL into its components.
 /// @param url URL to parse.
 /// @param host Output hostname.
@@ -2976,11 +2942,12 @@ MTY_HttpAsyncDestroy(void);
 /// @param bodySize Size in bytes of `body`.
 /// @param timeout Time the thread will wait in milliseconds for completion.
 /// @param func Function called on the thread after the response is received.
-///   May be NULL.
+/// @param image Attempt to decompress an image response. If successful, the `size` argument
+///   supplied to MTY_HttpAsyncPoll will be set to `width | height << 16`.
 MTY_EXPORT void
 MTY_HttpAsyncRequest(uint32_t *index, const char *host, uint16_t port, bool secure,
 	const char *method, const char *path, const char *headers, const void *body,
-	size_t size, uint32_t timeout, MTY_HttpAsyncFunc func);
+	size_t size, uint32_t timeout, bool image);
 
 /// @brief Poll the global HTTP thread pool for a response.
 /// @param index The thread index acquired in MTY_HttpAsyncRequest.
@@ -3313,7 +3280,7 @@ typedef enum {
 	MTY_OS_WINDOWS = 0x01000000, ///< Microsoft Windows.
 	MTY_OS_MACOS   = 0x02000000, ///< Apple macOS.
 	MTY_OS_ANDROID = 0x04000000, ///< Android.
-	MTY_OS_LINUX   = 0x08000000, ///< Generic Linux.
+	MTY_OS_LINUX   = 0x08000000, ///< Linux with X11 windowing system.
 	MTY_OS_WEB     = 0x10000000, ///< Browser environment.
 	MTY_OS_IOS     = 0x20000000, ///< Apple iOS.
 	MTY_OS_TVOS    = 0x40000000, ///< Apple tvOS.

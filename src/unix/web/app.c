@@ -468,6 +468,11 @@ const void *MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size
 	return NULL;
 }
 
+MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
+{
+	return MTY_PEN_TYPE_NONE;
+}
+
 bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return false;
@@ -602,7 +607,7 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 
 void *mty_window_get_native(MTY_App *app, MTY_Window window)
 {
-	return (void *) (uintptr_t) 0xCDD;
+	return NULL;
 }
 
 

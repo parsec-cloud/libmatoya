@@ -654,6 +654,7 @@ typedef enum {
 	MTY_WINDOW_HIDDEN     = 0x1, ///< Window is hidden without any visible elements.
 	MTY_WINDOW_FULLSCREEN = 0x2, ///< Window is in fullscreen mode.
 	MTY_WINDOW_MAXIMIZED  = 0x4, ///< Window is maximized (zoomed).
+	MTY_WINDOW_MINIMIZED  = 0x8, ///< Window is minimized (iconified).
 	MTY_WINDOW_MAKE_32    = INT32_MAX,
 } MTY_WindowType;
 

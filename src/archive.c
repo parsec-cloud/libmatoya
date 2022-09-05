@@ -42,12 +42,9 @@ static void mty_archive_free_file(void *file)
 
 	MTY_ArchiveFile *ctx = file;
 
-	if (ctx->data)
-		MTY_Free(ctx->data);
+	MTY_Free(ctx->data);
+	MTY_Free(ctx->path);
 
-	if (ctx->path)
-		MTY_Free(ctx->path);
-	
 	MTY_Free(ctx);
 }
 
@@ -73,7 +70,7 @@ bool MTY_ArchiveReadFile(MTY_Archive *ctx, MTY_ArchiveFile **file)
 {
 	if (!ctx || !file)
 		return false;
-	
+
 	if (*file == NULL) {
 		ctx->current_file = MTY_ListGetFirst(ctx->files);
 

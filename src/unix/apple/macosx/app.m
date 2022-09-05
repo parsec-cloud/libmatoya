@@ -1507,6 +1507,9 @@ MTY_Frame MTY_WindowGetFrame(MTY_App *app, MTY_Window window)
 		} else {
 			type = MTY_WINDOW_MAXIMIZED;
 		}
+
+	} else if ([ctx isMiniaturized]) {
+		type |= MTY_WINDOW_MINIMIZED;
 	}
 
 	NSRect r = [ctx contentRectForFrameRect: (NSRect) {
@@ -1549,6 +1552,9 @@ void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 
 	if (frame->type & MTY_WINDOW_MAXIMIZED)
 		[ctx zoom:ctx];
+
+	if (frame->type & MTY_WINDOW_MINIMIZED)
+		[ctx miniaturize:ctx];
 
 	if (frame->type & MTY_WINDOW_FULLSCREEN)
 		MTY_WindowSetFullscreen(app, window, true);

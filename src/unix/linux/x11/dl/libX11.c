@@ -28,6 +28,7 @@ static Window (*XCreateWindow)(Display *display, Window parent, int x, int y, un
 	unsigned int height, unsigned int border_width, int depth, unsigned int class, Visual *visual,
 	unsigned long valuemask, XSetWindowAttributes *attributes);
 static int (*XWithdrawWindow)(Display *display, Window w);
+static int (*XIconifyWindow)(Display *display, Window w);
 static int (*XMapRaised)(Display *display, Window w);
 static int (*XSetInputFocus)(Display *display, Window focus, int revert_to, Time time);
 static int (*XStoreName)(Display *display, Window w, const char *window_name);
@@ -177,6 +178,7 @@ static bool libX11_global_init(void)
 		LOAD_SYM(LIBX11_SO, XCreateColormap);
 		LOAD_SYM(LIBX11_SO, XCreateWindow);
 		LOAD_SYM(LIBX11_SO, XWithdrawWindow);
+		LOAD_SYM(LIBX11_SO, XIconifyWindow);
 		LOAD_SYM(LIBX11_SO, XMapRaised);
 		LOAD_SYM(LIBX11_SO, XSetInputFocus);
 		LOAD_SYM(LIBX11_SO, XStoreName);

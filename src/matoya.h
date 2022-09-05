@@ -579,6 +579,14 @@ typedef enum {
 	MTY_CAXIS_MAKE_32   = INT32_MAX,
 } MTY_CAxis;
 
+/// @brief Pen type.
+typedef enum {
+	MTY_PEN_TYPE_NONE    = 0, ///< Pen is disabled, and pen inputs are processed as mouse events.
+	MTY_PEN_TYPE_GENERIC = 1, ///< Generic pen support is enabled, providing essential features.
+	MTY_PEN_TYPE_WACOM   = 2, ///< Wacom pen support is enabled. Fallbacks to generic support if not available.
+	MTY_PEN_TYPE_MAKE_32 = INT32_MAX,
+} MTY_PenType;
+
 /// @brief Pen attributes.
 typedef enum {
 	MTY_PEN_FLAG_LEAVE        = 0x01, ///< Pen has left the drawing surface.
@@ -1038,8 +1046,16 @@ MTY_AppRumbleController(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t high);
 MTY_EXPORT const void *
 MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size);
 
+/// @brief Get the last pen type used.
+/// @param ctx The MTY_App.
+/// @return The last pen type used.
+//- #support Windows macOS
+MTY_EXPORT MTY_PenType
+MTY_AppGetPenType(MTY_App *ctx);
+
 /// @brief Check if pen events are enabled.
 /// @param ctx The MTY_App.
+/// @return True if pen is enabled, false otherwise.
 //- #support Windows macOS
 MTY_EXPORT bool
 MTY_AppIsPenEnabled(MTY_App *ctx);
@@ -1795,6 +1811,13 @@ typedef enum {
 	MTY_IMAGE_COMPRESSION_MAKE_32 = INT32_MAX,
 } MTY_ImageCompression;
 
+/// @brief Function called after decompression is finished.
+/// @param image The decompressed image on success, or NULL if there was an error.
+/// @param width The width of `image`.
+/// @param height The height of `image`.
+/// @param opaque Pointer supplied to MTY_DecompressImageAsync.
+typedef void (*MTY_ImageFunc)(void *image, uint32_t width, uint32_t height, void *opaque);
+
 /// @brief Compress an RGBA image.
 /// @param method The compression method to be used on `input`.
 /// @param input RGBA 8-bits per channel image data.
@@ -1818,6 +1841,16 @@ MTY_CompressImage(MTY_ImageCompression method, const void *input, uint32_t width
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT void *
 MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint32_t *height);
+
+/// @brief Decompress an image asynchronously into RGBA.
+/// @details This function is synchronous and functionally equivalent to MTY_DecompressImage on
+///   all platforms except the Web.
+/// @param input The compressed image data.
+/// @param size The size in bytes of `input`.
+/// @param func Function called after decompression is finished.
+/// @param opaque Passed to `func` when it is called.
+MTY_EXPORT void
+MTY_DecompressImageAsync(const void *input, size_t size, MTY_ImageFunc func, void *opaque);
 
 /// @brief Center crop an RGBA image.
 /// @param image RGBA 8-bits per channel image to be cropped.
@@ -2809,16 +2842,6 @@ MTY_GlobalUnlock(MTY_Atomic32 *lock);
 
 typedef struct MTY_WebSocket MTY_WebSocket;
 
-/// @brief Function that is executed on a thread after an HTTP response is received.
-/// @details If set, this callback allows you to intercept and modify an HTTP response
-///   before it is returned via MTY_HttpAsyncPoll. The advantage is that this function
-///   is executed on a thread so it can be parallelized.
-/// @param code The HTTP response status code.
-/// @param body A reference to the response. This value may be mutated by this function.
-/// @param size A reference to the response size. This value may be mutated by this
-///   function.
-typedef void (*MTY_HttpAsyncFunc)(uint16_t code, void **body, size_t *size);
-
 /// @brief Parse a URL into its components.
 /// @param url URL to parse.
 /// @param host Output hostname.
@@ -2896,11 +2919,12 @@ MTY_HttpAsyncDestroy(void);
 /// @param bodySize Size in bytes of `body`.
 /// @param timeout Time the thread will wait in milliseconds for completion.
 /// @param func Function called on the thread after the response is received.
-///   May be NULL.
+/// @param image Attempt to decompress an image response. If successful, the `size` argument
+///   supplied to MTY_HttpAsyncPoll will be set to `width | height << 16`.
 MTY_EXPORT void
 MTY_HttpAsyncRequest(uint32_t *index, const char *host, uint16_t port, bool secure,
 	const char *method, const char *path, const char *headers, const void *body,
-	size_t size, uint32_t timeout, MTY_HttpAsyncFunc func);
+	size_t size, uint32_t timeout, bool image);
 
 /// @brief Poll the global HTTP thread pool for a response.
 /// @param index The thread index acquired in MTY_HttpAsyncRequest.

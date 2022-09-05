@@ -142,6 +142,9 @@ static uint8_t window_wm_state(Display *display, Window w)
 
 			if (atoms[x] == XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_VERT", False))
 				state |= 0x4;
+
+			if (atoms[x] == XInternAtom(display, "_NET_WM_STATE_HIDDEN", False))
+				state |= 0x8;
 		}
 	}
 
@@ -1230,6 +1233,9 @@ MTY_Frame MTY_WindowGetFrame(MTY_App *app, MTY_Window window)
 		if (wm_state & 0x6)
 			frame.type |= MTY_WINDOW_MAXIMIZED;
 
+		if (wm_state & 0x8)
+			frame.type |= MTY_WINDOW_HIDDEN;
+
 	} else {
 		frame.size.w = attr.width;
 		frame.size.h = attr.height;
@@ -1268,6 +1274,9 @@ void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 
 	if (dframe.type & MTY_WINDOW_FULLSCREEN)
 		window_wm_event(app->display, ctx->window, _NET_WM_STATE_ADD, "_NET_WM_STATE_FULLSCREEN", NULL);
+
+	if (dframe.type & MTY_WINDOW_MINIMIZED)
+		window_wm_event(app->display, ctx->window, _NET_WM_STATE_ADD, "_NET_WM_STATE_HIDDEN", NULL);
 
 	XSync(app->display, False);
 }

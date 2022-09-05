@@ -10,6 +10,7 @@
 #include "gfx/mod-ui.h"
 
 GFX_PROTOTYPES(_gl_)
+GFX_PROTOTYPES(_vk_)
 GFX_PROTOTYPES(_d3d9_)
 GFX_PROTOTYPES(_d3d11_)
 GFX_PROTOTYPES(_d3d12_)
@@ -17,6 +18,7 @@ GFX_PROTOTYPES(_metal_)
 GFX_DECLARE_TABLE()
 
 GFX_UI_PROTOTYPES(_gl_)
+GFX_UI_PROTOTYPES(_vk_)
 GFX_UI_PROTOTYPES(_d3d9_)
 GFX_UI_PROTOTYPES(_d3d11_)
 GFX_UI_PROTOTYPES(_d3d12_)
@@ -50,15 +52,16 @@ static void render_destroy_api(MTY_Renderer *ctx)
 	if (ctx->api == MTY_GFX_NONE)
 		return;
 
-	GFX_API[ctx->api].destroy(&ctx->gfx);
-	GFX_UI_API[ctx->api].destroy(&ctx->gfx_ui);
+	GFX_API[ctx->api].destroy(&ctx->gfx, ctx->device);
 
 	uint64_t i = 0;
 	int64_t id = 0;
 	while (MTY_HashGetNextKeyInt(ctx->textures, &i, &id)) {
 		void *texture = MTY_HashPopInt(ctx->textures, id);
-		GFX_UI_API[ctx->api].destroy_texture(&texture);
+		GFX_UI_API[ctx->api].destroy_texture(ctx->gfx_ui, &texture, ctx->device);
 	}
+
+	GFX_UI_API[ctx->api].destroy(&ctx->gfx_ui, ctx->device);
 
 	ctx->api = MTY_GFX_NONE;
 	ctx->device = NULL;
@@ -139,19 +142,19 @@ bool MTY_RendererSetUITexture(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device
 
 	void *texture = MTY_HashPopInt(ctx->textures, id);
 	if (texture)
-		GFX_UI_API[api].destroy_texture(&texture);
+		GFX_UI_API[api].destroy_texture(ctx->gfx_ui, &texture, ctx->device);
 
 	if (rgba) {
-		texture = GFX_UI_API[api].create_texture(device, rgba, width, height);
+		texture = GFX_UI_API[api].create_texture(ctx->gfx_ui, device, rgba, width, height);
 		MTY_HashSetInt(ctx->textures, id, texture);
 	}
 
-	return texture ? true : false;
+	return texture != NULL;
 }
 
 bool MTY_RendererHasUITexture(MTY_Renderer *ctx, uint32_t id)
 {
-	return MTY_HashGetInt(ctx->textures, id) ? true : false;
+	return MTY_HashGetInt(ctx->textures, id) != NULL;
 }
 
 uint32_t MTY_GetAvailableGFX(MTY_GFX *apis)

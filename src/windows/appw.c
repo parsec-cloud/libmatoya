@@ -50,6 +50,7 @@ struct MTY_App {
 	HINSTANCE instance;
 	HHOOK kbhook;
 	DWORD cb_seq;
+	MTY_PenType pen_type;
 	bool pen_in_range;
 	bool pen_enabled;
 	bool pen_had_barrel;
@@ -381,7 +382,7 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 			// It seems that touch input reports lastX and lastY as screen coordinates,
 			// not normalized coordinates between 0-65535 as the documentation says
 			if (!app->touch_active) {
-				bool virt = (mouse->usFlags & MOUSE_VIRTUAL_DESKTOP) ? true : false;
+				bool virt = (mouse->usFlags & MOUSE_VIRTUAL_DESKTOP) == MOUSE_VIRTUAL_DESKTOP;
 				int32_t w = GetSystemMetrics(virt ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
 				int32_t h = GetSystemMetrics(virt ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
 				x = (int32_t) (((float) mouse->lLastX / 65535.0f) * w);
@@ -561,7 +562,7 @@ static void app_apply_keyboard_state(MTY_App *app, bool focus)
 
 static bool app_button_is_pressed(MTY_Button button)
 {
-	return (GetAsyncKeyState(APP_MOUSE_MAP[button]) & 0x8000) ? true : false;
+	return (GetAsyncKeyState(APP_MOUSE_MAP[button]) & 0x8000) == 0x8000;
 }
 
 static void app_fix_mouse_buttons(MTY_App *ctx)
@@ -667,12 +668,15 @@ static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
 	return NULL;
 }
 
-static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
+static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_click)
 {
 	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
 	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
 
 	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
+		if (double_click)
+			*double_click = evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK ? true : false;
+
 		evt->type = MTY_EVENT_BUTTON;
 		evt->button.button = button;
 		evt->button.pressed = true;
@@ -704,6 +708,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	LRESULT r = 0;
 	HWND focused_hwnd = hwnd;
+	bool double_click = false;
 	bool creturn = false;
 	bool defreturn = false;
 	char drop_name[MTY_PATH_MAX];
@@ -903,8 +908,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
 			app->pen_had_barrel = pen_barrel;
 
+			if (app->pen_enabled && evt.pen.flags & MTY_PEN_FLAG_TOUCHING)
+				app->pen_type = MTY_PEN_TYPE_GENERIC;
+
 			if (!app->pen_enabled)
-				app_convert_pen_to_mouse(app, &evt);
+				app_convert_pen_to_mouse(app, &evt, NULL);
 
 			defreturn = true;
 			break;
@@ -993,9 +1001,12 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			pkt.pkY = position.y;
 
 			wintab_on_packet(app->wintab, &evt, &pkt, focused_window->window);
-			
+
+			if (app->pen_enabled && evt.pen.flags & MTY_PEN_FLAG_TOUCHING)
+				app->pen_type = MTY_PEN_TYPE_WACOM;
+
 			if (!app->pen_enabled || !app->pen_in_range)
-				app_convert_pen_to_mouse(app, &evt);
+				app_convert_pen_to_mouse(app, &evt, &double_click);
 
 			break;
 		}
@@ -1053,6 +1064,13 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	if (evt.type != MTY_EVENT_NONE) {
 		app->event_func(&evt, app->opaque);
 
+		if (evt.type == MTY_EVENT_BUTTON && double_click) {
+			evt.button.pressed = false;
+			app->event_func(&evt, app->opaque);
+			evt.button.pressed = true;
+			app->event_func(&evt, app->opaque);
+		}
+
 		if (evt.type == MTY_EVENT_DROP)
 			MTY_Free((void *) evt.drop.buf);
 
@@ -1104,7 +1122,9 @@ static float monitor_get_scale(HMONITOR mon)
 
 	UINT x = 0;
 	UINT y = 0;
-	_GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y);
+	HRESULT e = _GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y);
+	if (e != S_OK || x == 0)
+		return 1.0f;
 
 	return x / 96.0f;
 }
@@ -1802,6 +1822,11 @@ const void *MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size
 	return id >= 4 ? mty_hid_device_get_touchpad(ctx->hid, id, size) : NULL;
 }
 
+MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
+{
+	return ctx->pen_type;
+}
+
 bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return ctx->pen_enabled;
@@ -1817,7 +1842,8 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 
 void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
 {
-	wintab_recreate(&ctx->wintab, app_get_main_hwnd(ctx), override);
+	if (ctx->wintab)
+		wintab_recreate(&ctx->wintab, app_get_main_hwnd(ctx), override);
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
@@ -1848,6 +1874,10 @@ static void window_denormalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
 	r->right = r->right + px_w + mi.rcWork.left;
 	r->bottom = r->bottom + px_h + mi.rcWork.top;
 	r->left = r->left - px_w + mi.rcWork.left;
+
+	// Ensure the title bar is visible
+	if (r->top < mi.rcWork.top)
+		r->top = mi.rcWork.top;
 }
 
 static void window_normalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
@@ -2186,7 +2216,7 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 
 bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 {
-	return app_get_window(app, window) ? true : false;
+	return app_get_window(app, window) != NULL;
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
@@ -2330,7 +2360,7 @@ void *MTY_GLGetProcAddress(const char *name)
 	void *p = wglGetProcAddress(name);
 
 	if (!p)
-		p = GetProcAddress(GetModuleHandleA("opengl32.dll"), name);
+		p = GetProcAddress(GetModuleHandle(L"opengl32.dll"), name);
 
 	return p;
 }

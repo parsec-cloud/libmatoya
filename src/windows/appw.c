@@ -2061,7 +2061,7 @@ static MTY_Frame window_get_placement(MTY_App *app, HWND hwnd)
 		.size.h = p.rcNormalPosition.bottom - p.rcNormalPosition.top,
 	};
 
-	frame.type = p.showCmd == SW_MAXIMIZE ? MTY_WINDOW_MAXIMIZED : MTY_WINDOW_NORMAL;
+	frame.type = p.showCmd == SW_MAXIMIZE ? MTY_WINDOW_MAXIMIZED : p.showCmd == SW_MINIMIZE ? MTY_WINDOW_MINIMIZED : MTY_WINDOW_NORMAL;
 	snprintf(frame.screen, MTY_SCREEN_MAX, "%s", MTY_WideToMultiDL(mi.szDevice));
 
 	return frame;
@@ -2099,6 +2099,9 @@ void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 
 		SetWindowLongPtr(ctx->hwnd, GWL_STYLE, WS_VISIBLE | WS_POPUP);
 		SetWindowPos(ctx->hwnd, HWND_TOP, x, y, w, h, SWP_FRAMECHANGED);
+
+	} else if (frame->type & MTY_WINDOW_MINIMIZED) {
+		ShowWindow(ctx->hwnd, SW_MINIMIZE);
 
 	} else {
 		LONG_PTR ptr = WS_OVERLAPPEDWINDOW;

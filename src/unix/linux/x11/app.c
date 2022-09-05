@@ -1276,7 +1276,7 @@ void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 		window_wm_event(app->display, ctx->window, _NET_WM_STATE_ADD, "_NET_WM_STATE_FULLSCREEN", NULL);
 
 	if (dframe.type & MTY_WINDOW_MINIMIZED)
-		window_wm_event(app->display, ctx->window, _NET_WM_STATE_ADD, "_NET_WM_STATE_HIDDEN", NULL);
+		XIconifyWindow(app->display, ctx->window);
 
 	XSync(app->display, False);
 }

@@ -92,29 +92,16 @@ inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 		}
 	}
 
-	if (!hdr && (conversion & 0x2)) {
-		// For 10-bit SDR case, perform the inverse of YCgCo as per H.265 appendix equations E-37 to E3-40
- 
-		const float t = y - u;
-		float g = y + u;
-		// TODO: WTH? For SDR-SDR 10-bit, we get YCgCo. But for HDR-SDR 10-bit (tonemapped), we get YCoCg. Why are UV channels flipped in the tonemapped case???? This is not shippable until we fix this.
-		float b = t - v;
-		float r = t + v;
+	// TODO: Yo......what if we did 10-bit YCgCo for SDR instead of YCbCr????? Would that improve color accuracy????? Let's try it out!!!
 
-		return float4(r, g, b, 1.0);
+	float kr = hdr ? 0.2627 : 0.2126;
+	float kb = hdr ? 0.0593 : 0.0722;
 
-	} else {
-		// Otherwise, do the inverse of YCbCr
+	float r = y + (2.0 - 2.0 * kr) * v;
+	float b = y + (2.0 - 2.0 * kb) * u;
+	float g = (y - kr * r - kb * b) / (1.0 - kr - kb);
 
-		float kr = hdr ? 0.2627 : 0.2126;
-		float kb = hdr ? 0.0593 : 0.0722;
-
-		float r = y + (2.0 - 2.0 * kr) * v;
-		float b = y + (2.0 - 2.0 * kb) * u;
-		float g = (y - kr * r - kb * b) / (1.0 - kr - kb);
-
-		return float4(r, g, b, 1.0);
-	}
+	return float4(r, g, b, 1.0);
 }
 
 inline float4 sample_rgba(uint planes, uint conversion, uint hdr, float2 uv)

@@ -498,12 +498,6 @@ static void window_pen_event(Window *window, NSEvent *event)
 		evt.pen.flags |= MTY_PEN_FLAG_TOUCHING;
 	}
 
-	// While BARREL is held, TOUCHING must also be set
-	if (event.buttonMask & NSEventButtonMaskPenLowerSide) {
-		evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
-		evt.pen.flags |= MTY_PEN_FLAG_TOUCHING;
-	}
-
 	// LEAVE is set when the pen moves out of the tracking area (only once)
 	if (window.app.pen_left) {
 		evt.pen.flags |= MTY_PEN_FLAG_LEAVE;
@@ -546,7 +540,7 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
-	if (window.app.pen_enabled && event.subtype == NSTabletPointEventSubtype) {
+	if (window.app.pen_enabled && event.buttonMask & NSEventButtonMaskPenTip) {
 		window_pen_event(window, event);
 
 	} else {

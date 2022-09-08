@@ -466,7 +466,7 @@ static Window *window_find_mouse(Window *me, NSPoint *p)
 
 // Pen
 
-static void window_pen_event(Window *window, NSEvent *event)
+static void window_pen_event(Window *window, NSEvent *event, bool pressed)
 {
 	NSPoint p = {0};
 	Window *cur = window_find_mouse(window, &p);
@@ -482,7 +482,7 @@ static void window_pen_event(Window *window, NSEvent *event)
 	evt.pen.x = lrint(p.x * scale);
 	evt.pen.y = lrint(p.y * scale);
 
-	bool touching = event.buttonMask & NSEventButtonMaskPenTip;
+	bool touching = event.buttonMask & NSEventButtonMaskPenTip || pressed;
 
 	// INVERTED must be set while hovering, but ERASER should only be set by
 	// while TOUCHING is also true
@@ -540,8 +540,8 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
-	if (window.app.pen_enabled && event.buttonMask & NSEventButtonMaskPenTip) {
-		window_pen_event(window, event);
+	if (window.app.pen_enabled && (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
+		window_pen_event(window, event, pressed);
 
 	} else {
 		window_mouse_button_event(window, index, pressed);
@@ -632,7 +632,7 @@ static void window_motion_event(Window *window, NSEvent *event)
 	bool pen_in_range = event.subtype == NSTabletPointEventSubtype;
 
 	if (window.app.pen_enabled && pen_in_range) {
-		window_pen_event(window, event);
+		window_pen_event(window, event, false);
 
 	} else {
 		window_mouse_motion_event(window, event, pen_in_range);

@@ -49,8 +49,14 @@ void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, cons
 	struct gfx_ctx *gfx_ctx = NULL;
 	MTY_GFX api = mty_window_get_gfx(app, window, &gfx_ctx);
 
+	MTY_Size size = MTY_WindowGetSize(app, window);
+
+	MTY_RenderDesc mutated = *desc;
+	mutated.displayWidth = size.w;
+	mutated.displayHeight = size.h;
+
 	if (api != MTY_GFX_NONE)
-		GFX_CTX_API[api].draw_quad(gfx_ctx, image, desc);
+		GFX_CTX_API[api].draw_quad(gfx_ctx, image, &mutated);
 }
 
 void MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd)
@@ -181,6 +187,8 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		PEVENT(MTY_EVENT_HOTKEY, evt, "id: %u", evt->hotkey);
 		PEVENT(MTY_EVENT_TEXT, evt, "text: %s", evt->text);
 		PEVENT(MTY_EVENT_SCROLL, evt, "x: %d, y: %d, pixels: %u", evt->scroll.x, evt->scroll.y, evt->scroll.pixels);
+		PEVENT(MTY_EVENT_SCALE, evt, "factor: %f, focusX: %f, focusY: %f", evt->scale.factor, 
+			evt->scale.focusX, evt->scale.focusY);
 		PEVENT(MTY_EVENT_FOCUS, evt, "focus: %u", evt->focus);
 		PEVENT(MTY_EVENT_MOTION, evt, "x: %d, y: %d, relative: %u, synth: %u", evt->motion.x,
 			evt->motion.y, evt->motion.relative, evt->motion.synth);

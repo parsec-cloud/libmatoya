@@ -221,7 +221,7 @@ bool mty_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	float vpx, vpy, vpw, vph;
-	mty_viewport(desc, &vpx, &vpy, &vpw, &vph);
+	mty_viewport(desc, &vpx, &vpy, &vpw, &vph, true);
 
 	glViewport(lrint(vpx), lrint(vpy) + GL_ORIGIN_Y, lrint(vpw), lrint(vph));
 
@@ -229,8 +229,17 @@ bool mty_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	if (_dest)
 		glBindFramebuffer(GL_FRAMEBUFFER, _dest);
 
+	// Blending capability
+	if (desc->blend) {
+		glEnable(GL_BLEND);
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	} else {
+		glDisable(GL_BLEND);
+	}
+	
 	// Context state, set vertex and fragment shaders
-	glDisable(GL_BLEND);
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_SCISSOR_TEST);
@@ -245,8 +254,10 @@ bool mty_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	glVertexAttribPointer(ctx->loc_uv,  2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *) (2 * sizeof(GLfloat)));
 
 	// Clear
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	if (desc->clear) {
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
 
 	// Fragment shader
 	for (uint8_t x = 0; x < GL_NUM_STAGING; x++) {

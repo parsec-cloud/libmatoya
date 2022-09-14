@@ -45,6 +45,7 @@ struct d3d11 {
 	ID3D11SamplerState *ss_nearest;
 	ID3D11SamplerState *ss_linear;
 	ID3D11RasterizerState *rs;
+	ID3D11BlendState *bs;
 	ID3D11DepthStencilState *dss;
 };
 
@@ -157,6 +158,22 @@ struct gfx *mty_d3d11_create(MTY_Device *device)
 	e = ID3D11Device_CreateRasterizerState(_device, &rdesc, &ctx->rs);
 	if (e != S_OK) {
 		MTY_Log("'ID3D11Device_CreateRasterizerState' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	D3D11_BLEND_DESC bdesc = {0};
+	bdesc.AlphaToCoverageEnable = false;
+	bdesc.RenderTarget[0].BlendEnable = true;
+	bdesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	bdesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	bdesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	bdesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+	bdesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	bdesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	bdesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	e = ID3D11Device_CreateBlendState(_device, &bdesc, &ctx->bs);
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateBlendState' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
@@ -304,7 +321,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	D3D11_VIEWPORT vp = {0};
-	mty_viewport(desc, &vp.TopLeftX, &vp.TopLeftY, &vp.Width, &vp.Height);
+	mty_viewport(desc, &vp.TopLeftX, &vp.TopLeftY, &vp.Width, &vp.Height, false);
 
 	ID3D11DeviceContext_RSSetViewports(_context, 1, &vp);
 
@@ -328,8 +345,10 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 		ID3D11DeviceContext_OMSetRenderTargets(_context, 1, &rtv, NULL);
 
-		FLOAT clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-		ID3D11DeviceContext_ClearRenderTargetView(_context, rtv, clear_color);
+		if (desc->clear) {
+			FLOAT clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+			ID3D11DeviceContext_ClearRenderTargetView(_context, rtv, clear_color);
+		}
 	}
 
 	// Vertex shader
@@ -341,7 +360,15 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	ID3D11DeviceContext_IASetIndexBuffer(_context, ctx->ib, DXGI_FORMAT_R32_UINT, 0);
 	ID3D11DeviceContext_IASetInputLayout(_context, ctx->il);
 	ID3D11DeviceContext_IASetPrimitiveTopology(_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	ID3D11DeviceContext_OMSetBlendState(_context, NULL, NULL, 0xFFFFFFFF);
+
+	if (desc->blend) {
+		const float blend_factor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+		ID3D11DeviceContext_OMSetBlendState(_context, ctx->bs, blend_factor, 0xFFFFFFFF);
+
+	} else {
+		ID3D11DeviceContext_OMSetBlendState(_context, NULL, NULL, 0xFFFFFFFF);
+	}
+
 	ID3D11DeviceContext_OMSetDepthStencilState(_context, ctx->dss, 0);
 	ID3D11DeviceContext_RSSetState(_context, ctx->rs);
 
@@ -409,6 +436,9 @@ void mty_d3d11_destroy(struct gfx **gfx, MTY_Device *device)
 
 	if (ctx->rs)
 		ID3D11RasterizerState_Release(ctx->rs);
+
+	if (ctx->bs)
+		ID3D11BlendState_Release(ctx->bs);
 
 	if (ctx->dss)
 		ID3D11DepthStencilState_Release(ctx->dss);

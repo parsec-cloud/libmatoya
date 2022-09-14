@@ -230,8 +230,9 @@ void MTY_WebviewJavascriptEvent(MTY_Webview *ctx, const char *name, MTY_JSON *js
 {
 	char *serialized = MTY_JSONSerialize(json);
 
-	const char *javascript = MTY_SprintfDL("window.dispatchEvent(new CustomEvent('%s', { detail: %s } ));", name, serialized);
+	const char *javascript = MTY_SprintfD("window.dispatchEvent(new CustomEvent('%s', { detail: %s } ));", name, serialized);
 	MTY_WebviewJavascriptEval(ctx, javascript);
+	MTY_Free(javascript);
 
 	MTY_Free(serialized);
 }
@@ -241,11 +242,13 @@ void MTY_WebviewInteropReturn(MTY_Webview *ctx, uint32_t serial, bool success, c
 	char *json = result ? MTY_JSONSerialize(result) : NULL;
 	const char *method = success ? "resolve" : "reject";
 
-	const char *js_resolve = MTY_SprintfDL("window._rpc[%d].%s(%s);", serial, method, json ? json : "null");
+	const char *js_resolve = MTY_SprintfD("window._rpc[%d].%s(%s);", serial, method, json ? json : "null");
 	MTY_WebviewJavascriptEval(ctx, js_resolve);
+	MTY_Free(js_resolve);
 
-	const char *js_destroy = MTY_SprintfDL("delete window._rpc[%d];", serial);
+	const char *js_destroy = MTY_SprintfD("delete window._rpc[%d];", serial);
 	MTY_WebviewJavascriptEval(ctx, js_destroy);
+	MTY_Free(js_destroy);
 
 	MTY_Free(json);
 }

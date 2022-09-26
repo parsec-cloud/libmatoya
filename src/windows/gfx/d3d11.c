@@ -398,7 +398,8 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		return false;
 
 	if (desc->diffMode && desc->diffImage) {
-		d3d11_refresh_resource_diff(gfx, device, context, desc->hdr ? MTY_COLOR_FORMAT_Y410 : MTY_COLOR_FORMAT_BGRA, desc->diffImage, desc->imageWidth, desc->cropWidth, desc->cropHeight);
+		d3d11_refresh_resource_diff(gfx, device, context, desc->hdr ? MTY_COLOR_FORMAT_Y410 : MTY_COLOR_FORMAT_BGRA,
+			desc->diffImage, desc->imageWidth, desc->cropWidth, desc->cropHeight);
 	}
 
 	// Viewport

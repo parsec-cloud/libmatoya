@@ -447,18 +447,18 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 	if (ctx->hdr) {
 		// Update to the latest known HDR metadata
 		DXGI_HDR_METADATA_HDR10 hdr_desc = {0};
-		hdr_desc.RedPrimary[0] = (UINT16) (ctx->hdr_desc.color_primary_red[0] * 50000); // primaries and white point are normalized to 50000
-		hdr_desc.RedPrimary[1] = (UINT16) (ctx->hdr_desc.color_primary_red[1] * 50000);
-		hdr_desc.GreenPrimary[0] = (UINT16) (ctx->hdr_desc.color_primary_green[0] * 50000);
-		hdr_desc.GreenPrimary[1] = (UINT16) (ctx->hdr_desc.color_primary_green[1] * 50000);
-		hdr_desc.BluePrimary[0] = (UINT16) (ctx->hdr_desc.color_primary_blue[0] * 50000);
-		hdr_desc.BluePrimary[1] = (UINT16) (ctx->hdr_desc.color_primary_blue[1] * 50000);
-		hdr_desc.WhitePoint[0] = (UINT16) (ctx->hdr_desc.white_point[0] * 50000);
-		hdr_desc.WhitePoint[1] = (UINT16) (ctx->hdr_desc.white_point[1] * 50000);
-		hdr_desc.MinMasteringLuminance = (UINT) ctx->hdr_desc.min_luminance * 10000; // MinMasteringLuminance is specified as 1/10000th of a nit
-		hdr_desc.MaxMasteringLuminance = (UINT) ctx->hdr_desc.max_luminance;
-		hdr_desc.MaxContentLightLevel = (UINT16) ctx->hdr_desc.max_content_light_level;
-		hdr_desc.MaxFrameAverageLightLevel = (UINT16) ctx->hdr_desc.max_frame_average_light_level;
+		hdr_desc.RedPrimary[0] = (UINT16) (ctx->hdr_desc.colorPrimaryRed[0] * 50000); // primaries and white point are normalized to 50000
+		hdr_desc.RedPrimary[1] = (UINT16) (ctx->hdr_desc.colorPrimaryRed[1] * 50000);
+		hdr_desc.GreenPrimary[0] = (UINT16) (ctx->hdr_desc.colorPrimaryGreen[0] * 50000);
+		hdr_desc.GreenPrimary[1] = (UINT16) (ctx->hdr_desc.colorPrimaryGreen[1] * 50000);
+		hdr_desc.BluePrimary[0] = (UINT16) (ctx->hdr_desc.colorPrimaryBlue[0] * 50000);
+		hdr_desc.BluePrimary[1] = (UINT16) (ctx->hdr_desc.colorPrimaryBlue[1] * 50000);
+		hdr_desc.WhitePoint[0] = (UINT16) (ctx->hdr_desc.whitePoint[0] * 50000);
+		hdr_desc.WhitePoint[1] = (UINT16) (ctx->hdr_desc.whitePoint[1] * 50000);
+		hdr_desc.MinMasteringLuminance = (UINT) ctx->hdr_desc.minLuminance * 10000; // MinMasteringLuminance is specified as 1/10000th of a nit
+		hdr_desc.MaxMasteringLuminance = (UINT) ctx->hdr_desc.maxLuminance;
+		hdr_desc.MaxContentLightLevel = (UINT16) ctx->hdr_desc.maxContentLightLevel;
+		hdr_desc.MaxFrameAverageLightLevel = (UINT16) ctx->hdr_desc.maxFrameAverageLightLevel;
 
 		HRESULT e = IDXGISwapChain4_SetHDRMetaData(ctx->swap_chain4, DXGI_HDR_METADATA_TYPE_HDR10, sizeof(hdr_desc), &hdr_desc);
 		if (e != S_OK)

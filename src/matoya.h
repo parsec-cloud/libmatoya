@@ -115,22 +115,22 @@ typedef enum {
 
 /// @brief HDR metadata associated with an image being rendered.
 typedef struct {
-	float color_primary_red[2];          ///< xy coordinates for the red primary of the image's color
-	                                     ///<   space according to the CIE 1931 color space chromaticity diagram.
-	float color_primary_green[2];        ///< xy coordinates for the green primary of the image's
-	                                     ///<   color space according to the CIE 1931 chromaticity diagram.
-	float color_primary_blue[2];         ///< xy coordinates for the blue primary of the image's
-	                                     ///<   color space according to the CIE 1931 chromaticity diagram.
-	float white_point[2];                ///< xy coordinates for the white point of the image's
-	                                     ///<   color space according to the CIE 1931 chromaticity diagram.
-	float min_luminance;                 ///< Min luminance expected for the colors of the image.
-	float max_luminance;                 ///< Max luminance expected for the colors of the image.
-	float max_content_light_level;       ///< MaxCLL. This is the nit value of the brightest possible
-	                                     ///<   pixel that could ever occur in an image.
-	                                     ///<   If unknown, you can set it to max_luminance.
-	float max_frame_average_light_level; ///< MaxFALL. This is the highest nit value that an image's
-	                                     ///<   average luminance is expected to have.
-	                                     ///<   If unknown, you can set it to MaxCLL.
+	float colorPrimaryRed[2];        ///< xy coordinates for the red primary of the image's color
+	                                 ///<   space according to the CIE 1931 color space chromaticity diagram.
+	float colorPrimaryGreen[2];      ///< xy coordinates for the green primary of the image's
+	                                 ///<   color space according to the CIE 1931 chromaticity diagram.
+	float colorPrimaryBlue[2];       ///< xy coordinates for the blue primary of the image's
+	                                 ///<   color space according to the CIE 1931 chromaticity diagram.
+	float whitePoint[2];             ///< xy coordinates for the white point of the image's
+	                                 ///<   color space according to the CIE 1931 chromaticity diagram.
+	float minLuminance;              ///< Min luminance expected for the colors of the image.
+	float maxLuminance;              ///< Max luminance expected for the colors of the image.
+	float maxContentLightLevel;      ///< MaxCLL. This is the nit value of the brightest possible
+	                                 ///<   pixel that could ever occur in an image.
+	                                 ///<   If unknown, you can set it to max_luminance.
+	float maxFrameAverageLightLevel; ///< MaxFALL. This is the highest nit value that an image's
+	                                 ///<   average luminance is expected to have.
+	                                 ///<   If unknown, you can set it to MaxCLL.
 } MTY_HDRDesc;
 
 /// @brief Description of a render operation.

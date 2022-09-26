@@ -118,26 +118,27 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 			e = IDXGIOutput_GetDesc(current_output, &desc);
 			if (e != S_OK) {
 				MTY_Log("'IDXGIOutput_GetDesc' failed with HRESULT 0x%X", e);
+				continue;
+			}
+			
+			const RECT output_bounds = desc.DesktopCoordinates;
+			const LONG bx1 = output_bounds.left;
+			const LONG by1 = output_bounds.top;
+			const LONG bx2 = output_bounds.right;
+			const LONG by2 = output_bounds.bottom;
+
+			// Compute the intersection and see if its the best fit
+			// Courtesy of https://github.com/microsoft/DirectX-Graphics-Samples/blob/c79f839da1bb2db77d2306be5e4e664a5d23a36b/Samples/Desktop/D3D12HDR/src/D3D12HDR.cpp#L1046
+			const LONG intersect_area = max(0, min(ax2, bx2) - max(ax1, bx1)) * max(0, min(ay2, by2) - max(ay1, by1));
+			if (intersect_area > best_intersect_area) {
+				if (best_output != NULL)
+					IDXGIOutput_Release(best_output);
+
+				best_output = current_output;
+				best_intersect_area = intersect_area;
+
 			} else {
-				const RECT output_bounds = desc.DesktopCoordinates;
-				const LONG bx1 = output_bounds.left;
-				const LONG by1 = output_bounds.top;
-				const LONG bx2 = output_bounds.right;
-				const LONG by2 = output_bounds.bottom;
-
-				// Compute the intersection and see if its the best fit
-				// Courtesy of https://github.com/microsoft/DirectX-Graphics-Samples/blob/c79f839da1bb2db77d2306be5e4e664a5d23a36b/Samples/Desktop/D3D12HDR/src/D3D12HDR.cpp#L1046
-				const LONG intersect_area = max(0, min(ax2, bx2) - max(ax1, bx1)) * max(0, min(ay2, by2) - max(ay1, by1));
-				if (intersect_area > best_intersect_area) {
-					if (best_output != NULL)
-						IDXGIOutput_Release(best_output);
-
-					best_output = current_output;
-					best_intersect_area = intersect_area;
-
-				} else {
-					IDXGIOutput_Release(current_output);
-				}
+				IDXGIOutput_Release(current_output);
 			}
 		}
 

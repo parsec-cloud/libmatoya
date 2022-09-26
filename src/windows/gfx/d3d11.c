@@ -309,7 +309,10 @@ static bool d3d11_refresh_resource_diff(struct gfx *gfx, MTY_Device *_device, MT
 
 	uint8_t idx_res = (fmt == MTY_COLOR_FORMAT_RGBA || fmt == MTY_COLOR_FORMAT_BGRA) ? 0 : 1;
 	struct d3d11_res *res = &ctx->staging_diff[idx_res];
-	DXGI_FORMAT format = fmt == MTY_COLOR_FORMAT_RGBA ? DXGI_FORMAT_R8G8B8A8_UNORM : fmt == MTY_COLOR_FORMAT_BGRA ? DXGI_FORMAT_B8G8R8A8_UNORM : DXGI_FORMAT_R10G10B10A2_UNORM;
+	DXGI_FORMAT format =
+		fmt == MTY_COLOR_FORMAT_RGBA ? DXGI_FORMAT_R8G8B8A8_UNORM :
+		fmt == MTY_COLOR_FORMAT_BGRA ? DXGI_FORMAT_B8G8R8A8_UNORM :
+		DXGI_FORMAT_R10G10B10A2_UNORM;
 
 	ID3D11Texture2D *texture = NULL;
 

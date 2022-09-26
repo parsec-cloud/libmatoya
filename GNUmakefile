@@ -124,13 +124,13 @@ OBJS := $(OBJS) \
 	src/net/tcp.o \
 	src/net/ws.o \
 	src/unix/image.o \
-	src/unix/net/request.o \
 	src/unix/linux/dialog.o \
 	src/unix/linux/x11/aes-gcm.o \
 	src/unix/linux/x11/app.o \
 	src/unix/linux/x11/audio.o \
 	src/unix/linux/x11/crypto.o \
 	src/unix/linux/x11/evdev.o \
+	src/unix/linux/x11/request.o \
 	src/unix/linux/x11/system.o \
 	src/unix/linux/x11/tls.o \
 	src/unix/linux/x11/gfx/gl-ctx.o
@@ -237,11 +237,15 @@ objs: $(OBJS)
 ###############
 
 # developer.android.com/ndk/downloads -> ~/android-ndk-xxx
+# override the ANDROID_NDK_ROOT environment variable to target your NDK install path
+# example: export ANDROID_NDK_ROOT=~/android-ndk-r25
 
-ANDROID_NDK = $(HOME)/android-ndk-r25
+ifndef ANDROID_NDK_ROOT
+ANDROID_NDK_ROOT = $(HOME)/android-ndk-r25
+endif
 
 android: clean clear $(SHADERS)
-	@$(ANDROID_NDK)/ndk-build -j4 \
+	@$(ANDROID_NDK_ROOT)/ndk-build -j4 \
 		APP_BUILD_SCRIPT=Android.mk \
 		APP_PLATFORM=android-26 \
 		NDK_PROJECT_PATH=. \

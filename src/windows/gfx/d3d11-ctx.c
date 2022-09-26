@@ -151,6 +151,7 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 	e = IDXGIOutput_QueryInterface(best_output, &IID_IDXGIOutput6, &output6);
 	if (e != S_OK) {
 		MTY_Log("'IDXGIOutput_QueryInterface' failed with HRESULT 0x%X", e);
+
 	} else {
 		DXGI_OUTPUT_DESC1 desc1 = {0};
 		e = IDXGIOutput6_GetDesc1(output6, &desc1);

@@ -7,7 +7,7 @@
 
 #define VALIDATE_CTX(ctx, ...) if (!ctx) return __VA_ARGS__
 
-#define CURSOR_ID 0x23C84DF2
+#define CURSOR_ID 0x23C84DF2u
 
 #define CMD_LEN 2
 #define VTX_LEN 4
@@ -17,6 +17,7 @@ struct MTY_Cursor {
 	MTY_App *app;
 	MTY_Window window;
 
+	uint32_t id;
 	bool enabled;
 	void *image;
 	bool image_changed;
@@ -29,29 +30,33 @@ struct MTY_Cursor {
 	float hot_y;
 	float scale;
 
+	float prev_x;
+	float prev_y;
+
 	MTY_DrawData *draw_data;
 	MTY_CmdList *cmd_list;
 };
 
-MTY_Cursor *MTY_CursorCreate(MTY_App *app, MTY_Window window)
+MTY_Cursor *MTY_CursorCreate(MTY_App *app, MTY_Window window, uint32_t id)
 {
 	MTY_Cursor *ctx = MTY_Alloc(1, sizeof(MTY_Cursor));
 
 	ctx->app = app;
 	ctx->window = window;
+	ctx->id = CURSOR_ID + id;
 	ctx->enabled = true;
 
 	ctx->cmd_list = MTY_Alloc(1, sizeof(MTY_CmdList));
 
 	MTY_Cmd commands[CMD_LEN] = {
 		{
-			.texture = CURSOR_ID,
+			.texture = ctx->id,
 			.elemCount = 3,
 			.idxOffset = 0,
 			.clip = {0, 0, 0, 0},
 		},
 		{
-			.texture = CURSOR_ID,
+			.texture = ctx->id,
 			.elemCount = 3,
 			.idxOffset = 3,
 			.clip = {0, 0, 0, 0},
@@ -95,7 +100,7 @@ void MTY_CursorDestroy(MTY_Cursor **cursor)
 
 	MTY_Cursor *ctx = *cursor;
 
-	MTY_WindowSetUITexture(ctx->app, ctx->window, CURSOR_ID, NULL, 0, 0);
+	MTY_WindowSetUITexture(ctx->app, ctx->window, ctx->id, NULL, 0, 0);
 
 	if (ctx->draw_data) {
 		MTY_Free(ctx->draw_data->cmdList);
@@ -140,6 +145,18 @@ void MTY_CursorSetImage(MTY_Cursor *ctx, const void *data, size_t size)
 	ctx->image_changed = true;
 }
 
+void MTY_CursorSetWindow(MTY_Cursor *ctx, MTY_Window window)
+{
+	VALIDATE_CTX(ctx);
+
+	if (ctx->window != window) {
+		MTY_WindowSetUITexture(ctx->app, ctx->window, ctx->id, NULL, 0, 0);
+		ctx->image_changed = true;
+	}
+
+	ctx->window = window;
+}
+
 void MTY_CursorMove(MTY_Cursor *ctx, int32_t x, int32_t y, float scale)
 {
 	VALIDATE_CTX(ctx);
@@ -158,6 +175,18 @@ void MTY_CursorMoveFromZoom(MTY_Cursor *ctx, MTY_Zoom *zoom)
 	int32_t cursor_y = MTY_ZoomGetCursorY(zoom);
 
 	MTY_CursorMove(ctx, cursor_x, cursor_y, scale);
+}
+
+bool MTY_CursorHasMoved(MTY_Cursor *ctx)
+{
+	VALIDATE_CTX(ctx, false);
+
+	bool has_moved = ctx->x != ctx->prev_x || ctx->y != ctx->prev_y;
+
+	ctx->prev_x = ctx->x;
+	ctx->prev_y = ctx->y;
+
+	return has_moved;
 }
 
 MTY_DrawData *MTY_CursorDraw(MTY_Cursor *ctx, MTY_DrawData *dd)
@@ -183,7 +212,7 @@ MTY_DrawData *MTY_CursorDraw(MTY_Cursor *ctx, MTY_DrawData *dd)
 	float view_height = ctx->draw_data->displaySize.y;
 
 	if (ctx->image_changed) {
-		MTY_WindowSetUITexture(ctx->app, ctx->window, CURSOR_ID, ctx->image, ctx->width, ctx->height);
+		MTY_WindowSetUITexture(ctx->app, ctx->window, ctx->id, ctx->image, ctx->width, ctx->height);
 		ctx->image_changed = false;
 	}
 

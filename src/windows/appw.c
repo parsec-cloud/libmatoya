@@ -19,6 +19,7 @@
 #include "xip.h"
 #include "wintab.h"
 #include "hid/hid.h"
+#include "webview.h"
 
 #define APP_CLASS_NAME L"MTY_Window"
 #define APP_RI_MAX     (32 * 1024)
@@ -27,6 +28,7 @@ struct window {
 	MTY_App *app;
 	MTY_Window window;
 	MTY_Frame frame;
+	MTY_Hash *webviews;
 	MTY_GFX api;
 	HWND hwnd;
 	bool was_zoomed;
@@ -713,6 +715,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	bool defreturn = false;
 	char drop_name[MTY_PATH_MAX];
 
+	if ((msg == WM_MOUSEMOVE || msg == WM_POINTERUPDATE) && mty_webviews_has_focus(ctx->webviews))
+		SetFocus(hwnd);
+
 	switch (msg) {
 		case WM_CLOSE:
 			evt.type = MTY_EVENT_CLOSE;
@@ -720,6 +725,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_SIZE:
 			app->state++;
 			evt.type = MTY_EVENT_SIZE;
+			mty_webviews_resize(ctx->webviews);
 			break;
 		case WM_MOVE:
 			evt.type = MTY_EVENT_MOVE;
@@ -1938,6 +1944,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	ctx->ri = MTY_Alloc(APP_RI_MAX, 1);
 	ctx->app = app;
 	ctx->window = window;
+	ctx->webviews = MTY_HashCreate(0);
 
 	MTY_Frame dframe = {0};
 
@@ -2018,6 +2025,8 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 		MTY_AppGrabMouse(app, false);
 	}
 
+	MTY_HashDestroy(&ctx->webviews, mty_webview_destroy);
+
 	if (ctx->hwnd)
 		DestroyWindow(ctx->hwnd);
 
@@ -2027,6 +2036,20 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	MTY_Free(ctx->ri);
 	MTY_Free(ctx);
 	app->windows[window] = NULL;
+}
+
+MTY_Webview *MTY_WindowCreateWebview(MTY_App *app, MTY_Window window)
+{
+	struct window *w = app->windows[window];
+
+	return mty_window_create_webview(w->webviews, w->hwnd, app->opaque);
+}
+
+void MTY_WindowDestroyWebview(MTY_App *app, MTY_Window window, MTY_Webview **webview)
+{
+	struct window *w = app->windows[window];
+
+	mty_window_destroy_webview(w->webviews, webview);
 }
 
 MTY_Size MTY_WindowGetSize(MTY_App *app, MTY_Window window)

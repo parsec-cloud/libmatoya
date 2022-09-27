@@ -57,6 +57,7 @@ LOCAL_SRC_FILES := \
 	src/tlocal.c \
 	src/tls.c \
 	src/version.c \
+	src/webview.c \
 	src/gfx/gl/gl.c \
 	src/gfx/gl/gl-ui.c \
 	src/gfx/vk/vk.c \
@@ -85,6 +86,7 @@ LOCAL_SRC_FILES := \
 	src/unix/linux/android/request.c \
 	src/unix/linux/android/system.c \
 	src/unix/linux/android/tls.c \
+	src/unix/linux/android/webview.c \
 	src/unix/linux/android/gfx/gl-ctx.c
 
 include $(BUILD_STATIC_LIBRARY)

@@ -14,7 +14,7 @@
 #include "keymap.h"
 #include "hid/hid.h"
 #include "hid/utils.h"
-
+#include "webview.h"
 
 // NSApp
 
@@ -302,6 +302,7 @@ static void app_fix_mouse_buttons(App *ctx)
 
 @interface Window : NSWindow <NSWindowDelegate>
 	@property(strong) App *app;
+	@property MTY_Webview *webview;
 	@property MTY_Window window;
 	@property MTY_GFX api;
 	@property bool top;
@@ -821,6 +822,7 @@ static void window_mod_event(Window *window, NSEvent *event)
 	{
 		MTY_Event evt = window_event(self, MTY_EVENT_SIZE);
 		self.app.event_func(&evt, self.app.opaque);
+		mty_webview_resize(self.webview);
 	}
 
 	- (void)windowDidMove:(NSNotification *)notification
@@ -831,86 +833,134 @@ static void window_mod_event(Window *window, NSEvent *event)
 
 	- (void)keyUp:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
 	}
 
 	- (void)keyDown:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_text_event(self, [event.characters UTF8String]);
 		window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
 	}
 
 	- (void)flagsChanged:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_mod_event(self, event);
 	}
 
 	- (void)mouseUp:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_button_event(self, event, event.buttonNumber, false);
 	}
 
 	- (void)mouseDown:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_button_event(self, event, event.buttonNumber, true);
 	}
 
 	- (void)rightMouseUp:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_button_event(self, event, event.buttonNumber, false);
 	}
 
 	- (void)rightMouseDown:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_button_event(self, event, event.buttonNumber, true);
 	}
 
 	- (void)otherMouseUp:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		// Ignore pen event for the middle / X buttons
 		window_mouse_button_event(self, event.buttonNumber, false);
 	}
 
 	- (void)otherMouseDown:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		// Ignore pen event for the middle / X buttons
 		window_mouse_button_event(self, event.buttonNumber, true);
 	}
 
 	- (void)mouseMoved:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_motion_event(self, event);
 	}
 
 	- (void)mouseDragged:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_motion_event(self, event);
 	}
 
 	- (void)rightMouseDragged:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_motion_event(self, event);
 	}
 
 	- (void)otherMouseDragged:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_motion_event(self, event);
 	}
 
 	- (void)mouseEntered:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		self.app.cursor_outside = false;
 		app_apply_cursor(self.app);
 	}
 
 	- (void)mouseExited:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		self.app.cursor_outside = true;
 		app_apply_cursor(self.app);
 	}
 
 	- (void)scrollWheel:(NSEvent *)event
 	{
+		if (mty_webview_is_visible(self.webview))
+			return;
+
 		window_scroll_event(self, event);
 	}
 
@@ -1465,6 +1515,10 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return;
 
+	MTY_Webview *webview = ctx.webview;
+	mty_webview_destroy(&webview);
+	ctx.webview = NULL;
+
 	ctx.app.windows[window] = NULL;
 	[ctx close];
 }
@@ -1692,6 +1746,63 @@ MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 	return MTY_CONTEXT_STATE_NORMAL;
 }
 
+// Webview
+
+void MTY_WebviewCreate(MTY_App *app, MTY_Window window, const char *html, bool debug)
+{
+	App *ctx = (__bridge App *) app;
+	Window *w = app_get_window(app, window);
+
+	if (!w.webview)
+		w.webview = mty_webview_create((__bridge void *) w.contentView, html, debug, ctx.event_func, w.app.opaque);
+}
+
+void MTY_WebviewDestroy(MTY_App *app, MTY_Window window)
+{
+	Window *w = app_get_window(app, window);
+	if (!w)
+		return;
+
+	MTY_Webview *webview = w.webview;
+	mty_webview_destroy(&webview);
+	w.webview = NULL;
+}
+
+bool MTY_WebviewExists(MTY_App *app, MTY_Window window)
+{
+	Window *w = app_get_window(app, window);
+	if (!w)
+		return false;
+
+	return w.webview != NULL;
+}
+
+void MTY_WebviewShow(MTY_App *app, MTY_Window window, bool show)
+{
+	Window *w = app_get_window(app, window);
+	if (!w)
+		return;
+
+	mty_webview_show(w.webview, show);
+}
+
+bool MTY_WebviewIsVisible(MTY_App *app, MTY_Window window)
+{
+	Window *w = app_get_window(app, window);
+	if (!w)
+		return false;
+
+	return mty_webview_is_visible(w.webview);
+}
+
+void MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, const char *message)
+{
+	Window *w = app_get_window(app, window);
+	if (!w)
+		return;
+
+	mty_webview_event(w.webview, name, message);
+}
 
 // Window Private
 

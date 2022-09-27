@@ -30,6 +30,7 @@ const MTY = {
 	lastY: 0,
 	keys: {},
 	clip: null,
+	webview: {},
 
 	// GL
 	gl: null,
@@ -121,6 +122,10 @@ function MTY_SetUint64(ptr, value) {
 
 function MTY_GetUint32(ptr) {
 	return mty_mem_view().getUint32(ptr, true);
+}
+
+function MTY_GetUint64(ptr) {
+	return mty_mem_view().getBigUint64(ptr, true);
 }
 
 function MTY_Memcpy(cptr, abuffer) {
@@ -1022,6 +1027,7 @@ const MTY_WEB_API = {
 				y = ev.movementY;
 			}
 
+			window.focus();
 			MTY_CFunc(mouse_motion)(app, MTY.relative, x, y);
 		});
 
@@ -1158,6 +1164,73 @@ const MTY_WEB_API = {
 
 		window.requestAnimationFrame(step);
 		throw 'MTY_AppRun halted execution';
+	},
+	web_view_show: function (ctx, on_message) {
+		const iframe = document.createElement('iframe');
+
+		iframe.style.visibility = 'hidden';
+		iframe.style.position = 'fixed';
+		iframe.style.border = 'none';
+		iframe.style.left = '0';
+		iframe.style.top = '0';
+
+		iframe.onload = () => setTimeout(() => iframe.style.visibility = 'visible', 250);
+
+		window.addEventListener('message', function (msg) {
+			const buf = MTY_Alloc(1, msg.data.length + 1);
+			MTY_StrToC(msg.data, buf, msg.data.length + 1);
+
+			MTY_CFunc(on_message)(ctx, buf);
+
+			MTY_Free(buf);
+		});
+
+		document.body.appendChild(iframe);
+
+		MTY.webview = iframe;
+
+		MTY_WEB_API.web_view_resize(ctx, false);
+	},
+	web_view_destroy: function () {
+		if (!MTY.webview)
+			return;
+
+		document.removeChild(MTY.webview);
+		MTY.webview = null;
+	},
+	web_view_resize: function (hidden) {
+		if (!MTY.webview)
+			return;
+
+		MTY.webview.style.left   = '0';
+		MTY.webview.style.top    = '0';
+		MTY.webview.style.width  = hidden ? '0' : '100vw';
+		MTY.webview.style.height = hidden ? '0' : '100vh';
+	},
+	web_view_navigate_html: function (html) {
+		if (!MTY.webview)
+			return;
+
+		const content = document.createElement('html');
+		content.innerHTML = MTY_StrToJS(html);
+
+		const script = document.createElement('script');
+		script.type = 'text/javascript';
+		script.text = `
+			window.external = {
+				invoke: function (s) { parent.postMessage(s, '${location.origin}'); },
+			};
+		`;
+		content.querySelector('body').prepend(script);
+
+		const blob = new Blob(['<!DOCTYPE html>\n' + content.outerHTML], { type: 'text/html' });
+		MTY.webview.src = URL.createObjectURL(blob);
+	},
+	web_view_javascript_eval: function (js) {
+		if (!MTY.webview)
+			return;
+
+		MTY.webview.contentWindow.eval(MTY_StrToJS(js));
 	},
 };
 

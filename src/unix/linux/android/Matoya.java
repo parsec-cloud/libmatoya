@@ -2,6 +2,7 @@ package group.matoya.lib;
 
 import android.app.Activity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.SurfaceHolder;
@@ -18,7 +19,15 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebChromeClient;
+import android.webkit.ConsoleMessage;
+import android.webkit.JavascriptInterface;
 import android.text.InputType;
+import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.content.Context;
@@ -32,8 +41,14 @@ import android.util.Log;
 import android.util.DisplayMetrics;
 import android.util.Base64;
 import android.widget.Scroller;
+import android.widget.FrameLayout;
 import android.os.Vibrator;
 import android.net.Uri;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 
 public class Matoya extends SurfaceView implements
 	SurfaceHolder.Callback,
@@ -45,11 +60,13 @@ public class Matoya extends SurfaceView implements
 	ClipboardManager.OnPrimaryClipChangedListener
 {
 	Activity activity;
+	FrameLayout layout;
 	KeyCharacterMap kbmap;
 	PointerIcon cursor;
 	PointerIcon invisCursor;
 	GestureDetector detector;
 	ScaleGestureDetector sdetector;
+	WebView webview;
 	Scroller scroller;
 	Vibrator vibrator;
 	boolean hiddenCursor;
@@ -79,6 +96,8 @@ public class Matoya extends SurfaceView implements
 		float lT, float rT, float lTalt, float rTalt);
 	native void app_unhandled_touch(int action, float x, float y, int fingers);
 
+	native void webview_handle_event(long ctx, String json);
+
 	static {
 		System.loadLibrary("main");
 	}
@@ -105,7 +124,9 @@ public class Matoya extends SurfaceView implements
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.invisCursor = PointerIcon.create(bm, 0, 0);
 
-		activity.setContentView(this);
+		this.layout = new FrameLayout(this.activity);
+		this.layout.addView(this);
+		activity.setContentView(this.layout);
 
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.addPrimaryClipChangedListener(this);
@@ -526,6 +547,95 @@ public class Matoya extends SurfaceView implements
 
 	public boolean getRelativeMouse() {
 		return this.hasPointerCapture();
+	}
+
+
+	// Webview
+
+	public void webviewShow(final long identifier)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				WebView webview = new WebView(self.activity);
+				webview.setBackgroundColor(Color.TRANSPARENT);
+				webview.getSettings().setJavaScriptEnabled(true);
+
+				webview.addJavascriptInterface(new Object() {
+					@JavascriptInterface
+					public void invoke(String json) {
+						webview_handle_event(identifier, json);
+					}
+				}, "external");
+
+				self.layout.addView(webview);
+				self.webview = webview;
+			}
+		});
+	}
+
+	public void webviewDestroy()
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webview.destroy();
+				self.webview = null;
+			}
+		});
+	}
+
+	public void webviewResize(final int x, final int y, final int width, final int height)
+	{
+		final WebView webview = this.webview;
+
+		webview.post(new Runnable() {
+			@Override
+			public void run() {
+				FrameLayout.LayoutParams layout = new FrameLayout.LayoutParams(width, height);
+				layout.leftMargin = x;
+				layout.topMargin = y;
+
+				webview.setLayoutParams(layout);
+			}
+		});
+	}
+
+	public void webviewEnableDevTools(final boolean enabled)
+	{
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				WebView.setWebContentsDebuggingEnabled(enabled);
+			}
+		});
+	}
+
+	public void webviewNavigate(final String html)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				String scriptedHtml = html;
+
+				String encodedHtml = Base64.encodeToString(scriptedHtml.getBytes(StandardCharsets.US_ASCII), Base64.DEFAULT);
+				self.webview.loadData(encodedHtml, "text/html; charset=utf-8", "base64");
+			}
+		});
+	}
+
+	public void webviewJavascriptEval(final String js)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webview.evaluateJavascript(js, null);
+			}
+		});
 	}
 
 

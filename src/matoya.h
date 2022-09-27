@@ -315,6 +315,7 @@ MTY_FreeRenderState(MTY_RenderState **state);
 
 typedef struct MTY_App MTY_App;
 typedef int8_t MTY_Window;
+typedef struct MTY_Webview MTY_Webview;
 
 /// @brief Function called once per message cycle.
 /// @details A "message cycle" can be thought of as one iteration through all of the
@@ -357,6 +358,7 @@ typedef enum {
 	MTY_EVENT_SIZE         = 20, ///< The size of a window has changed.
 	MTY_EVENT_MOVE         = 21, ///< The window's top left corner has moved.
 	MTY_EVENT_WINTAB       = 22, ///< Creative tablets extended input has occurred.
+	MTY_EVENT_WEBVIEW      = 23, ///< An event has come from a webview.
 	MTY_EVENT_MAKE_32      = INT32_MAX,
 } MTY_EventType;
 
@@ -757,6 +759,7 @@ typedef struct MTY_Event {
 		MTY_WintabEvent wintab;         ///< Valid on MTY_EVENT_WINTAB.
 
 		const char *reopenArg; ///< Valid on MTY_EVENT_REOPEN, the argument supplied.
+		const char *message;   ///< Valid on MTY_EVENT_WEBVIEW, the JSON message.
 		uint32_t hotkey;       ///< Valid on MTY_EVENT_HOTKEY, the `id` set via MTY_AppSetHotkey.
 		uint32_t trayID;       ///< Valid on MTY_EVENT_TRAY, the menu `id` set via MTY_AppSetTray.
 		char text[8];          ///< Valid on MTY_EVENT_TEXT, the UTF-8 text.
@@ -3533,6 +3536,50 @@ MTY_RevertTimerResolution(uint32_t res);
 ///   version has a mask of `0xFF00` and the minor has a mask of `0xFF`.
 MTY_EXPORT uint32_t
 MTY_GetVersion(void);
+
+
+//- #module Webview
+//- #mbrief Webview creation and configuration.
+
+/// @brief Create a webview inside a window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param desc The Webview configuration.
+MTY_EXPORT void
+MTY_WebviewCreate(MTY_App *app, MTY_Window window, const char *html, bool debug);
+
+/// @brief Destroy a webview contained by a window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+MTY_EXPORT void
+MTY_WebviewDestroy(MTY_App *app, MTY_Window window);
+
+/// @brief Check if a webview exists on the window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+MTY_EXPORT bool
+MTY_WebviewExists(MTY_App *app, MTY_Window window);
+
+/// @brief Show or hide a webview.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param show True to show the webview, false otherrwise.
+MTY_EXPORT void
+MTY_WebviewShow(MTY_App *app, MTY_Window window, bool show);
+
+/// @brief Check if the webview is visible.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+MTY_EXPORT bool
+MTY_WebviewIsVisible(MTY_App *app, MTY_Window window);
+
+/// @brief Send a message to the webview.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param name The name of the custom event.
+/// @param message The content of the message.
+MTY_EXPORT void
+MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, const char *message);
 
 
 #ifdef __cplusplus

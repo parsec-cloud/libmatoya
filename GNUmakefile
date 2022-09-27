@@ -37,6 +37,7 @@ OBJS = \
 	src/tlocal.o \
 	src/tls.o \
 	src/version.o \
+	src/webview.o \
 	src/gfx/gl/gl.o \
 	src/gfx/gl/gl-ui.o \
 	src/hid/utils.o \
@@ -95,6 +96,7 @@ OBJS := $(OBJS) \
 	src/unix/web/app.o \
 	src/unix/web/dialog.o \
 	src/unix/web/system.o \
+	src/unix/web/webview.o \
 	src/unix/web/gfx/gl-ctx.o
 
 DEFS := $(DEFS) \
@@ -133,6 +135,7 @@ OBJS := $(OBJS) \
 	src/unix/linux/x11/request.o \
 	src/unix/linux/x11/system.o \
 	src/unix/linux/x11/tls.o \
+	src/unix/linux/x11/webview.o \
 	src/unix/linux/x11/gfx/gl-ctx.o
 
 SHADERS := $(SHADERS) \
@@ -145,7 +148,7 @@ DEFS := $(DEFS) \
 	-DMTY_VK_XLIB
 
 TARGET = linux
-INCLUDES := $(INCLUDES) -Isrc/unix/linux -Isrc/unix/linux/x11
+INCLUDES := $(INCLUDES) $(shell pkg-config --cflags --libs x11 gtk+-3.0 webkit2gtk-4.0) -Isrc/unix/linux -Isrc/unix/linux/x11
 endif
 
 #############
@@ -175,6 +178,7 @@ OBJS := $(OBJS) \
 	src/unix/apple/macosx/hid.o \
 	src/unix/apple/macosx/gfx/gl-ctx.o \
 	src/unix/apple/macosx/gfx/metal-ctx.o
+DEFS := $(DEFS) -DOS_DESKTOP
 
 else
 MIN_VER = 11.0
@@ -199,6 +203,7 @@ OBJS := $(OBJS) \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
 	src/unix/apple/tls.o \
+	src/unix/apple/webview.o \
 	src/unix/apple/gfx/metal.o \
 	src/unix/apple/gfx/metal-ui.o \
 	src/unix/apple/$(TARGET)/aes-gcm.o \

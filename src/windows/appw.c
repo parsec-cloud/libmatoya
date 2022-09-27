@@ -19,6 +19,7 @@
 #include "xip.h"
 #include "wintab.h"
 #include "hid/hid.h"
+#include "webview.h"
 
 #define APP_CLASS_NAME L"MTY_Window"
 #define APP_RI_MAX     (32 * 1024)
@@ -27,6 +28,7 @@ struct window {
 	MTY_App *app;
 	MTY_Window window;
 	MTY_Frame frame;
+	MTY_Webview *webview;
 	MTY_GFX api;
 	HWND hwnd;
 	bool was_zoomed;
@@ -713,6 +715,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	bool defreturn = false;
 	char drop_name[MTY_PATH_MAX];
 
+	if ((msg == WM_MOUSEMOVE || msg == WM_POINTERUPDATE) && mty_webview_has_focus(ctx->webview))
+		SetFocus(hwnd);
+
 	switch (msg) {
 		case WM_CLOSE:
 			evt.type = MTY_EVENT_CLOSE;
@@ -720,6 +725,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_SIZE:
 			app->state++;
 			evt.type = MTY_EVENT_SIZE;
+			mty_webview_resize(ctx->webview);
 			break;
 		case WM_MOVE:
 			evt.type = MTY_EVENT_MOVE;
@@ -2018,6 +2024,8 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 		MTY_AppGrabMouse(app, false);
 	}
 
+	mty_webview_destroy(&ctx->webview);
+
 	if (ctx->hwnd)
 		DestroyWindow(ctx->hwnd);
 
@@ -2267,6 +2275,40 @@ MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 	return MTY_CONTEXT_STATE_NORMAL;
 }
 
+// Webview
+
+void MTY_WebviewCreate(MTY_App *app, MTY_Window window, const char *html, bool debug)
+{
+	struct window *w = app->windows[window];
+
+	if (!w->webview)
+		w->webview = mty_webview_create(w->hwnd, html, debug, app->event_func, app->opaque);
+}
+
+void MTY_WebviewDestroy(MTY_App *app, MTY_Window window)
+{
+	mty_webview_destroy(&app->windows[window]->webview);
+}
+
+bool MTY_WebviewExists(MTY_App *app, MTY_Window window)
+{
+	return app->windows[window]->webview != NULL;
+}
+
+void MTY_WebviewShow(MTY_App *app, MTY_Window window, bool show)
+{
+	mty_webview_show(app->windows[window]->webview, show);
+}
+
+bool MTY_WebviewIsVisible(MTY_App *app, MTY_Window window)
+{
+	return mty_webview_is_visible(app->windows[window]->webview);
+}
+
+void MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, const char *message)
+{
+	mty_webview_event(app->windows[window]->webview, name, message);
+}
 
 // Window Private
 

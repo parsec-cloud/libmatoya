@@ -48,6 +48,8 @@ MTY_Zoom *MTY_ZoomCreate()
 	ctx->scale_screen = 1;
 	ctx->scale_screen_min = 1;
 	ctx->scale_screen_max = 4;
+	ctx->scale_image = 1;
+	ctx->scale_image_initial = 1;
 
 	return ctx;
 }

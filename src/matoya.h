@@ -3653,7 +3653,8 @@ MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, uint3
 /// @brief Apply a scaling data to the context.
 /// @details Update the context according to the provided scaling data.
 /// @param ctx The MTY_Zoom.
-/// @param scaleFactor The new relative scale factor.
+/// @param scaleFactor The new relative scale factor (if positive) or absolute
+///   scale factor (if negative).
 /// @param focusX The new horizontal coordinate of the focal point.
 /// @param focusY The new vertical coordinate of the focal point.
 MTY_EXPORT void

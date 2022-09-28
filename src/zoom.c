@@ -36,6 +36,7 @@ struct MTY_Zoom {
 	float scale_image;
 	float scale_image_min;
 	float scale_image_max;
+	float scale_image_initial;
 };
 
 MTY_Zoom *MTY_ZoomCreate() 
@@ -121,6 +122,7 @@ void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, 
 	float scale_w = ctx->window_w / ctx->image_w;
 	float scale_h = ctx->window_h / ctx->image_h;
 	ctx->scale_image = scale_w < scale_h ? scale_w : scale_h;
+	ctx->scale_image_initial = ctx->scale_image;
 
 	ctx->image.x = 0;
 	ctx->image.y = 0;
@@ -150,7 +152,7 @@ void MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY)
 {
 	VALIDATE_CTX(ctx);
 
-	if (!mty_zoom_context_initialized(ctx))
+	if (!mty_zoom_context_initialized(ctx) || scaleFactor == 0.0f)
 		return;
 
 	if (ctx->scaling) {
@@ -161,9 +163,18 @@ void MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY)
 	ctx->focus.x = focusX;
 	ctx->focus.y = focusY;
 
-	ctx->scale_screen *= scaleFactor;
-	ctx->scale_image  *= scaleFactor;
-	
+	if (scaleFactor < 0.0) {
+		// Negative scale means the new scale is absolute.
+		scaleFactor *= -1;
+		ctx->scale_screen = scaleFactor;
+		ctx->scale_image = ctx->scale_image_initial * scaleFactor;
+
+	} else {
+		// Positive scale means new scale is relative to the old scale.
+		ctx->scale_screen *= scaleFactor;
+		ctx->scale_image  *= scaleFactor;
+	}
+
 	if (ctx->scale_screen < ctx->scale_screen_min) {
 		ctx->scale_screen = ctx->scale_screen_min;
 		ctx->scale_image  = ctx->scale_image_min;

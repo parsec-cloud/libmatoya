@@ -14,7 +14,7 @@
 
 #include <unistd.h>
 
-#include "dl/libX11.c"
+#include "dl/libx11.c"
 #include "hid/utils.h"
 #include "evdev.h"
 #include "keymap.h"
@@ -1000,6 +1000,11 @@ void MTY_AppRumbleController(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t h
 const void *MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size)
 {
 	return NULL;
+}
+
+MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
+{
+	return MTY_PEN_TYPE_NONE;
 }
 
 bool MTY_AppIsPenEnabled(MTY_App *ctx)

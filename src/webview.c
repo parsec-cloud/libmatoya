@@ -65,11 +65,13 @@ bool mty_webview_is_visible(MTY_Webview *ctx)
 
 void mty_webview_event(MTY_Webview *ctx, const char *name, const char *message)
 {
-	const char *javascript = MTY_SprintfDL(
+	char *javascript = MTY_SprintfD(
 		"window.dispatchEvent("
 			"new CustomEvent('%s', { detail: '%s' } )"
 		");"
 	, name, message);
 
 	mty_webview_javascript_eval(ctx, javascript);
+
+	MTY_Free(javascript);
 }

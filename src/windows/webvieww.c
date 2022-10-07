@@ -88,8 +88,9 @@ void mty_webview_navigate(MTY_Webview *ctx)
 	char *base64 = MTY_Alloc(base64_size + 1, 1);
 	MTY_BytesToBase64(ctx->common.html, size, base64, base64_size);
 
-	const char *encoded = MTY_SprintfDL("data:text/html;charset=UTF-8;base64, %s", base64);
+	char *encoded = MTY_SprintfD("data:text/html;charset=UTF-8;base64, %s", base64);
 	PostThreadMessage(ctx->thread_id, WV_NAVIGATE, 0, (LPARAM) MTY_MultiToWideD(encoded));
+	MTY_Free(encoded);
 
 	MTY_Free(base64);
 }

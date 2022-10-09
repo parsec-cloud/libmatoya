@@ -170,6 +170,7 @@ void MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY)
 		scaleFactor *= -1;
 		ctx->scale_screen = scaleFactor;
 		ctx->scale_image = ctx->scale_image_initial * scaleFactor;
+		ctx->image.x = ctx->image.y = 0;
 
 	} else {
 		// Positive scale means new scale is relative to the old scale.

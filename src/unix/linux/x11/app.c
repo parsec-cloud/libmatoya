@@ -1406,6 +1406,11 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return app_get_window(app, window) != NULL;
 }
 
+bool MTY_WindowContainsCursor(MTY_App *app, MTY_Window window)
+{
+	return false;
+}
+
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
 	struct window *ctx = app_get_window(app, window);

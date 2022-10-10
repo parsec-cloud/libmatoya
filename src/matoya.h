@@ -1244,6 +1244,14 @@ MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active);
 MTY_EXPORT bool
 MTY_WindowExists(MTY_App *app, MTY_Window window);
 
+/// @brief Return true if the current system cursor location is within the bounds
+///   of the window; false if outside or unknown.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+//- #support Windows
+MTY_EXPORT bool
+MTY_WindowContainsCursor(MTY_App *app, MTY_Window window);
+
 /// @brief Check if the window is in fullscreen mode.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.

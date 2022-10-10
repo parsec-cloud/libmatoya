@@ -1654,6 +1654,12 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return app_get_window(app, window) != NULL;
 }
 
+bool MTY_WindowContainsCursor(MTY_App *app, MTY_Window window)
+{
+	// XXX TODO : Not implemented for Mac yet.
+	return false;
+}
+
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
 	Window *ctx = app_get_window(app, window);

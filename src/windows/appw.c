@@ -2219,6 +2219,26 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return app_get_window(app, window) != NULL;
 }
 
+bool MTY_WindowContainsCursor(MTY_App *app, MTY_Window window)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	POINT cursor_pos;
+	if (!GetCursorPos(&cursor_pos))
+		return false;
+
+	RECT window_rect;
+	if (!GetWindowRect(ctx->hwnd, &window_rect))
+		return false;
+
+	return (cursor_pos.x >= window_rect.left  &&
+			cursor_pos.x <= window_rect.right &&
+			cursor_pos.y >= window_rect.top   &&
+			cursor_pos.y <= window_rect.bottom);
+}
+
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
 	struct window *ctx = app_get_window(app, window);

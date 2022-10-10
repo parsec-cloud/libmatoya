@@ -569,6 +569,11 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return true;
 }
 
+bool MTY_WindowContainsCursor(MTY_App *app, MTY_Window window)
+{
+	return false;
+}
+
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
 	return web_get_fullscreen();

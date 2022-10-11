@@ -8,15 +8,11 @@ static MTY_PnPDeviceStatus dev_node_status_to_mty(ULONG devStatus, ULONG devProb
 {
 	// Device is operational
 	if ((devStatus & DN_DRIVER_LOADED) && (devStatus & DN_STARTED))
-	{
 		return  MTY_PNP_DEVICE_STATUS_NORMAL;
-	}
-
+	
 	// Device has problem status
-	if ((devStatus & DN_HAS_PROBLEM))
-	{
-		switch (devProblemCode)
-		{
+	if ((devStatus & DN_HAS_PROBLEM)) {
+		switch (devProblemCode) {
 		case CM_PROB_DISABLED:
 		case CM_PROB_HARDWARE_DISABLED:
 			return MTY_PNP_DEVICE_STATUS_DISABLED;
@@ -45,7 +41,7 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 
 	*status = MTY_PNP_DEVICE_STATUS_NOT_FOUND;
 
-	SP_DEVINFO_DATA spDevInfoData;
+	SP_DEVINFO_DATA spDevInfoData = {0};
 
 	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(
 		classGuid,
@@ -55,10 +51,8 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 	);
 
 	if (hDevInfo == INVALID_HANDLE_VALUE)
-	{
 		return succeeded;
-	}
-
+	
 	spDevInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
 
 	for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &spDevInfoData); i++)
@@ -75,20 +69,17 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 			&type,
 			(PBYTE)buffer,
 			bufferSize,
-			&bufferSize))
-		{
+			&bufferSize)) {
+			
 			if (GetLastError() == ERROR_INVALID_DATA)
-			{
 				break;
-			}
-			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-			{
+			
+			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 				if (buffer)
 					LocalFree(buffer);
 				buffer = LocalAlloc(LPTR, bufferSize);
-			}
-			else
-			{
+			} else {
+				
 				goto except;
 			}
 		}
@@ -97,13 +88,10 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 			continue;
 
 		// Find device with matching Hardware ID
-		for (LPSTR p = buffer; p && *p && (p < &buffer[bufferSize]); p += lstrlenA(p) + sizeof(char))
-		{
-			if (!strcmp(hardwareId, p))
-			{
+		for (LPSTR p = buffer; p && *p && (p < &buffer[bufferSize]); p += lstrlenA(p) + sizeof(char)) {
+			if (!strcmp(hardwareId, p)) {
 				// multiple device instances with the same hardware ID may exist
-				if (instance++ == instanceIndex)
-				{
+				if (instance++ == instanceIndex) {
 					found = true;
 					break;
 				}
@@ -113,8 +101,7 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 		if (buffer)
 			LocalFree(buffer);
 
-		if (found && (CM_Get_DevNode_Status(&devStatus, &devProblemCode, spDevInfoData.DevInst, 0) == CR_SUCCESS))
-		{
+		if (found && (CM_Get_DevNode_Status(&devStatus, &devProblemCode, spDevInfoData.DevInst, 0) == CR_SUCCESS)) {
 			succeeded = true;
 
 			*status = dev_node_status_to_mty(devStatus, devProblemCode);
@@ -123,8 +110,7 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 	}
 
 	// device not found but no enumeration error
-	if (!found && GetLastError() == ERROR_SUCCESS)
-	{
+	if (!found && GetLastError() == ERROR_SUCCESS) {
 		*status = MTY_PNP_DEVICE_STATUS_NOT_FOUND;
 		succeeded = true;
 	}
@@ -151,7 +137,7 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 
 	*status = MTY_PNP_DEVICE_STATUS_NOT_FOUND;
 
-	SP_DEVINFO_DATA spDevInfoData;
+	SP_DEVINFO_DATA spDevInfoData = {0};
 
 	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(
 		interfaceGuid,
@@ -161,9 +147,7 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 	);
 
 	if (hDevInfo == INVALID_HANDLE_VALUE)
-	{
 		return succeeded;
-	}
 
 	spDevInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
 
@@ -179,13 +163,11 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 		interfaceGuid,
 		memberIndex++,
 		&deviceInterfaceData
-	))
-	{
+	)) {
 		// get required target buffer size
 		SetupDiGetDeviceInterfaceDetail(hDevInfo, &deviceInterfaceData, NULL, 0, &requiredSize, NULL);
 
-		if (detailDataBuffer)
-		{
+		if (detailDataBuffer) {
 			free(detailDataBuffer);
 			detailDataBuffer = NULL;
 		}
@@ -203,8 +185,7 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 			requiredSize,
 			&requiredSize,
 			NULL
-		))
-		{
+		)) {
 			ULONG bytes = 0;
 			DEVPROPTYPE type = 0;
 			// get required property size in bytes
@@ -216,10 +197,9 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 				&bytes,
 				0
 			);
-			if (ret != CR_BUFFER_SMALL) {
+			if (ret != CR_BUFFER_SMALL)
 				goto except;
-			}
-
+			
 			instanceId = calloc(bytes, 1);
 
 			// get property content
@@ -231,22 +211,19 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 				&bytes,
 				0
 			);
-			if (ret != CR_SUCCESS) {
+			if (ret != CR_SUCCESS)
 				goto except;
-			}
-
+			
 			DEVINST instance = 0;
 			// get instance handle from instance ID
 			ret = CM_Locate_DevNode(&instance, instanceId, CM_LOCATE_DEVNODE_NORMAL);
-			if (ret != CR_SUCCESS) {
+			if (ret != CR_SUCCESS)
 				goto except;
-			}
 
 			// get node status
 			ret = CM_Get_DevNode_Status(&devStatus, &devProblemCode, instance, 0);
-			if (ret != CR_SUCCESS) {
+			if (ret != CR_SUCCESS)
 				goto except;
-			}
 
 			*status = dev_node_status_to_mty(devStatus, devProblemCode);
 			found = true;
@@ -256,8 +233,7 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 	}
 
 	// device not found but no enumeration error
-	if (!found && (GetLastError() == ERROR_SUCCESS || GetLastError() == ERROR_NO_MORE_ITEMS))
-	{
+	if (!found && (GetLastError() == ERROR_SUCCESS || GetLastError() == ERROR_NO_MORE_ITEMS)) {
 		*status = MTY_PNP_DEVICE_STATUS_NOT_FOUND;
 		succeeded = true;
 		SetLastError(ERROR_SUCCESS);
@@ -285,7 +261,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 	DWORD err = ERROR_SUCCESS;
 	bool found = false, succeeded = false;
 
-	SP_DEVINFO_DATA spDevInfoData;
+	SP_DEVINFO_DATA spDevInfoData = {0};
 
 	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(
 		classGuid,
@@ -295,14 +271,11 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 	);
 
 	if (hDevInfo == INVALID_HANDLE_VALUE)
-	{
 		return succeeded;
-	}
 
 	spDevInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
 
-	for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &spDevInfoData); i++)
-	{
+	for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &spDevInfoData); i++) {
 		LPSTR buffer = NULL;
 		DWORD bufferSize = 0;
 		uint32_t instance = 0;
@@ -314,20 +287,17 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 			NULL,
 			(PBYTE)buffer,
 			bufferSize,
-			&bufferSize))
-		{
+			&bufferSize)) {
+			
 			if (GetLastError() == ERROR_INVALID_DATA)
-			{
 				break;
-			}
-			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
-			{
+
+			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 				if (buffer)
 					LocalFree(buffer);
 				buffer = LocalAlloc(LPTR, bufferSize);
-			}
-			else
-			{
+			} else {
+
 				goto except;
 			}
 		}
@@ -336,13 +306,10 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 			continue;
 
 		// Find device with matching Hardware ID
-		for (LPSTR p = buffer; p && *p && (p < &buffer[bufferSize]); p += lstrlenA(p) + sizeof(char))
-		{
-			if (!strcmp(hardwareId, p))
-			{
+		for (LPSTR p = buffer; p && *p && (p < &buffer[bufferSize]); p += lstrlenA(p) + sizeof(char)) {
+			if (!strcmp(hardwareId, p)) {
 				// multiple device instances with the same hardware ID may exist
-				if (instance++ == instanceIndex)
-				{
+				if (instance++ == instanceIndex) {
 					found = true;
 					break;
 				}
@@ -352,8 +319,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 		if (buffer)
 			LocalFree(buffer);
 
-		if (found)
-		{
+		if (found) {
 			bufferSize = 0;
 			// get driver key name size
 			SetupDiGetDeviceRegistryPropertyA(
@@ -376,8 +342,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 				(PBYTE)buffer,
 				bufferSize,
 				&bufferSize
-			))
-			{
+			)) {
 				LocalFree(buffer);
 				goto except;
 			}
@@ -413,15 +378,13 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 				NULL,
 				buffer,
 				&bufferSize
-			))
-			{
+			)) {
 				LocalFree(buffer);
 				goto except;
 			}
 
 			uint32_t mjr = 0, mnr = 0, rev = 0, bld = 0;
-			if (sscanf_s(buffer, "%u.%u.%u.%u", &mjr, &mnr, &rev, &bld) != 4)
-			{
+			if (sscanf_s(buffer, "%u.%u.%u.%u", &mjr, &mnr, &rev, &bld) != 4) {
 				LocalFree(buffer);
 				goto except;
 			}
@@ -439,9 +402,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 
 	// device not found but no enumeration error
 	if (!found && GetLastError() == ERROR_SUCCESS)
-	{
 		succeeded = false;
-	}
 
 except:
 	err = GetLastError();

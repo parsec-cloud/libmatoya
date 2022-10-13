@@ -93,6 +93,9 @@ static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 	float image_scaled_w = ctx->image_w * ctx->scale_image;
 	float image_scaled_h = ctx->image_h * ctx->scale_image;
 
+	if (image_scaled_w < ctx->window_w && image_scaled_h < ctx->window_h)
+		return;
+
 	if (ctx->image.x > ctx->image_min.x)
 		ctx->image.x = ctx->image_min.x;
 
@@ -133,10 +136,21 @@ void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, 
 	if (scale_w < scale_h) 
 		ctx->image.y = (ctx->window_h - ctx->image_h * ctx->scale_image) / 2.0f;
 
+	// If zoomed image is smaller than window, place it in the center.
+	if (ctx->image_w * ctx->scale_image < ctx->window_w &&
+		ctx->image_h * ctx->scale_image < ctx->window_h) {
+		ctx->image.x = ctx->window_w / 2.0f - ctx->image_w / 2.0f * ctx->scale_image;
+		ctx->image.y = ctx->window_h / 2.0f - ctx->image_h / 2.0f * ctx->scale_image;
+	}
+
 	ctx->image_min.x = ctx->image.x;
 	ctx->image_min.y = ctx->image.y;
 	ctx->image_max.x = ctx->window_w - ctx->image.x;
 	ctx->image_max.y = ctx->window_h - ctx->image.y;
+	if (ctx->image_max.x < ctx->image_min.x)
+		ctx->image_max.x = ctx->image_min.x;
+	if (ctx->image_max.y < ctx->image_min.y)
+		ctx->image_max.y = ctx->image_min.y;
 
 	ctx->scale_image_min = ctx->scale_image * ctx->scale_screen_min;
 	ctx->scale_image_max = ctx->scale_image * ctx->scale_screen_max;
@@ -191,6 +205,13 @@ void MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY)
 
 	ctx->image.x = ctx->focus.x - scaleFactor * (ctx->focus.x - ctx->image.x);
 	ctx->image.y = ctx->focus.y - scaleFactor * (ctx->focus.y - ctx->image.y);
+
+	// If zoomed image is smaller than window, place it in the center.
+	if (ctx->image_w * ctx->scale_image < ctx->window_w &&
+		ctx->image_h * ctx->scale_image < ctx->window_h) {
+		ctx->image.x = ctx->window_w / 2.0f - ctx->image_w / 2.0f * ctx->scale_image;
+		ctx->image.y = ctx->window_h / 2.0f - ctx->image_h / 2.0f * ctx->scale_image;
+	}
 
 	mty_zoom_restrict_image(ctx);
 

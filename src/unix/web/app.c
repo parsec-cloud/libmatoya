@@ -19,7 +19,6 @@
 struct MTY_App {
 	MTY_Hash *hotkey;
 	MTY_Hash *deduper;
-	MTY_Webview *webview;
 	MTY_EventFunc event_func;
 	MTY_AppFunc app_func;
 	MTY_DetachState detach;
@@ -29,6 +28,7 @@ struct MTY_App {
 	MTY_GFX api;
 	bool kb_grab;
 	struct gfx_ctx *gfx_ctx;
+	struct webview *webview;
 };
 
 static void __attribute__((constructor)) app_global_init(void)

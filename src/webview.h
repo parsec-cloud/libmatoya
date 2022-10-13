@@ -2,7 +2,7 @@
 
 #include "matoya.h"
 
-struct webview {
+struct webview_common {
 	char *html;
 	char *origin;
 
@@ -15,14 +15,14 @@ struct webview {
 	void *opaque;
 };
 
-MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque);
-void mty_webview_create_common(MTY_Webview *ctx, const char *html, bool debug, MTY_EventFunc event, void *opaque);
-void mty_webview_destroy(MTY_Webview **webview);
-void mty_webview_destroy_common(MTY_Webview *ctx);
-void mty_webview_show(MTY_Webview *ctx, bool show);
-bool mty_webview_is_visible(MTY_Webview *ctx);
-void mty_webview_event(MTY_Webview *ctx, const char *name, const char *message);
-void mty_webview_resize(MTY_Webview *ctx);
-bool mty_webview_has_focus(MTY_Webview *ctx);
-void mty_webview_handle_event(MTY_Webview *ctx, const char *message);
-void mty_webview_javascript_eval(MTY_Webview *ctx, const char *js);
+struct webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque);
+void mty_webview_create_common(struct webview *ctx, const char *html, bool debug, MTY_EventFunc event, void *opaque);
+void mty_webview_destroy(struct webview **webview);
+void mty_webview_destroy_common(struct webview *ctx);
+void mty_webview_show(struct webview *ctx, bool show);
+bool mty_webview_is_visible(struct webview *ctx);
+void mty_webview_event(struct webview *ctx, const char *name, const char *message);
+void mty_webview_resize(struct webview *ctx);
+bool mty_webview_has_focus(struct webview *ctx);
+void mty_webview_handle_event(struct webview *ctx, const char *message);
+void mty_webview_javascript_eval(struct webview *ctx, const char *js);

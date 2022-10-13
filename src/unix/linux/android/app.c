@@ -27,7 +27,6 @@ static struct MTY_App {
 	MTY_EventFunc event_func;
 	MTY_AppFunc app_func;
 	MTY_Hash *hotkey;
-	MTY_Webview *webview;
 	MTY_DetachState detach;
 	uint32_t timeout;
 	float scale;
@@ -59,6 +58,7 @@ static struct MTY_App {
 
 	MTY_GFX api;
 	struct gfx_ctx *gfx_ctx;
+	struct webview *webview;
 } CTX;
 
 static const MTY_ControllerEvent APP_ZEROED_CTRL = {

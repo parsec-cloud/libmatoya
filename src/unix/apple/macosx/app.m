@@ -302,13 +302,13 @@ static void app_fix_mouse_buttons(App *ctx)
 
 @interface Window : NSWindow <NSWindowDelegate>
 	@property(strong) App *app;
-	@property MTY_Webview *webview;
 	@property MTY_Window window;
 	@property MTY_GFX api;
 	@property bool top;
 	@property bool was_maximized;
 	@property NSRect normal_frame;
 	@property struct gfx_ctx *gfx_ctx;
+	@property struct webview *webview;
 @end
 
 
@@ -1515,7 +1515,7 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return;
 
-	MTY_Webview *webview = ctx.webview;
+	struct webview *webview = ctx.webview;
 	mty_webview_destroy(&webview);
 	ctx.webview = NULL;
 
@@ -1763,7 +1763,7 @@ void MTY_WebviewDestroy(MTY_App *app, MTY_Window window)
 	if (!w)
 		return;
 
-	MTY_Webview *webview = w.webview;
+	struct webview *webview = w.webview;
 	mty_webview_destroy(&webview);
 	w.webview = NULL;
 }

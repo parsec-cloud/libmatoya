@@ -16,26 +16,26 @@
 
 struct environment_completed {
 	ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler handler;
-	MTY_Webview *context;
+	struct webview *context;
 };
 
 struct controller_completed {
 	ICoreWebView2CreateCoreWebView2ControllerCompletedHandler handler;
-	MTY_Webview *context;
+	struct webview *context;
 };
 
 struct web_message_received {
 	ICoreWebView2WebMessageReceivedEventHandler handler;
-	MTY_Webview *context;
+	struct webview *context;
 };
 
 struct focus_changed {
 	ICoreWebView2FocusChangedEventHandler handler;
-	MTY_Webview *context;
+	struct webview *context;
 };
 
-struct MTY_Webview {
-	struct webview common;
+struct webview {
+	struct webview_common common;
 
 	HWND hwnd;
 	MTY_Thread *thread;
@@ -73,14 +73,14 @@ static ULONG STDMETHODCALLTYPE mty_webview_release(IUnknown *this)
 
 static HRESULT STDMETHODCALLTYPE mty_webview_environment_completed(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *this, HRESULT code, ICoreWebView2Environment *env)
 {
-	MTY_Webview *ctx = ((struct environment_completed *) this)->context;
+	struct webview *ctx = ((struct environment_completed *) this)->context;
 
 	ctx->environment = env;
 
 	return ICoreWebView2Environment3_CreateCoreWebView2Controller(env, ctx->hwnd, &ctx->controller_completed.handler);
 }
 
-void mty_webview_navigate(MTY_Webview *ctx)
+void mty_webview_navigate(struct webview *ctx)
 {
 	size_t size = strlen(ctx->common.html);
 	size_t base64_size = ((4 * size / 3) + 3) & ~3;
@@ -97,7 +97,7 @@ void mty_webview_navigate(MTY_Webview *ctx)
 
 static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *this, HRESULT code, ICoreWebView2Controller *controller)
 {
-	MTY_Webview *ctx = ((struct controller_completed *) this)->context;
+	struct webview *ctx = ((struct controller_completed *) this)->context;
 
 	ctx->controller = (ICoreWebView2Controller3 *) controller;
 	ICoreWebView2Controller_AddRef(ctx->controller);
@@ -133,7 +133,7 @@ static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2C
 
 static HRESULT STDMETHODCALLTYPE mty_webview_message_received(ICoreWebView2WebMessageReceivedEventHandler *this, ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args)
 {
-	MTY_Webview *ctx = ((struct web_message_received *) this)->context;
+	struct webview *ctx = ((struct web_message_received *) this)->context;
 
 	wchar_t *wide_message = NULL;
 	ICoreWebView2WebMessageReceivedEventArgs_TryGetWebMessageAsString(args, &wide_message);
@@ -149,7 +149,7 @@ static HRESULT STDMETHODCALLTYPE mty_webview_message_received(ICoreWebView2WebMe
 
 static HRESULT STDMETHODCALLTYPE mty_webview_focus_changed(ICoreWebView2FocusChangedEventHandler *this, ICoreWebView2Controller *sender, IUnknown *args)
 {
-	MTY_Webview *ctx = ((struct focus_changed *) this)->context;
+	struct webview *ctx = ((struct focus_changed *) this)->context;
 
 	ctx->common.has_focus = !ctx->common.has_focus;
 
@@ -160,7 +160,7 @@ static HRESULT STDMETHODCALLTYPE mty_webview_focus_changed(ICoreWebView2FocusCha
 
 static void *mty_webview_thread_func(void *opaque)
 {
-	MTY_Webview *ctx = opaque;
+	struct webview *ctx = opaque;
 	ctx->thread_id = GetCurrentThreadId();
 
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
@@ -204,9 +204,9 @@ static void *mty_webview_thread_func(void *opaque)
 	return NULL;
 }
 
-MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
+struct webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
 {
-	MTY_Webview *ctx = MTY_Alloc(1, sizeof(MTY_Webview));
+	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
 	mty_webview_create_common(ctx, html, debug, event, opaque);
 
@@ -243,12 +243,12 @@ MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_
 	return ctx;
 }
 
-void mty_webview_destroy(MTY_Webview **webview)
+void mty_webview_destroy(struct webview **webview)
 {
 	if (!webview || !*webview)
 		return;
 
-	MTY_Webview *ctx = *webview;
+	struct webview *ctx = *webview;
 
 	if (ctx->controller)
 		ICoreWebView2Controller_Close(ctx->controller);
@@ -269,7 +269,7 @@ void mty_webview_destroy(MTY_Webview **webview)
 	*webview = NULL;
 }
 
-void mty_webview_resize(MTY_Webview *ctx)
+void mty_webview_resize(struct webview *ctx)
 {
 	if (!ctx || !ctx->controller)
 		return;
@@ -277,7 +277,7 @@ void mty_webview_resize(MTY_Webview *ctx)
 	PostThreadMessage(ctx->thread_id, WV_SIZE, 0, 0);
 }
 
-void mty_webview_javascript_eval(MTY_Webview *ctx, const char *js)
+void mty_webview_javascript_eval(struct webview *ctx, const char *js)
 {
 	PostThreadMessage(ctx->thread_id, WV_SCRIPT_EVAL, 0, (LPARAM) MTY_MultiToWideD(js));
 }

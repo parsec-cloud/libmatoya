@@ -7,14 +7,14 @@
 
 typedef void (*get_screen_size)(uint32_t *width, uint32_t *height);
 
-struct MTY_Webview {
-	struct webview common;
+struct webview {
+	struct webview_common common;
 
 	jobject obj;
 	get_screen_size get_screen_size;
 };
 
-static void mty_webview_call(MTY_Webview *ctx, const char *name, const char *text)
+static void mty_webview_call(struct webview *ctx, const char *name, const char *text)
 {
 	JNIEnv *env = MTY_GetJNIEnv();
 	jstring jtext = mty_jni_strdup(env, text);
@@ -24,9 +24,9 @@ static void mty_webview_call(MTY_Webview *ctx, const char *name, const char *tex
 	mty_jni_free(env, jtext);
 }
 
-MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
+struct webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
 {
-	MTY_Webview *ctx = MTY_Alloc(1, sizeof(MTY_Webview));
+	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
 	mty_webview_create_common(ctx, html, debug, event, opaque);
 
@@ -40,12 +40,12 @@ MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_
 	return ctx;
 }
 
-void mty_webview_destroy(MTY_Webview **webview)
+void mty_webview_destroy(struct webview **webview)
 {
 	if (!webview || !*webview)
 		return;
 
-	MTY_Webview *ctx = *webview;
+	struct webview *ctx = *webview;
 
 	mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "webviewDestroy", "()V");
 
@@ -53,7 +53,7 @@ void mty_webview_destroy(MTY_Webview **webview)
 	*webview = NULL;
 }
 
-void mty_webview_resize(MTY_Webview *ctx)
+void mty_webview_resize(struct webview *ctx)
 {
 	uint32_t width = 0, height = 0;
 
@@ -63,7 +63,7 @@ void mty_webview_resize(MTY_Webview *ctx)
 	mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "webviewResize", "(IIII)V", 0, 0, (int32_t) width, (int32_t) height);
 }
 
-void mty_webview_javascript_eval(MTY_Webview *ctx, const char *js)
+void mty_webview_javascript_eval(struct webview *ctx, const char *js)
 {
 	mty_webview_call(ctx, "webviewJavascriptEval", js);
 }
@@ -72,6 +72,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_webview_1handle_1event(JNIEn
 	jlong jctx, jstring jjson)
 {
 	char *json = mty_jni_cstrdup(env, jjson);
-	mty_webview_handle_event((MTY_Webview *) jctx, json);
+	mty_webview_handle_event((struct webview *) jctx, json);
 	MTY_Free(json);
 }

@@ -23,13 +23,13 @@
 struct window {
 	Window window;
 	MTY_Window index;
-	MTY_Webview *webview;
 	XIC ic;
 	MTY_GFX api;
 	MTY_Frame frame;
 	int32_t last_width;
 	int32_t last_height;
 	struct gfx_ctx *gfx_ctx;
+	struct webview *webview;
 	struct xinfo info;
 };
 

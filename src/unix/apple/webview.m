@@ -8,19 +8,19 @@
 typedef UIView NSView;
 #endif
 
-struct MTY_Webview {
-	struct webview common;
+struct webview {
+	struct webview_common common;
 
 	const NSView *view;
 	WKWebView *webview;
 };
 
 @interface ScriptMessageHandler : NSObject <WKScriptMessageHandler>
-	@property MTY_Webview *webview;
+	@property struct webview *webview;
 @end
 
 @implementation ScriptMessageHandler
-	- (ScriptMessageHandler *)init:(MTY_Webview *)webview
+	- (ScriptMessageHandler *)init:(struct webview *)webview
 	{
 		self.webview = webview;
 		return self;
@@ -35,9 +35,9 @@ struct MTY_Webview {
 	}
 @end
 
-MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
+struct webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
 {
-	MTY_Webview *ctx = MTY_Alloc(1, sizeof(MTY_Webview));
+	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
 	mty_webview_create_common(ctx, html, debug, event, opaque);
 
@@ -74,12 +74,12 @@ MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_
 	return ctx;
 }
 
-void mty_webview_destroy(MTY_Webview **webview)
+void mty_webview_destroy(struct webview **webview)
 {
 	if (!webview || !*webview)
 		return;
 
-	MTY_Webview *ctx = *webview;
+	struct webview *ctx = *webview;
 
 	WKUserContentController *controller = ctx->webview.configuration.userContentController;
 	[controller removeScriptMessageHandlerForName:@"external"];
@@ -90,7 +90,7 @@ void mty_webview_destroy(MTY_Webview **webview)
 	*webview = NULL;
 }
 
-void mty_webview_resize(MTY_Webview *ctx)
+void mty_webview_resize(struct webview *ctx)
 {
 	if (!ctx)
 		return;
@@ -104,7 +104,7 @@ void mty_webview_resize(MTY_Webview *ctx)
 	ctx->webview.frame = rect;
 }
 
-void mty_webview_javascript_eval(MTY_Webview *ctx, const char *js)
+void mty_webview_javascript_eval(struct webview *ctx, const char *js)
 {
 	NSString *str = [NSString stringWithUTF8String:js];
 	[ctx->webview evaluateJavaScript:str completionHandler:nil];

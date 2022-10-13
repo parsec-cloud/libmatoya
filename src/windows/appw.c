@@ -28,13 +28,13 @@ struct window {
 	MTY_App *app;
 	MTY_Window window;
 	MTY_Frame frame;
-	MTY_Webview *webview;
 	MTY_GFX api;
 	HWND hwnd;
 	bool was_zoomed;
 	uint32_t min_width;
 	uint32_t min_height;
 	struct gfx_ctx *gfx_ctx;
+	struct webview *webview;
 	RAWINPUT *ri;
 };
 

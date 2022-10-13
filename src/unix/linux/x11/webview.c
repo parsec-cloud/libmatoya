@@ -11,8 +11,8 @@
 
 MTY_Thread *thread = NULL;
 
-struct MTY_Webview {
-	struct webview common;
+struct webview {
+	struct webview_common common;
 
 	Display *display;
 	Window window;
@@ -21,12 +21,12 @@ struct MTY_Webview {
 };
 
 struct mty_webview_event {
-	MTY_Webview *context;
+	struct webview *context;
 	void *data;
 	bool should_free;
 };
 
-static struct mty_webview_event *mty_webview_create_event(MTY_Webview *ctx, void *data, bool should_free)
+static struct mty_webview_event *mty_webview_create_event(struct webview *ctx, void *data, bool should_free)
 {
 	struct mty_webview_event *event = MTY_Alloc(1, sizeof(struct mty_webview_event));
 
@@ -72,7 +72,7 @@ static bool mty_webview_enable_dev_tools(struct mty_webview_event *event)
 
 static void handle_script_message(WebKitUserContentManager *manager, WebKitJavascriptResult *result, void *opaque)
 {
-	MTY_Webview *ctx = opaque;
+	struct webview *ctx = opaque;
 
 	JSCValue *value = webkit_javascript_result_get_js_value(result);
 	char *message = jsc_value_to_string(value);
@@ -104,7 +104,7 @@ static bool mty_webview_dispatch_javascript_eval(struct mty_webview_event *event
 
 static bool mty_webview_add_new(struct mty_webview_event *event)
 {
-	MTY_Webview *ctx = event->context;
+	struct webview *ctx = event->context;
 
 	ctx->gtk_window = GTK_WINDOW(gtk_window_new(GTK_WINDOW_POPUP));
 	gtk_widget_realize(GTK_WIDGET(ctx->gtk_window));
@@ -137,7 +137,7 @@ static bool mty_webview_add_new(struct mty_webview_event *event)
 
 static bool mty_webview_dispatch_resize(struct mty_webview_event *event)
 {
-	MTY_Webview *ctx = event->context;
+	struct webview *ctx = event->context;
 
 	XWindowAttributes attr = {0};
 	XGetWindowAttributes(ctx->display, ctx->window, &attr);
@@ -170,9 +170,9 @@ static void *mty_webview_thread_func(void *opaque)
 	return NULL;
 }
 
-MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
+struct webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
 {
-	MTY_Webview *ctx = MTY_Alloc(1, sizeof(MTY_Webview));
+	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
 	mty_webview_create_common(ctx, html, debug, event, opaque);
 
@@ -194,7 +194,7 @@ MTY_Webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_
 
 static bool mty_webview_dispatch_destroy(struct mty_webview_event *event)
 {
-	MTY_Webview *ctx = event->context;
+	struct webview *ctx = event->context;
 
 	if (!ctx)
 		return false;
@@ -211,12 +211,12 @@ static bool mty_webview_dispatch_destroy(struct mty_webview_event *event)
 	return false;
 }
 
-void mty_webview_destroy(MTY_Webview **webview)
+void mty_webview_destroy(struct webview **webview)
 {
 	if (!webview || !*webview)
 		return;
 
-	MTY_Webview *ctx = *webview;
+	struct webview *ctx = *webview;
 
 	DISPATCH(mty_webview_dispatch_destroy, NULL, false);
 
@@ -224,12 +224,12 @@ void mty_webview_destroy(MTY_Webview **webview)
 	*webview = NULL;
 }
 
-void mty_webview_resize(MTY_Webview *ctx)
+void mty_webview_resize(struct webview *ctx)
 {
 	DISPATCH(mty_webview_dispatch_resize, NULL, false);
 }
 
-void mty_webview_javascript_eval(MTY_Webview *ctx, const char *js)
+void mty_webview_javascript_eval(struct webview *ctx, const char *js)
 {
 	DISPATCH(mty_webview_dispatch_javascript_eval, MTY_Strdup(js), true);
 }

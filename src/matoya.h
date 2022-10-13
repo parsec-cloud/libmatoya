@@ -315,7 +315,6 @@ MTY_FreeRenderState(MTY_RenderState **state);
 
 typedef struct MTY_App MTY_App;
 typedef int8_t MTY_Window;
-typedef struct MTY_Webview MTY_Webview;
 
 /// @brief Function called once per message cycle.
 /// @details A "message cycle" can be thought of as one iteration through all of the

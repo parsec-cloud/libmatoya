@@ -31,6 +31,7 @@ static const struct {
 	[MTY_COLOR_FORMAT_3PLANES]    = {3, 1, 1, 0},
 	[MTY_COLOR_FORMAT_2PLANES_16] = {2, 2, 1, 1},
 	[MTY_COLOR_FORMAT_3PLANES_16] = {3, 2, 1, 1},
+	[MTY_COLOR_FORMAT_RGBA10]     = {1, 4, 0, 1},
 };
 
 static bool fmt_reload_textures(struct gfx *gfx, MTY_Device *device, MTY_Context *context,

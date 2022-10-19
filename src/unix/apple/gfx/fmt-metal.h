@@ -19,5 +19,4 @@ static const MTLPixelFormat FMT_PLANES[MTY_COLOR_FORMAT_MAX][3] = {
 	[MTY_COLOR_FORMAT_3PLANES]    = {MTLPixelFormatR8Unorm,      MTLPixelFormatR8Unorm,   MTLPixelFormatR8Unorm},
 	[MTY_COLOR_FORMAT_2PLANES_16] = {MTLPixelFormatR16Unorm,     MTLPixelFormatRG16Unorm, MTLPixelFormatInvalid},
 	[MTY_COLOR_FORMAT_3PLANES_16] = {MTLPixelFormatR16Unorm,     MTLPixelFormatR16Unorm,  MTLPixelFormatR16Unorm},
-	[MTY_COLOR_FORMAT_RGBA10]     = {MTLPixelFormatBGR10A2Unorm, MTLPixelFormatInvalid,   MTLPixelFormatInvalid},
 };

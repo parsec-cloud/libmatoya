@@ -53,7 +53,7 @@ OBJ   = $(name).o
 LIBS  = ../bin/linux/x86_64/libmatoya.a
 
 CFLAGS  = -I../src -Igen
-LDFLAGS = $(shell pkg-config --libs x11 gtk+-3.0 webkit2gtk-4.0) -lm -ldl -lpthread
+LDFLAGS = -lm -ldl -lpthread
 
 clean:
 	rm -f $(BIN) $(OBJ)

@@ -148,7 +148,7 @@ DEFS := $(DEFS) \
 	-DMTY_VK_XLIB
 
 TARGET = linux
-INCLUDES := $(INCLUDES) $(shell pkg-config --cflags --libs x11 gtk+-3.0 webkit2gtk-4.0) -Isrc/unix/linux -Isrc/unix/linux/x11
+INCLUDES := $(INCLUDES) -Isrc/unix/linux -Isrc/unix/linux/x11
 endif
 
 #############

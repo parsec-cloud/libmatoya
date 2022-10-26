@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <math.h>
 
+#define DEBUG       // XXX TODO temp debug hack
+#define __WINDOWS__ // XXX TODO temp debug hack
+#include "ptrace.h" // XXX TODO temp debug hack
+
 // XXX Required because clicks does not always fire on the edges
 #define EDGE_PADDING 1.0f
 
@@ -41,6 +45,8 @@ struct MTY_Zoom {
 
 MTY_Zoom *MTY_ZoomCreate() 
 {
+	ptrace("%s", __func__); // XXX TODO temp debug
+
 	MTY_Zoom *ctx = MTY_Alloc(1, sizeof(MTY_Zoom));
 
 	ctx->mode = MTY_INPUT_MODE_TOUCHSCREEN;
@@ -56,6 +62,8 @@ MTY_Zoom *MTY_ZoomCreate()
 
 void MTY_ZoomDestroy(MTY_Zoom **zoom)
 {
+	ptrace("%s", __func__); // XXX TODO temp debug
+
 	if (!zoom || !*zoom)
 		return;
 
@@ -118,6 +126,9 @@ void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, 
 	if (same_window && same_image)
 		return;
 
+	ptrace("%s  windowWidth=%u  windowHeight=%u  imageWidth=%u  imageHeight=%u",
+		__func__, windowWidth, windowHeight, imageWidth, imageHeight); // XXX TODO temp debug
+
 	ctx->window_w = (float) windowWidth;
 	ctx->window_h = (float) windowHeight;
 	ctx->image_w = (float) imageWidth;
@@ -166,6 +177,9 @@ void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, 
 
 void MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY)
 {
+	ptrace("%s  scaleFactor=%f  focusX=%f  focusY=%f",
+		__func__, scaleFactor, focusX, focusY); // XXX TODO temp debug
+
 	VALIDATE_CTX(ctx);
 
 	if (!mty_zoom_context_initialized(ctx) || scaleFactor == 0.0f)
@@ -223,6 +237,8 @@ void MTY_ZoomScale(MTY_Zoom *ctx, float scaleFactor, float focusX, float focusY)
 
 void MTY_ZoomMove(MTY_Zoom *ctx, int32_t x, int32_t y, bool start)
 {
+	ptrace("%s  x=%d  y=%d  start=%c", __func__, x, y, start ? 'Y' : 'N'); // XXX TODO temp debug
+
 	VALIDATE_CTX(ctx);
 
 	if (!mty_zoom_context_initialized(ctx) || ctx->scaling)
@@ -362,6 +378,8 @@ bool MTY_ZoomIsScaling(MTY_Zoom *ctx)
 
 void MTY_ZoomSetScaling(MTY_Zoom *ctx, bool scaling)
 {
+	ptrace("%s %c", __func__, scaling ? 'Y' : 'N'); // XXX TODO temp debug
+
 	VALIDATE_CTX(ctx);
 
 	ctx->scaling = scaling;
@@ -376,6 +394,8 @@ bool MTY_ZoomIsRelative(MTY_Zoom *ctx)
 
 void MTY_ZoomSetRelative(MTY_Zoom *ctx, bool relative)
 {
+	ptrace("%s %c", __func__, relative ? 'Y' : 'N'); // XXX TODO temp debug
+
 	VALIDATE_CTX(ctx);
 
 	ctx->relative = relative;
@@ -416,6 +436,8 @@ bool MTY_ZoomShouldShowCursor(MTY_Zoom *ctx)
 
 void MTY_ZoomSetLimits(MTY_Zoom *ctx, float min, float max)
 {
+	ptrace("%s  min=%f  max=%f", __func__, min, max); // XXX TODO temp debug
+
 	VALIDATE_CTX(ctx);
 
 	ctx->scale_screen_min = min;

@@ -5,7 +5,9 @@
 #include <math.h>
 
 #define DEBUG       // XXX TODO temp debug hack
-#define __WINDOWS__ // XXX TODO temp debug hack
+#if defined(_MSC_VER)
+# define __WINDOWS__ // XXX TODO temp debug hack
+#endif
 #include "ptrace.h" // XXX TODO temp debug hack
 
 // XXX Required because clicks does not always fire on the edges

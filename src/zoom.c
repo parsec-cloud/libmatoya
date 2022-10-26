@@ -117,6 +117,22 @@ static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 		ctx->image.y = ctx->image_max.y - image_scaled_h;
 }
 
+MTY_Point MTY_ZoomGetImageMin(MTY_Zoom *ctx)
+{
+	MTY_Point nullpos = { .x = 0, .y = 0 };
+	VALIDATE_CTX(ctx, nullpos);
+
+	return ctx->image_min;
+}
+
+MTY_Point MTY_ZoomGetImageMax(MTY_Zoom *ctx)
+{
+	MTY_Point nullpos = { .x = 0, .y = 0 };
+	VALIDATE_CTX(ctx, nullpos);
+
+	return ctx->image_max;
+}
+
 void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, uint32_t imageWidth, uint32_t imageHeight)
 {
 	VALIDATE_CTX(ctx);

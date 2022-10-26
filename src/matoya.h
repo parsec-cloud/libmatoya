@@ -3723,6 +3723,14 @@ MTY_ZoomGetCursorX(MTY_Zoom *ctx);
 MTY_EXPORT int32_t
 MTY_ZoomGetCursorY(MTY_Zoom *ctx);
 
+/// @brief Get the minimum image point for the current zoom.
+MTY_EXPORT MTY_Point
+MTY_ZoomGetImageMin(MTY_Zoom *ctx);
+
+/// @brief Get the maximum image point for the current zoom.
+MTY_EXPORT MTY_Point
+MTY_ZoomGetImageMax(MTY_Zoom *ctx);
+
 /// @brief Check whether a scaling gesture is in progress or not.
 /// @param ctx The MTY_Zoom.
 /// @returns True when scaling, otherwise false.

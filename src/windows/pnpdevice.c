@@ -166,39 +166,18 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 		detailDataBuffer->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
 
 		// get content
-		if (SetupDiGetDeviceInterfaceDetail(
-			hDevInfo,
-			&deviceInterfaceData,
-			detailDataBuffer,
-			requiredSize,
-			&requiredSize,
-			NULL
-		)) {
+		if (SetupDiGetDeviceInterfaceDetail(hDevInfo, &deviceInterfaceData, detailDataBuffer, requiredSize, &requiredSize, NULL)) {
 			ULONG bytes = 0;
 			DEVPROPTYPE type = 0;
 			// get required property size in bytes
-			CONFIGRET ret = CM_Get_Device_Interface_Property(
-				detailDataBuffer->DevicePath,
-				&DEVPKEY_Device_InstanceId,
-				&type,
-				NULL,
-				&bytes,
-				0
-			);
+			CONFIGRET ret = CM_Get_Device_Interface_Property(detailDataBuffer->DevicePath, &DEVPKEY_Device_InstanceId, &type, NULL, &bytes, 0);
 			if (ret != CR_BUFFER_SMALL)
 				goto except;
 			
 			instanceId = calloc(bytes, 1);
 
 			// get property content
-			ret = CM_Get_Device_Interface_Property(
-				detailDataBuffer->DevicePath,
-				&DEVPKEY_Device_InstanceId,
-				&type,
-				(PBYTE)instanceId,
-				&bytes,
-				0
-			);
+			ret = CM_Get_Device_Interface_Property(detailDataBuffer->DevicePath, &DEVPKEY_Device_InstanceId, &type, (PBYTE) instanceId, &bytes, 0);
 			if (ret != CR_SUCCESS)
 				goto except;
 			
@@ -227,11 +206,10 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 		SetLastError(ERROR_SUCCESS);
 	}
 
-except:
-	if (instanceId)
-		free(instanceId);
-	if (detailDataBuffer)
-		free(detailDataBuffer);
+	except:
+
+	free(instanceId);
+	free(detailDataBuffer);
 
 	err = GetLastError();
 	if (hDevInfo)
@@ -251,12 +229,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 
 	SP_DEVINFO_DATA spDevInfoData = {0};
 
-	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(
-		classGuid,
-		NULL,
-		NULL,
-		DIGCF_PRESENT
-	);
+	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(classGuid, NULL, NULL, DIGCF_PRESENT);
 
 	if (hDevInfo == INVALID_HANDLE_VALUE)
 		return succeeded;
@@ -269,13 +242,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 		uint32_t instance = 0;
 
 		// get hardware ID(s) property
-		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo,
-			&spDevInfoData,
-			SPDRP_HARDWAREID,
-			NULL,
-			(PBYTE)buffer,
-			bufferSize,
-			&bufferSize)) {
+		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo, &spDevInfoData, SPDRP_HARDWAREID, NULL, (PBYTE) buffer, bufferSize, &bufferSize)) {
 			
 			if (GetLastError() == ERROR_INVALID_DATA)
 				break;

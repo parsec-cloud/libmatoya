@@ -73,8 +73,8 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 				if (buffer)
 					LocalFree(buffer);
 				buffer = LocalAlloc(LPTR, bufferSize);
+
 			} else {
-				
 				goto except;
 			}
 		}

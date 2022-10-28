@@ -129,12 +129,7 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 
 	SP_DEVINFO_DATA spDevInfoData = {0};
 
-	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(
-		interfaceGuid,
-		NULL,
-		NULL,
-		DIGCF_PRESENT | DIGCF_DEVICEINTERFACE
-	);
+	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(interfaceGuid, NULL, NULL, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
 
 	if (hDevInfo == INVALID_HANDLE_VALUE)
 		return succeeded;

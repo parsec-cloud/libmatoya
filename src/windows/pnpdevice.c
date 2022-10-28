@@ -331,15 +331,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 
 			buffer = LocalAlloc(LPTR, bufferSize);
 
-			if (RegGetValueA(
-				hKey,
-				NULL,
-				DRIVER_VERSION_VALUE_NAME,
-				RRF_RT_REG_SZ | RRF_ZEROONFAILURE,
-				NULL,
-				buffer,
-				&bufferSize
-			)) {
+			if (RegGetValueA(hKey, NULL, DRIVER_VERSION_VALUE_NAME, RRF_RT_REG_SZ | RRF_ZEROONFAILURE, NULL, buffer, &bufferSize)) {
 				LocalFree(buffer);
 				goto except;
 			}

@@ -1016,6 +1016,10 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
+void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
+{
+}
+
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 {
 	return MTY_INPUT_MODE_UNSPECIFIED;

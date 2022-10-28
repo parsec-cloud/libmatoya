@@ -311,15 +311,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 
 			buffer = LocalAlloc(LPTR, bufferSize);
 			// get driver key name content
-			if (!SetupDiGetDeviceRegistryPropertyA(
-				hDevInfo,
-				&spDevInfoData,
-				SPDRP_DRIVER,
-				NULL,
-				(PBYTE)buffer,
-				bufferSize,
-				&bufferSize
-			)) {
+			if (!SetupDiGetDeviceRegistryPropertyA(hDevInfo, &spDevInfoData, SPDRP_DRIVER, NULL, (PBYTE) buffer, bufferSize, &bufferSize)) {
 				LocalFree(buffer);
 				goto except;
 			}

@@ -43,12 +43,7 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 
 	SP_DEVINFO_DATA spDevInfoData = {0};
 
-	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(
-		classGuid,
-		NULL,
-		NULL,
-		DIGCF_PRESENT
-	);
+	const HDEVINFO hDevInfo = SetupDiGetClassDevsA(classGuid, NULL, NULL, DIGCF_PRESENT);
 
 	if (hDevInfo == INVALID_HANDLE_VALUE)
 		return succeeded;

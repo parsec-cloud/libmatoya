@@ -58,13 +58,7 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 		uint32_t instance = 0;
 
 		// get hardware ID(s) property
-		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo,
-			&spDevInfoData,
-			SPDRP_HARDWAREID,
-			&type,
-			(PBYTE)buffer,
-			bufferSize,
-			&bufferSize)) {
+		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo, &spDevInfoData, SPDRP_HARDWAREID, &type, (PBYTE) buffer, bufferSize, &bufferSize)) {
 			
 			if (GetLastError() == ERROR_INVALID_DATA)
 				break;

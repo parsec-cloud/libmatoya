@@ -74,6 +74,7 @@ OBJS = \
 	src\windows\time.obj \
 	src\windows\tlsw.obj \
 	src\windows\wintab.obj \
+	src\windows\pnpdevice.obj \
 	src\windows\gfx\d3d12.obj \
 	src\windows\gfx\d3d12-ctx.obj \
 	src\windows\gfx\d3d12-ui.obj \

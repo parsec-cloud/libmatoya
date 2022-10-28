@@ -3535,6 +3535,65 @@ MTY_EXPORT uint32_t
 MTY_GetVersion(void);
 
 
+//- #module PnP Device
+//- #mbrief Windows device utilities.
+
+/// @brief PnP Device states.
+typedef enum
+{
+	MTY_PNP_DEVICE_STATUS_UNKNOWN          = 0, ///< Unknown status, call GetLastError() for details.
+	MTY_PNP_DEVICE_STATUS_NOT_FOUND        = 1, ///< Device instance not found.
+	MTY_PNP_DEVICE_STATUS_NORMAL           = 2, ///< Device is operational.	
+	MTY_PNP_DEVICE_STATUS_UNKNOWN_PROBLEM  = 3, ///< Device is in an unknown problem state.
+	MTY_PNP_DEVICE_STATUS_DISABLED         = 4, ///< Device is disabled.
+	MTY_PNP_DEVICE_STATUS_DRIVER_ERROR     = 5, ///< Device driver reported an error (e.g. user-mode host process crash).
+	MTY_PNP_DEVICE_STATUS_RESTART_REQUIRED = 6, ///< Device requires a restart to become operational.
+	MTY_PNP_DEVICE_STATUS_DISABLED_SERVICE = 7, ///< Device driver service is disabled.
+	
+} MTY_PnPDeviceStatus;
+
+// forward declaration of GUID type.
+typedef struct _GUID GUID;
+
+/// @brief Queries a pnp device for its status.
+/// @details Attempts to enumerate pnp devices belonging to a given device class with a 
+///   specified hardware ID and optional instance index.
+/// @param classGuid The GUID of the device class.
+/// @param hardwareId One of the hardware ID strings of the device.
+/// @param instanceIndex A zero-based index to differentiate between multiple instances
+///   of the same device.
+/// @param status An MTY_PnPDeviceStatus.
+/// @returns True on success, false otherwise.
+//- #support Windows
+MTY_EXPORT bool
+MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint32_t instanceIndex, MTY_PnPDeviceStatus* status);
+
+/// @brief Queries a pnp device interface for its status.
+/// @details Attempts to enumerate pnp devices exposing a given interface and an
+///   optional instance index.
+/// @param interfaceGuid The GUID of the device interface.
+/// @param instanceIndex A zero-based index to differentiate between multiple instances
+///   of the same device.
+/// @param status An MTY_PnPDeviceStatus.
+/// @returns True on success, false otherwise.
+//- #support Windows
+MTY_EXPORT bool
+MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanceIndex, MTY_PnPDeviceStatus* status);
+
+/// @brief Queries a pnp device for its current driver version.
+/// @details Attempts to enumerate pnp devices belonging to a given device class with a 
+///   specified hardware ID and optional instance index.
+/// @param classGuid The GUID of the device class.
+/// @param hardwareId One of the hardware ID strings of the device.
+/// @param instanceIndex A zero-based index to differentiate between multiple instances
+///   of the same device.
+/// @param version The driver version.
+/// @returns True on success, false otherwise.
+//- #support Windows
+MTY_EXPORT bool 
+MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId, uint32_t instanceIndex, uint32_t* version);
+
+
 #ifdef __cplusplus
 }
 #endif

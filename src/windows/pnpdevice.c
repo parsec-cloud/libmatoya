@@ -1,5 +1,14 @@
 #include "matoya.h"
-#include "pnpdevice.h"
+#include <windows.h>
+#include <setupapi.h>
+#include <cfgmgr32.h>
+#include <initguid.h>
+#include <devguid.h>
+#include <devpkey.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 
 #define DRIVER_VERSION_VALUE_NAME	"DriverVersion"
 

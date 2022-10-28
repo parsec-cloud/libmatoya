@@ -151,13 +151,7 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 	deviceInterfaceData.cbSize = sizeof(deviceInterfaceData);
 
 	// enumerate device instances
-	while (SetupDiEnumDeviceInterfaces(
-		hDevInfo,
-		NULL,
-		interfaceGuid,
-		memberIndex++,
-		&deviceInterfaceData
-	)) {
+	while (SetupDiEnumDeviceInterfaces(hDevInfo, NULL, interfaceGuid, memberIndex++, &deviceInterfaceData)) {
 		// get required target buffer size
 		SetupDiGetDeviceInterfaceDetail(hDevInfo, &deviceInterfaceData, NULL, 0, &requiredSize, NULL);
 

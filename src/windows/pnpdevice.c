@@ -104,7 +104,8 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 		succeeded = true;
 	}
 
-except:
+	except:
+
 	err = GetLastError();
 	if (hDevInfo)
 		SetupDiDestroyDeviceInfoList(hDevInfo);

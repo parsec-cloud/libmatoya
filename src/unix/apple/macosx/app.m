@@ -1656,8 +1656,14 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 
 bool MTY_WindowContainsCursor(MTY_App *app, MTY_Window window)
 {
-	// XXX TODO : Not implemented for Mac yet.
-	return false;
+	Window *pwin = app_get_window(app, window);
+	if (!pwin)
+		return false;
+
+	NSPoint cursor_pos = [NSEvent mouseLocation];
+	bool result = ([NSWindow windowNumberAtPoint:cursor_pos belowWindowWithWindowNumber:0] == pwin.windowNumber);
+
+	return result;
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)

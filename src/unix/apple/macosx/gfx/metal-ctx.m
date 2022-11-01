@@ -186,5 +186,15 @@ bool mty_metal_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 
 bool mty_metal_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
 {
-	return false;
+	struct metal_ctx *ctx = (struct metal_ctx *) gfx_ctx;
+
+	bool result = true;
+
+	if (@available(macOS 10.15, *)) {
+		// This technique is courtesy of chromium: https://github.com/chromium/chromium/blob/6f4bb1a1f8a84792ee34a24f58163bcc445ca687/ui/display/mac/screen_mac.mm#L220
+		const float edr = [ctx->window.screen maximumPotentialExtendedDynamicRangeColorComponentValue];
+		result = edr > 1.0f;
+	}
+
+	return result;
 }

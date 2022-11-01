@@ -37,7 +37,36 @@ struct metal {
 	id<MTLSamplerState> ss_nearest;
 	id<MTLSamplerState> ss_linear;
 	id<MTLTexture> niltex;
+	bool hdr;
 };
+
+static NSError *metal_create_pipeline(struct metal *ctx, id<MTLDevice> device, bool hdr)
+{
+	MTLVertexDescriptor *vdesc = [MTLVertexDescriptor vertexDescriptor];
+	MTLRenderPipelineDescriptor *pdesc = [MTLRenderPipelineDescriptor new];
+
+	vdesc.attributes[0].offset = 0;
+	vdesc.attributes[0].format = MTLVertexFormatFloat2;
+	vdesc.attributes[1].offset = 2 * sizeof(float);
+	vdesc.attributes[1].format = MTLVertexFormatFloat2;
+	vdesc.layouts[0].stepRate = 1;
+	vdesc.layouts[0].stepFunction = MTLVertexStepFunctionPerVertex;
+	vdesc.layouts[0].stride = 4 * sizeof(float);
+
+	pdesc.sampleCount = 1;
+	pdesc.vertexFunction = ctx->vs;
+	pdesc.fragmentFunction = ctx->fs;
+	pdesc.vertexDescriptor = vdesc;
+	pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+	if (@available(macOS 11.0, *))
+		if (hdr)
+			pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGR10A2Unorm;
+
+	NSError *nse = nil;
+	ctx->pipeline = [device newRenderPipelineStateWithDescriptor:pdesc error:&nse];
+
+	return nse;
+}
 
 struct gfx *mty_metal_create(MTY_Device *device)
 {
@@ -46,8 +75,6 @@ struct gfx *mty_metal_create(MTY_Device *device)
 
 	bool r = true;
 
-	MTLVertexDescriptor *vdesc = [MTLVertexDescriptor vertexDescriptor];
-	MTLRenderPipelineDescriptor *pdesc = [MTLRenderPipelineDescriptor new];
 	MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
 	MTLTextureDescriptor *tdesc = [MTLTextureDescriptor new];
 
@@ -82,23 +109,9 @@ struct gfx *mty_metal_create(MTY_Device *device)
 
 	ctx->ib = [_device newBufferWithBytes:idata length:sizeof(idata) options:MTLResourceCPUCacheModeWriteCombined];
 
-	vdesc.attributes[0].offset = 0;
-	vdesc.attributes[0].format = MTLVertexFormatFloat2;
-	vdesc.attributes[1].offset = 2 * sizeof(float);
-	vdesc.attributes[1].format = MTLVertexFormatFloat2;
-	vdesc.layouts[0].stepRate = 1;
-	vdesc.layouts[0].stepFunction = MTLVertexStepFunctionPerVertex;
-	vdesc.layouts[0].stride = 4 * sizeof(float);
+	ctx->hdr = false;
 
-	pdesc.sampleCount = 1;
-	pdesc.vertexFunction = ctx->vs;
-	pdesc.fragmentFunction = ctx->fs;
-	pdesc.vertexDescriptor = vdesc;
-	pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-	if (@available(macOS 10.13, *))
-		pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGR10A2Unorm;
-
-	ctx->pipeline = [_device newRenderPipelineStateWithDescriptor:pdesc error:&nse];
+	nse = metal_create_pipeline(ctx, false, _device);
 	if (nse) {
 		r = false;
 		MTY_Log("%s", [[nse localizedDescription] UTF8String]);
@@ -196,6 +209,18 @@ bool mty_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	if (!fmt_reload_textures(gfx, device, context, image, desc, metal_refresh_resource))
 		return false;
 
+	if (ctx->hdr != desc->hdr) {
+		id<MTLDevice> _device = (__bridge id<MTLDevice>) device;
+		NSError *nse = metal_create_pipeline(ctx, _device, desc->hdr);
+		if (nse) {
+			MTY_Log("%s", [[nse localizedDescription] UTF8String]);
+			return false;
+
+		}
+
+		ctx->hdr = desc->hdr;
+	}
+
 	// Begin render pass
 	MTLRenderPassDescriptor *rpd = [MTLRenderPassDescriptor new];
 	rpd.colorAttachments[0].texture = _dest;
@@ -243,6 +268,7 @@ bool mty_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	ctx->fcb.planes = FMT_INFO[ctx->format].planes;
 	ctx->fcb.rotation = desc->rotation;
 	ctx->fcb.conversion = FMT_CONVERSION(ctx->format, desc->fullRangeYUV, desc->multiplyYUV);
+	ctx->fcb.hdr = desc->hdr;
 	[re setFragmentBytes:&ctx->fcb length:sizeof(struct gfx_uniforms) atIndex:0];
 
 	// Draw

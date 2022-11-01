@@ -21,6 +21,8 @@ struct metal_ctx {
 	id<MTLCommandQueue> cq;
 	MTY_Renderer *renderer;
 	CGSize size;
+	bool hdr;
+	bool composite_ui;
 };
 
 static CGSize metal_ctx_get_size(struct metal_ctx *ctx)
@@ -60,16 +62,8 @@ struct gfx_ctx *mty_metal_ctx_create(void *native_window, bool vsync)
 		ctx->layer.device = device;
 		ctx->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 
-		if (@available(macOS 10.13, *)) {
-			ctx->layer.pixelFormat = MTLPixelFormatBGR10A2Unorm;			
+		if (@available(macOS 10.13, *))
 			ctx->layer.displaySyncEnabled = vsync ? YES : NO;
-		}
-
-		if (@available(macOS 12.0, *)) {
-			CGColorSpaceRef cs = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ);
-			ctx->layer.colorspace = cs;
-			// TODO: Must release this at the end?
-		}
 
 		ctx->cq = [ctx->layer.device newCommandQueue];
 
@@ -120,6 +114,11 @@ static void metal_ctx_refresh(struct metal_ctx *ctx)
 		ctx->layer.drawableSize = size;
 		ctx->size = size;
 	}
+
+	if (@available(macOS 11.0, *)) {
+		ctx->layer.pixelFormat = ctx->hdr ? MTLPixelFormatBGR10A2Unorm : MTLPixelFormatBGRA8Unorm;
+		ctx->layer.colorspace = CGColorSpaceCreateWithName(ctx->hdr ? kCGColorSpaceITUR_2100_PQ : kCGColorSpaceSRGB); // within autoreleasepool so no need to explicitly release this
+	}
 }
 
 MTY_Surface *mty_metal_ctx_get_surface(struct gfx_ctx *gfx_ctx)
@@ -147,12 +146,16 @@ void mty_metal_ctx_present(struct gfx_ctx *gfx_ctx)
 		[cb waitUntilCompleted];
 
 		ctx->back_buffer = nil;
+
+		ctx->composite_ui = false;
 	}
 }
 
 void mty_metal_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
 {
 	struct metal_ctx *ctx = (struct metal_ctx *) gfx_ctx;
+
+	ctx->hdr = desc->hdr;
 
 	mty_metal_ctx_get_surface(gfx_ctx);
 
@@ -163,12 +166,19 @@ void mty_metal_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 
 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
 			(__bridge MTY_Context *) ctx->cq, image, &mutated, (__bridge MTY_Surface *) ctx->back_buffer.texture);
+
+		ctx->composite_ui = ctx->hdr;
 	}
 }
 
 void mty_metal_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 {
 	struct metal_ctx *ctx = (struct metal_ctx *) gfx_ctx;
+
+	MTY_DrawData dd_mutated = *dd;
+	dd_mutated.hdr = ctx->composite_ui;
+
+	ctx->hdr = dd_mutated.hdr;
 
 	mty_metal_ctx_get_surface(gfx_ctx);
 
@@ -199,7 +209,7 @@ bool mty_metal_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
 
 	bool result = true;
 
-	if (@available(macOS 10.15, *)) {
+	if (@available(macOS 11.0, *)) {
 		// This technique is courtesy of chromium: https://github.com/chromium/chromium/blob/6f4bb1a1f8a84792ee34a24f58163bcc445ca687/ui/display/mac/screen_mac.mm#L220
 		const float edr = [ctx->window.screen maximumPotentialExtendedDynamicRangeColorComponentValue];
 		result = edr > 1.0f;

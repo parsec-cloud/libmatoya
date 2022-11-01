@@ -28,7 +28,7 @@ struct cb {
 	uint planes;
 	uint rotation;
 	uint conversion;
-	uint pad1;
+	uint hdr;
 };
 
 vertex struct vs_out vs(struct vtx v [[stage_in]])
@@ -40,7 +40,7 @@ vertex struct vs_out vs(struct vtx v [[stage_in]])
 	return out;
 }
 
-static float4 yuv_to_rgba(uint conversion, float y, float u, float v)
+static float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 {
 	// 10-bit -> 16-bit
 	if (conversion & 0x4) {
@@ -76,9 +76,8 @@ static float4 yuv_to_rgba(uint conversion, float y, float u, float v)
 		}
 	}
 
-	// TODO: hdr flag
-	float kr = 1 ? 0.2627 : 0.2126;
-	float kb = 1 ? 0.0593 : 0.0722;
+	float kr = hdr ? 0.2627 : 0.2126;
+	float kb = hdr ? 0.0593 : 0.0722;
 
 	float r = y + (2.0 - 2.0 * kr) * v;
 	float b = y + (2.0 - 2.0 * kb) * u;
@@ -87,7 +86,7 @@ static float4 yuv_to_rgba(uint conversion, float y, float u, float v)
 	return float4(r, g, b, 1.0);
 }
 
-static float4 sample_rgba(uint planes, uint conversion,
+static float4 sample_rgba(uint planes, uint conversion, uint hdr,
 	texture2d<float, access::sample> tex0, texture2d<float, access::sample> tex1,
 	texture2d<float, access::sample> tex2, sampler s, float2 uv)
 {
@@ -99,21 +98,21 @@ static float4 sample_rgba(uint planes, uint conversion,
 		float u = pixel1.r;
 		float v = pixel1.g;
 
-		return yuv_to_rgba(conversion, y, u, v);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else if (planes == 3) {
 		float y = pixel0.r;
 		float u = tex1.sample(s, uv).r;
 		float v = tex2.sample(s, uv).r;
 
-		return yuv_to_rgba(conversion, y, u, v);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else if (conversion & 0x8) {
 		float y = pixel0.r;
 		float u = pixel0.g;
 		float v = pixel0.b;
 
-		return yuv_to_rgba(conversion, y, u, v);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else {
 		return pixel0;
@@ -184,7 +183,7 @@ fragment float4 fs(
 			sharpen(cb.width, cb.height, cb.levels[x], uv);
 
 	// Sample
-	float4 rgba = sample_rgba(cb.planes, cb.conversion, tex0, tex1, tex2, s, uv);
+	float4 rgba = sample_rgba(cb.planes, cb.conversion, cb.hdr, tex0, tex1, tex2, s, uv);
 
 	// Effects
 	for (uint y = 0; y < 2; y++)

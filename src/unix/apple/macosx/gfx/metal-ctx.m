@@ -66,7 +66,7 @@ struct gfx_ctx *mty_metal_ctx_create(void *native_window, bool vsync)
 		}
 
 		if (@available(macOS 12.0, *)) {
-			CGColorSpaceRef cs = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+			CGColorSpaceRef cs = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ);
 			ctx->layer.colorspace = cs;
 			// TODO: Must release this at the end?
 		}

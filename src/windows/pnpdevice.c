@@ -68,13 +68,13 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 
 		// get hardware ID(s) property
 		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo, &spDevInfoData, SPDRP_HARDWAREID, &type, (PBYTE) buffer, bufferSize, &bufferSize)) {
-			
 			if (GetLastError() == ERROR_INVALID_DATA)
 				break;
 			
 			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 				if (buffer)
 					LocalFree(buffer);
+
 				buffer = LocalAlloc(LPTR, bufferSize);
 
 			} else {
@@ -118,6 +118,7 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 	err = GetLastError();
 	if (hDevInfo)
 		SetupDiDestroyDeviceInfoList(hDevInfo);
+
 	SetLastError(err);
 
 	return succeeded;
@@ -163,6 +164,7 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 		detailDataBuffer = calloc(requiredSize, 1);
 		if (!detailDataBuffer)
 			goto except;
+
 		detailDataBuffer->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
 
 		// get content
@@ -214,6 +216,7 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 	err = GetLastError();
 	if (hDevInfo)
 		SetupDiDestroyDeviceInfoList(hDevInfo);
+
 	SetLastError(err);
 
 	return succeeded;
@@ -243,13 +246,13 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 
 		// get hardware ID(s) property
 		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo, &spDevInfoData, SPDRP_HARDWAREID, NULL, (PBYTE) buffer, bufferSize, &bufferSize)) {
-			
 			if (GetLastError() == ERROR_INVALID_DATA)
 				break;
 
 			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
 				if (buffer)
 					LocalFree(buffer);
+
 				buffer = LocalAlloc(LPTR, bufferSize);
 			} else {
 
@@ -289,7 +292,7 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 			HKEY hKey;
 			CHAR subKey[MAX_PATH];
 			// build driver key path
-			(void)sprintf_s(subKey, MAX_PATH, "SYSTEM\\CurrentControlSet\\Control\\Class\\%s", buffer);
+			sprintf_s(subKey, MAX_PATH, "SYSTEM\\CurrentControlSet\\Control\\Class\\%s", buffer);
 
 			LocalFree(buffer);
 
@@ -331,6 +334,7 @@ except:
 	err = GetLastError();
 	if (hDevInfo)
 		SetupDiDestroyDeviceInfoList(hDevInfo);
+
 	SetLastError(err);
 
 	return succeeded;

@@ -3711,6 +3711,13 @@ MTY_ZoomGetImageX(MTY_Zoom *ctx);
 MTY_EXPORT int32_t
 MTY_ZoomGetImageY(MTY_Zoom *ctx);
 
+/// @brief Sets the position of the zoomed image to a pre-computed position.
+/// @param ctx The MTY_Zoom.
+/// @param x The horizontal position.
+/// @param y The vertical position.
+MTY_EXPORT void
+MTY_ZoomSetImagePosition(MTY_Zoom *ctx, float x, float y);
+
 /// @brief Get the current horizontal position of the cursor.
 /// @param ctx The MTY_Zoom.
 /// @returns The horizontal position, in screen coordinates.

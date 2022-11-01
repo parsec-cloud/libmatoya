@@ -93,20 +93,25 @@ static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 	float image_scaled_w = ctx->image_w * ctx->scale_image;
 	float image_scaled_h = ctx->image_h * ctx->scale_image;
 
-	if (image_scaled_w < ctx->window_w && image_scaled_h < ctx->window_h)
-		return;
+	if (image_scaled_w < ctx->window_w) {
+		// Zoomed width is smaller than window width, so put it in the center.
+		ctx->image.x = ctx->window_w / 2.0f - ctx->image_w / 2.0f * ctx->scale_image;
+	} else {
+		if (ctx->image.x > ctx->image_min.x)
+			ctx->image.x = ctx->image_min.x;
+		if (ctx->image.x < ctx->image_max.x - image_scaled_w)
+			ctx->image.x = ctx->image_max.x - image_scaled_w;
+	}
 
-	if (ctx->image.x > ctx->image_min.x)
-		ctx->image.x = ctx->image_min.x;
-
-	if (ctx->image.y > ctx->image_min.y)
-		ctx->image.y = ctx->image_min.y;
-
-	if (ctx->image.x < ctx->image_max.x - image_scaled_w)
-		ctx->image.x = ctx->image_max.x - image_scaled_w;
-
-	if (ctx->image.y < ctx->image_max.y - image_scaled_h)
-		ctx->image.y = ctx->image_max.y - image_scaled_h;
+	if (image_scaled_h < ctx->window_h) {
+		// Zoomed height is smaller than window height, so put it in the center.
+		ctx->image.y = ctx->window_h / 2.0f - ctx->image_h / 2.0f * ctx->scale_image;
+	} else {
+		if (ctx->image.y > ctx->image_min.y)
+			ctx->image.y = ctx->image_min.y;
+		if (ctx->image.y < ctx->image_max.y - image_scaled_h)
+			ctx->image.y = ctx->image_max.y - image_scaled_h;
+	}
 }
 
 MTY_Point MTY_ZoomGetImageMin(MTY_Zoom *ctx)
@@ -153,9 +158,10 @@ void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, 
 		ctx->image.y = (ctx->window_h - ctx->image_h * ctx->scale_image) / 2.0f;
 
 	// If zoomed image is smaller than window, place it in the center.
-	if (ctx->image_w * ctx->scale_image < ctx->window_w &&
-		ctx->image_h * ctx->scale_image < ctx->window_h) {
+	if (ctx->image_w * ctx->scale_image <= ctx->window_w) {
 		ctx->image.x = ctx->window_w / 2.0f - ctx->image_w / 2.0f * ctx->scale_image;
+	}
+	if (ctx->image_h * ctx->scale_image <= ctx->window_h) {
 		ctx->image.y = ctx->window_h / 2.0f - ctx->image_h / 2.0f * ctx->scale_image;
 	}
 
@@ -347,6 +353,17 @@ int32_t MTY_ZoomGetImageY(MTY_Zoom *ctx)
 	VALIDATE_CTX(ctx, 0);
 
 	return lrint(ctx->image.y);
+}
+
+void MTY_ZoomSetImagePosition(MTY_Zoom *ctx, float x, float y)
+{
+	if (!ctx)
+		return;
+
+	ctx->image.x = x;
+	ctx->image.y = y;
+
+	mty_zoom_restrict_image(ctx);
 }
 
 int32_t MTY_ZoomGetCursorX(MTY_Zoom *ctx)

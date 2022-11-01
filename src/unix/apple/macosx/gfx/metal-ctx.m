@@ -10,6 +10,7 @@ GFX_CTX_PROTOTYPES(_metal_)
 #include <Metal/Metal.h>
 #include <AppKit/AppKit.h>
 #include <QuartzCore/CAMetalLayer.h>
+#include <CoreGraphics/CGColorSpace.h>
 
 #include "scale.h"
 
@@ -59,8 +60,16 @@ struct gfx_ctx *mty_metal_ctx_create(void *native_window, bool vsync)
 		ctx->layer.device = device;
 		ctx->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 
-		if (@available(macOS 10.13, *))
+		if (@available(macOS 10.13, *)) {
+			ctx->layer.pixelFormat = MTLPixelFormatBGR10A2Unorm;			
 			ctx->layer.displaySyncEnabled = vsync ? YES : NO;
+		}
+
+		if (@available(macOS 12.0, *)) {
+			CGColorSpaceRef cs = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ);
+			ctx->layer.colorspace = cs;
+			// TODO: Must release this at the end?
+		}
 
 		ctx->cq = [ctx->layer.device newCommandQueue];
 

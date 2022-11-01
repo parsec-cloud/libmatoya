@@ -95,6 +95,8 @@ struct gfx *mty_metal_create(MTY_Device *device)
 	pdesc.fragmentFunction = ctx->fs;
 	pdesc.vertexDescriptor = vdesc;
 	pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+	if (@available(macOS 10.13, *))
+		pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGR10A2Unorm;
 
 	ctx->pipeline = [_device newRenderPipelineStateWithDescriptor:pdesc error:&nse];
 	if (nse) {

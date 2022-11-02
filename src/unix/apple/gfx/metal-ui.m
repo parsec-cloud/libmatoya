@@ -22,6 +22,12 @@ struct metal_ui {
 	uint32_t ib_len;
 };
 
+struct metal_ui_ub {
+	uint32_t hdr;
+	float hdr_brighten_factor;
+	uint32_t __pad[2]; // best align to 16 bytes
+};
+
 struct gfx_ui *mty_metal_ui_create(MTY_Device *device)
 {
 	struct metal_ui *ctx = MTY_Alloc(1, sizeof(struct metal_ui));
@@ -142,6 +148,12 @@ bool mty_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	[re setVertexBytes:&proj length:sizeof(proj) atIndex:1];
 	[re setRenderPipelineState:ctx->rps];
 	[re setVertexBuffer:ctx->vb offset:0 atIndex:0];
+
+	struct metal_ui_ub ub = {
+		.hdr = (uint32_t) dd->hdr,
+		.hdr_brighten_factor = 1.75f,
+	};
+	[re setFragmentBytes:&ub length:sizeof(ub) atIndex:0];
 
 	// Draw
 	uint32_t vertexOffset = 0;

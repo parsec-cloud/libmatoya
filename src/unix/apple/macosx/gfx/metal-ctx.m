@@ -116,8 +116,13 @@ static void metal_ctx_refresh(struct metal_ctx *ctx)
 	}
 
 	if (@available(macOS 11.0, *)) {
+		ctx->layer.wantsExtendedDynamicRangeContent = ctx->hdr ? YES : NO;
+
 		ctx->layer.pixelFormat = ctx->hdr ? MTLPixelFormatBGR10A2Unorm : MTLPixelFormatBGRA8Unorm;
-		ctx->layer.colorspace = CGColorSpaceCreateWithName(ctx->hdr ? kCGColorSpaceITUR_2100_PQ : kCGColorSpaceSRGB); // within autoreleasepool so no need to explicitly release this
+
+		CGColorSpaceRef cs = CGColorSpaceCreateWithName(ctx->hdr ? kCGColorSpaceITUR_2100_PQ : kCGColorSpaceSRGB);
+		ctx->layer.colorspace = cs;
+		CGColorSpaceRelease(cs);
 	}
 }
 
@@ -184,7 +189,7 @@ void mty_metal_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 
 	if (ctx->back_buffer)
 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
-			(__bridge MTY_Context *) ctx->cq, dd, (__bridge MTY_Surface *) ctx->back_buffer.texture);
+			(__bridge MTY_Context *) ctx->cq, &dd_mutated, (__bridge MTY_Surface *) ctx->back_buffer.texture);
 }
 
 bool mty_metal_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,

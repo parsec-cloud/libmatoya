@@ -118,7 +118,7 @@ static void metal_ctx_refresh(struct metal_ctx *ctx)
 	if (@available(macOS 11.0, *)) {
 		ctx->layer.wantsExtendedDynamicRangeContent = ctx->hdr ? YES : NO;
 
-		ctx->layer.pixelFormat = ctx->hdr ? MTLPixelFormatBGR10A2Unorm : MTLPixelFormatBGRA8Unorm;
+		ctx->layer.pixelFormat = ctx->hdr ? MTLPixelFormatBGR10_XR : MTLPixelFormatBGRA8Unorm;
 
 		// CGColorSpaceRef cs = CGColorSpaceCreateWithName(ctx->hdr ? kCGColorSpaceITUR_2100_PQ : kCGColorSpaceSRGB);
 		CGColorSpaceRef cs = CGColorSpaceCreateWithName(ctx->hdr ? kCGColorSpaceExtendedLinearITUR_2020 : kCGColorSpaceSRGB);

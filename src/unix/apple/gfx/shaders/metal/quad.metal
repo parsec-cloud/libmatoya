@@ -61,7 +61,7 @@ static constant float PQ_c_2 = 2413.0f / 4096.0f * 32.0f;
 static constant float PQ_c_3 = 2392.0f / 4096.0f * 32.0f;
 
 static constant float HDR10_MAX_NITS = 10000.0f;
-static constant float SDR_MAX_NITS = 300.0f; // the reference sRGB luminance is 80 nits (aka the brightness of paper white)
+static constant float SDR_MAX_NITS = 80.0f; // the reference sRGB luminance is 80 nits (aka the brightness of paper white)
 
 float3 rec2020_pq_to_rec2020_linear(float3 color)
 {

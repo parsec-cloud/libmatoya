@@ -120,7 +120,8 @@ static void metal_ctx_refresh(struct metal_ctx *ctx)
 
 		ctx->layer.pixelFormat = ctx->hdr ? MTLPixelFormatBGR10A2Unorm : MTLPixelFormatBGRA8Unorm;
 
-		CGColorSpaceRef cs = CGColorSpaceCreateWithName(ctx->hdr ? kCGColorSpaceITUR_2100_PQ : kCGColorSpaceSRGB);
+		// CGColorSpaceRef cs = CGColorSpaceCreateWithName(ctx->hdr ? kCGColorSpaceITUR_2100_PQ : kCGColorSpaceSRGB);
+		CGColorSpaceRef cs = CGColorSpaceCreateWithName(ctx->hdr ? kCGColorSpaceExtendedLinearITUR_2020 : kCGColorSpaceSRGB);
 		ctx->layer.colorspace = cs;
 		CGColorSpaceRelease(cs);
 	}

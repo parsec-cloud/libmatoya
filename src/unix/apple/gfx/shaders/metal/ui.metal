@@ -126,7 +126,7 @@ fragment float4 fs(VertexOut in [[stage_in]],
 		ui_rgb = srgb_to_linear(ui_rgb); // UI texture is encoded non-linearly in sRGB, so we need to first linearize it
 		ui_rgb = srgb_linear_to_rec2020_linear(ui_rgb);
 		ui_rgb *= cb.hdr_brighten_factor; // 1.0 in sRGB is 80 nits which is the reference SDR luminance but most SDR displays will actually render 1.0 at around 200-300 nits for improved viewing; we mimic this by brightening the UI texture by a configurable constant
-		ui_rgb = rec2020_linear_to_rec2020_pq(ui_rgb);
+		// ui_rgb = rec2020_linear_to_rec2020_pq(ui_rgb);
 		ui.rgb = ui_rgb;
 	}
 

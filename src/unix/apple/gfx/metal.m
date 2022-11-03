@@ -60,7 +60,7 @@ static NSError *metal_create_pipeline(struct metal *ctx, id<MTLDevice> device, b
 	pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
 	if (@available(macOS 11.0, *))
 		if (hdr)
-			pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatBGR10A2Unorm;
+			pdesc.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA16Float;
 
 	NSError *nse = nil;
 	ctx->pipeline = [device newRenderPipelineStateWithDescriptor:pdesc error:&nse];

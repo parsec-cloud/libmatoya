@@ -165,11 +165,6 @@ static bool libssl_global_init(void)
 		}
 
 		if (!LIBSSL_SO) {
-			LIBSSL_SO = MTY_SOLoad("libssl.so.3");
-			library_init = false;
-		}
-
-		if (!LIBSSL_SO) {
 			r = false;
 			goto except;
 		}
@@ -188,14 +183,6 @@ static bool libssl_global_init(void)
 		LOAD_SYM(LIBSSL_SO, SSL_do_handshake);
 		LOAD_SYM(LIBSSL_SO, SSL_use_certificate);
 		LOAD_SYM(LIBSSL_SO, SSL_use_RSAPrivateKey);
-		LOAD_SYM_OPT(LIBSSL_SO, SSL_get_peer_certificate);
-		if (!SSL_get_peer_certificate) {
-			SSL_get_peer_certificate = MTY_SOGetSymbol(LIBSSL_SO, "SSL_get1_peer_certificate");
-			if (!SSL_get_peer_certificate) {
-				r = false;
-				goto except;
-			}
-		}
 
 		// libssl 3 uses a different symbol for SSL_get_peer_certificate
 		if (ssl3) {

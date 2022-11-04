@@ -698,12 +698,6 @@ static void window_mod_event(Window *window, NSEvent *event)
 	evt.key.key = keymap_keycode_to_key(event.keyCode);
 	evt.key.mod = keymap_modifier_flags_to_keymod(event.modifierFlags);
 
-	// Macos doesn't send capslock keycodes, so emulate them to act more like windows
-	if (event.keyCode == kVK_CapsLock) {
-		window_keyboard_event(window, event.keyCode, event.modifierFlags, true);
-		window_keyboard_event(window, event.keyCode, event.modifierFlags, false);
-	}
-
 	switch (evt.key.key) {
 		case MTY_KEY_LSHIFT: evt.key.pressed = evt.key.mod & MTY_MOD_LSHIFT; break;
 		case MTY_KEY_LCTRL:  evt.key.pressed = evt.key.mod & MTY_MOD_LCTRL;  break;

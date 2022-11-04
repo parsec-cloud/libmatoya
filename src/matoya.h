@@ -2058,7 +2058,6 @@ MTY_JSONArrayGetItem(const MTY_JSON *json, uint32_t index);
 MTY_EXPORT bool
 MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, MTY_JSON *value);
 
-/// @brief Get a string value from a JSON object.
 /// @brief Create a new MTY_JSON object.
 /// @returns The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
 ///   remains the root item in the hierarchy.

@@ -109,9 +109,6 @@ void *MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint3
 	if (!cgimg)
 		goto except;
 
-	if (CGImageGetBitsPerPixel(cgimg) != 32)
-		goto except;
-
 	*width = CGImageGetWidth(cgimg);
 	*height = CGImageGetHeight(cgimg);
 

@@ -79,6 +79,17 @@ static float mty_zoom_transform_x(MTY_Zoom *ctx, float value)
 	return offset_x + zoom_w * ratio_x;
 }
 
+static float mty_zoom_inverse_transform_x(MTY_Zoom *ctx, float value)
+{
+	float offset_x = -ctx->image.x / ctx->scale_screen + ctx->image_min.x;
+	float zoom_w   = ctx->window_w / ctx->scale_screen;
+
+	if (zoom_w == 0 || ctx->window_w == 0)
+		return 0.0f;
+
+	return (value - offset_x) / (zoom_w / ctx->window_w);
+}
+
 static float mty_zoom_transform_y(MTY_Zoom *ctx, float value)
 {
 	float offset_y = -ctx->image.y / ctx->scale_screen + ctx->image_min.y;
@@ -88,10 +99,27 @@ static float mty_zoom_transform_y(MTY_Zoom *ctx, float value)
 	return offset_y + zoom_h * ratio_y;
 }
 
+static float mty_zoom_inverse_transform_y(MTY_Zoom *ctx, float value)
+{
+	float offset_y = -ctx->image.y / ctx->scale_screen + ctx->image_min.y;
+	float zoom_h   = ctx->window_h / ctx->scale_screen;
+
+	if (zoom_h == 0 || ctx->window_h == 0)
+		return 0.0f;
+
+	return (value - offset_y) / (zoom_h / ctx->window_h);
+}
+
 static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 {
 	float image_scaled_w = ctx->image_w * ctx->scale_image;
 	float image_scaled_h = ctx->image_h * ctx->scale_image;
+
+#if 1
+	// XXX TODO temp debug
+	float before_x = ctx->image.x;
+	float before_y = ctx->image.y;
+#endif
 
 	if (image_scaled_w < ctx->window_w) {
 		// Zoomed width is smaller than window width, so put it in the center.
@@ -112,6 +140,14 @@ static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 		if (ctx->image.y < ctx->image_max.y - image_scaled_h)
 			ctx->image.y = ctx->image_max.y - image_scaled_h;
 	}
+
+#if 1
+	// XXX TODO temp debug
+	if (before_x != ctx->image.x)
+		printf("  X restricted (was %f, now %f)\n", before_x, ctx->image.x);
+	if (before_y != ctx->image.y)
+		printf("  Y restricted (was %f, now %f)\n", before_y, ctx->image.y);
+#endif
 }
 
 MTY_Point MTY_ZoomGetImageMin(MTY_Zoom *ctx)
@@ -334,11 +370,44 @@ int32_t MTY_ZoomTransformY(MTY_Zoom *ctx, int32_t value)
 	return lrint(mty_zoom_transform_y(ctx, (float) value));
 }
 
+float MTY_ZoomInverseTransformX(MTY_Zoom *ctx, float value)
+{
+	VALIDATE_CTX(ctx, value);
+
+	if (ctx->relative)
+		return value * ctx->scale_screen;
+
+	if (ctx->mode == MTY_INPUT_MODE_TRACKPAD)
+		return ctx->cursor.x;
+
+	return mty_zoom_inverse_transform_x(ctx, value);
+}
+
+float MTY_ZoomInverseTransformY(MTY_Zoom *ctx, float value)
+{
+	VALIDATE_CTX(ctx, value);
+
+	if (ctx->relative)
+		return value * ctx->scale_screen;
+
+	if (ctx->mode == MTY_INPUT_MODE_TRACKPAD)
+		return ctx->cursor.y;
+
+	return mty_zoom_inverse_transform_y(ctx, value);
+}
+
 float MTY_ZoomGetScale(MTY_Zoom *ctx)
 {
 	VALIDATE_CTX(ctx, 1);
 
 	return ctx->scale_image;
+}
+
+float MTY_ZoomGetScreenScale(MTY_Zoom *ctx)
+{
+	VALIDATE_CTX(ctx, 1);
+
+	return ctx->scale_screen;
 }
 
 int32_t MTY_ZoomGetImageX(MTY_Zoom *ctx)

@@ -1164,12 +1164,6 @@ MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window);
 MTY_EXPORT float
 MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window);
 
-/// @brief Get the refresh rate of the display where the window currently resides.
-/// @param app The MTY_App.
-/// @param window An MTY_Window.
-MTY_EXPORT uint32_t
-MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window);
-
 /// @brief Set the window's title.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
@@ -2030,13 +2024,12 @@ MTY_JSONStringCreate(const char *value);
 MTY_EXPORT bool
 MTY_JSONString(const MTY_JSON *json, char *value, size_t size);
 
-/// @brief Get the internal string value from an MTY_JSON string.
+/// @brief Get the internal string pointer from an MTY_JSON string.
 /// @param json An MTY_JSON string.
-/// @returns Returns a reference to the string used internally by `json`.
-///   This reference is valid only as long as the `json` item is also valid.
-///   Returns NULL if the type of `json` is not MTY_JSON_STRING.
+/// @returns This reference is valid only as long as the `json` item is also valid.\n\n
+///   If `json` is not an MTY_JSON string, NULL is returned.
 MTY_EXPORT const char *
-MTY_JSONFullString(const MTY_JSON *json);
+MTY_JSONStringPtr(const MTY_JSON *json);
 
 /// @brief Create a new MTY_JSON array.
 /// @param len The number of elements allocated in the array.
@@ -2067,7 +2060,6 @@ MTY_JSONArrayGetItem(const MTY_JSON *json, uint32_t index);
 MTY_EXPORT bool
 MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, MTY_JSON *value);
 
-/// @brief Get a string value from a JSON object.
 /// @brief Create a new MTY_JSON object.
 /// @returns The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
 ///   remains the root item in the hierarchy.
@@ -2119,8 +2111,8 @@ MTY_JSONObjSetItem(MTY_JSON *json, const char *key, MTY_JSON *value);
 #define MTY_JSONObjGetString(json, key, val, size) \
 	MTY_JSONString(MTY_JSONObjGetItem(json, key), val, size)
 
-#define MTY_JSONObjGetFullString(json, key) \
-	MTY_JSONFullString(MTY_JSONObjGetItem(json, key))
+#define MTY_JSONObjGetStringPtr(json, key) \
+	MTY_JSONStringPtr(MTY_JSONObjGetItem(json, key))
 
 #define MTY_JSONObjSetBool(json, key, val) \
 	MTY_JSONObjSetItem(json, key, MTY_JSONBoolCreate(val))
@@ -2136,14 +2128,6 @@ MTY_JSONObjSetItem(MTY_JSON *json, const char *key, MTY_JSON *value);
 
 #define MTY_JSONArraySetString(json, index, val) \
 	MTY_JSONArraySetItem(json, index, MTY_JSONStringCreate(val))
-
-// TODO Cleanup
-#define MTY_JSONObjDeleteItem(json, key) \
-	MTY_JSONObjSetItem(json, key, NULL)
-
-// TODO Cleanup
-#define MTY_JSONObjSetFloat(json, key, val) \
-	MTY_JSONObjSetNumber(json, key, val)
 
 
 //- #module Log
@@ -3495,7 +3479,7 @@ MTY_GetTime(void);
 /// @param begin The beginning time stamp.
 /// @param end The ending time stamp.
 /// @returns This value can be negative if `begin > end`.
-MTY_EXPORT float
+MTY_EXPORT double
 MTY_TimeDiff(MTY_Time begin, MTY_Time end);
 
 /// @brief Suspend the current thread.
@@ -3503,6 +3487,16 @@ MTY_TimeDiff(MTY_Time begin, MTY_Time end);
 //- #support Windows macOS Android Linux
 MTY_EXPORT void
 MTY_Sleep(uint32_t timeout);
+
+/// @brief Suspend the current thread with high precision.
+/// @details This function uses a spinlock at the end of the sleep to get closer to the
+///   requested `timeout`. Depending on the value of `spin`, it can consume much more of the CPU
+///   than MTY_Sleep.
+/// @param timeout The total number of milliseconds to sleep.
+/// @param spin When less than `spin` milliseconds remain in the sleep, fall into a spinlock.
+//- #support Windows macOS Android Linux
+MTY_EXPORT void
+MTY_PreciseSleep(double timeout, double spin);
 
 /// @brief Set the sleep precision of all waitable objects.
 /// @details See `timeBeginPeriod` on Windows.

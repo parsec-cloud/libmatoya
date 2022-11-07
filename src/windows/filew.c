@@ -89,12 +89,14 @@ bool MTY_MoveFile(const char *src, const char *dst)
 	if (!MoveFileEx(srcw, dstw, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
 		r = false;
 		DWORD last_error = GetLastError();
-		if (MTY_FileExists(dst))
-			MTY_DeleteFile(dst);
+		if (MTY_FileExists(src)) {
+			if (MTY_FileExists(dst))
+				MTY_DeleteFile(dst);
 
-		if (MTY_CopyFile(src, dst)) {
-			MTY_DeleteFile(src);
-			r = true;
+			if (MTY_CopyFile(src, dst)) {
+				MTY_DeleteFile(src);
+				r = true;
+			}
 		}
 
 		if (!r)

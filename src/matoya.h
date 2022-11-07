@@ -297,7 +297,6 @@ MTY_FreeRenderState(MTY_RenderState **state);
 #define MTY_WINDOW_MAX 8  ///< Maximum number of windows that can be created.
 #define MTY_SCREEN_MAX 32 ///< Maximum size of a screen identifier.
 
-// TODO
 #define MTY_DPAD(c) \
 	((c)->axes[MTY_CAXIS_DPAD].value)
 

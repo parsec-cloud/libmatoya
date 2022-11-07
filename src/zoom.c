@@ -115,12 +115,6 @@ static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 	float image_scaled_w = ctx->image_w * ctx->scale_image;
 	float image_scaled_h = ctx->image_h * ctx->scale_image;
 
-#if 1
-	// XXX TODO temp debug
-	float before_x = ctx->image.x;
-	float before_y = ctx->image.y;
-#endif
-
 	if (image_scaled_w < ctx->window_w) {
 		// Zoomed width is smaller than window width, so put it in the center.
 		ctx->image.x = ctx->window_w / 2.0f - ctx->image_w / 2.0f * ctx->scale_image;
@@ -140,14 +134,6 @@ static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 		if (ctx->image.y < ctx->image_max.y - image_scaled_h)
 			ctx->image.y = ctx->image_max.y - image_scaled_h;
 	}
-
-#if 1
-	// XXX TODO temp debug
-	if (before_x != ctx->image.x)
-		printf("  X restricted (was %f, now %f)\n", before_x, ctx->image.x);
-	if (before_y != ctx->image.y)
-		printf("  Y restricted (was %f, now %f)\n", before_y, ctx->image.y);
-#endif
 }
 
 MTY_Point MTY_ZoomGetImageMin(MTY_Zoom *ctx)

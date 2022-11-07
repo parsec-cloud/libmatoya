@@ -43,10 +43,12 @@ static struct MTY_App {
 	MTY_Thread *thread;
 	MTY_InputMode input;
 	MTY_Button long_button;
+	MTY_Time last_scroll;
 	int32_t double_tap;
-	bool check_scroller;
 	bool log_thread_running;
+	bool check_scroller;
 	bool should_detach;
+	bool relative;
 
 	ANativeWindow *window;
 	MTY_Atomic32 state_ctr;
@@ -377,17 +379,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1unhandled_1touch(JNIEnv
 
 	if (CTX.input != MTY_INPUT_MODE_TOUCHSCREEN) {
 		switch (action) {
-			case AMOTION_EVENT_ACTION_MOVE:
-				// While a long press is in effect, move events get reported here
-				// They do NOT come through in the onScroll gesture handler
-				if (CTX.long_button != MTY_BUTTON_NONE) {
-					MTY_Event evt = {0};
-					evt.type = MTY_EVENT_MOTION;
-					evt.motion.x = lrint(x);
-					evt.motion.y = lrint(y);
-					app_push_event(&CTX, &evt);
-				}
-				break;
 			case AMOTION_EVENT_ACTION_POINTER_DOWN:
 				// Taps with two fingers need to be handled manually
 				// They are not detected by the gesture recognizer
@@ -449,25 +440,26 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1long_1press(JNIEnv 
 	return false;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, jobject obj,
-	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers)
+JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, jobject obj,
+	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers, jboolean start)
 {
 	CTX.should_detach = false;
 
-	app_cancel_long_button(&CTX, lrint(abs_x), lrint(abs_y));
-
 	// Single finger scrolling in touchscreen mode OR two finger scrolling in
 	// trackpad mode moves to the touch location and produces a scroll event
-	if (CTX.input == MTY_INPUT_MODE_TOUCHSCREEN ||
-		(CTX.long_button == MTY_BUTTON_NONE && fingers > 1))
+	if (CTX.input == MTY_INPUT_MODE_TOUCHSCREEN || (CTX.long_button == MTY_BUTTON_NONE && fingers > 1))
 	{
 		MTY_Event evt = {0};
 
 		// Negative init values mean "don't move the cursor"
-		if (abs_x > 0.0f || abs_y > 0.0f) {
+		// Only move on the first event to prevent the cursor from going out of range
+		if (start && (abs_x >= 0.0f || abs_y >= 0.0f)) {
 			evt.type = MTY_EVENT_MOTION;
-			evt.motion.x = lrint(abs_x);
-			evt.motion.y = lrint(abs_y);
+			evt.motion.relative = CTX.relative;
+			evt.motion.x = CTX.relative ? -lrint(x) : lrint(abs_x);
+			evt.motion.y = CTX.relative ? -lrint(y) : lrint(abs_y);
+			evt.motion.flags |= MTY_MOTION_FLAG_TOUCH;
+			evt.motion.flags |= MTY_MOTION_FLAG_START;
 			app_push_event(&CTX, &evt);
 		}
 
@@ -477,14 +469,27 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, job
 		evt.scroll.x = 0;
 		app_push_event(&CTX, &evt);
 
+		CTX.last_scroll = MTY_GetTime();
+
 	// While single finger scrolling in trackpad mode, convert to mouse motion
-	} else if (abs_x > 0.0f || abs_y > 0.0f) {
+	} else if (abs_x >= 0.0f || abs_y >= 0.0f) {
 		MTY_Event evt = {0};
 		evt.type = MTY_EVENT_MOTION;
-		evt.motion.x = lrint(abs_x);
-		evt.motion.y = lrint(abs_y);
+		evt.motion.relative = CTX.relative;
+		evt.motion.x = CTX.relative ? -lrint(x) : lrint(abs_x);
+		evt.motion.y = CTX.relative ? -lrint(y) : lrint(abs_y);
+		evt.motion.flags |= MTY_MOTION_FLAG_TOUCH;
+		if (start)
+			evt.motion.flags |= MTY_MOTION_FLAG_START;
 		app_push_event(&CTX, &evt);
 	}
+
+	if (CTX.last_scroll && MTY_TimeDiff(CTX.last_scroll, MTY_GetTime()) < 100.0f)
+		return true;
+
+	CTX.last_scroll = 0;
+
+	return false;
 }
 
 
@@ -514,6 +519,23 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1generic_1scroll(JNIEnv 
 	evt.type = MTY_EVENT_SCROLL;
 	evt.scroll.x = x > 0.0f ? 120 : x < 0.0f ? -120 : 0;
 	evt.scroll.y = y > 0.0f ? 120 : y < 0.0f ? -120 : 0;
+	app_push_event(&CTX, &evt);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scale(JNIEnv *env, jobject obj,
+	jfloat scaleFactor, jfloat focus_x, jfloat focus_y, jboolean start, jboolean stop)
+{
+	CTX.should_detach = true;
+
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_SCALE;
+	evt.scale.factor = scaleFactor;
+	evt.scale.focusX = focus_x;
+	evt.scale.focusY = focus_y;
+	evt.scale.state = 
+		stop  ? MTY_SCALE_STATE_STOP  :
+		start ? MTY_SCALE_STATE_START :
+		MTY_SCALE_STATE_ONGOING;
 	app_push_event(&CTX, &evt);
 }
 
@@ -859,12 +881,14 @@ void MTY_AppGrabMouse(MTY_App *ctx, bool grab)
 
 bool MTY_AppGetRelativeMouse(MTY_App *ctx)
 {
-	return mty_jni_bool(MTY_GetJNIEnv(), ctx->obj, "getRelativeMouse", "()Z");
+	return ctx->relative;
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 {
 	mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "setRelativeMouse", "(Z)V", relative);
+
+	ctx->relative = relative;
 }
 
 void MTY_AppSetPNGCursor(MTY_App *ctx, const void *image, size_t size, uint32_t hotX, uint32_t hotY)

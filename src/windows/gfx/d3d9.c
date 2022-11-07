@@ -253,16 +253,18 @@ bool mty_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 			goto except;
 		}
 
-		e = IDirect3DDevice9_Clear(_device, 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
-		if (e != D3D_OK) {
-			MTY_Log("'IDirect3DDevice9_Clear' failed with HRESULT 0x%X", e);
-			goto except;
+		if (desc->clear) {
+			e = IDirect3DDevice9_Clear(_device, 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
+			if (e != D3D_OK) {
+				MTY_Log("'IDirect3DDevice9_Clear' failed with HRESULT 0x%X", e);
+				goto except;
+			}
 		}
 	}
 
 	// Viewport
 	float vpx, vpy, vpw, vph;
-	mty_viewport(desc, &vpx, &vpy, &vpw, &vph);
+	mty_viewport(desc, &vpx, &vpy, &vpw, &vph, false);
 
 	D3DVIEWPORT9 vp = {0};
 	vp.X = lrint(vpx);
@@ -299,6 +301,14 @@ bool mty_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	if (e != D3D_OK) {
 		MTY_Log("'IDirect3DDevice9_SetIndicies' failed with HRESULT 0x%X", e);
 		goto except;
+	}
+
+	if (desc->blend) {
+		IDirect3DDevice9_SetRenderState(_device, D3DRS_ALPHABLENDENABLE, true);
+		IDirect3DDevice9_SetRenderState(_device, D3DRS_ALPHATESTENABLE, false);
+		IDirect3DDevice9_SetRenderState(_device, D3DRS_BLENDOP, D3DBLENDOP_ADD);
+		IDirect3DDevice9_SetRenderState(_device, D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+		IDirect3DDevice9_SetRenderState(_device, D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
 	}
 
 	// D3D9 half texel fix

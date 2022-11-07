@@ -499,7 +499,7 @@ bool mty_d3d12_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	D3D12_VIEWPORT vp = {0};
-	mty_viewport(desc, &vp.TopLeftX, &vp.TopLeftY, &vp.Width, &vp.Height);
+	mty_viewport(desc, &vp.TopLeftX, &vp.TopLeftY, &vp.Width, &vp.Height, false);
 
 	ID3D12GraphicsCommandList_RSSetViewports(cl, 1, &vp);
 
@@ -513,8 +513,10 @@ bool mty_d3d12_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	if (_dest) {
 		ID3D12GraphicsCommandList_OMSetRenderTargets(cl, 1, _dest, FALSE, NULL);
 
-		const float color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-		ID3D12GraphicsCommandList_ClearRenderTargetView(cl, *_dest, color, 0, NULL);
+		if (desc->clear) {
+			const float color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+			ID3D12GraphicsCommandList_ClearRenderTargetView(cl, *_dest, color, 0, NULL);
+		}
 	}
 
 	// Set up pipeline

@@ -220,29 +220,12 @@ static bool json_utf16(void)
 	return true;
 }
 
-// This will crash if it fails.
-static void json_last_item(void)
-{
-	const MTY_JSON *root = MTY_JSONObjCreate();
-	MTY_JSONObjSetItem(root, "child", MTY_JSONObjCreate());
-
-	MTY_JSONObjSetItem(root, "last", MTY_JSONObjCreate());
-	MTY_JSONObjDeleteItem(root, "last");
-	MTY_JSONObjSetItem(root, "last", MTY_JSONObjCreate());
-
-	MTY_JSONDestroy(&root);
-}
-
 static bool json_main(void)
 {
 	json_test_suite();
 
-	for (uint8_t x = 0; x < 5; x++) {
-		if (!json_torture())
-			return false;
-
-		json_last_item();
-	}
+	if (!json_torture())
+		return false;
 
 	if (!json_duplication())
 		return false;

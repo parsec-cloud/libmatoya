@@ -90,9 +90,6 @@ bool MTY_MoveFile(const char *src, const char *dst)
 		r = false;
 		DWORD last_error = GetLastError();
 		if (MTY_FileExists(src)) {
-			if (MTY_FileExists(dst))
-				MTY_DeleteFile(dst);
-
 			if (MTY_CopyFile(src, dst)) {
 				MTY_DeleteFile(src);
 				r = true;

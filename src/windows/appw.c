@@ -41,6 +41,7 @@ struct window {
 struct MTY_App {
 	MTY_AppFunc app_func;
 	MTY_EventFunc event_func;
+	MTY_WMsgFunc wmsg_func;
 	void *opaque;
 
 	WNDCLASSEX wc;
@@ -52,7 +53,6 @@ struct MTY_App {
 	HINSTANCE instance;
 	HHOOK kbhook;
 	DWORD cb_seq;
-	MTY_PenType pen_type;
 	bool pen_in_range;
 	bool pen_enabled;
 	bool pen_had_barrel;
@@ -705,13 +705,22 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 {
 	MTY_App *app = ctx->app;
 
+	LRESULT r = 0;
+	bool creturn = false;
+
+	// Custom window message handler
+	if (app->wmsg_func) {
+		r = app->wmsg_func(app, ctx->window, hwnd, msg, wparam, lparam, &creturn, app->opaque);
+
+		if (creturn)
+			return r;
+	}
+
 	MTY_Event evt = {0};
 	evt.window = ctx->window;
 
-	LRESULT r = 0;
 	HWND focused_hwnd = hwnd;
 	bool double_click = false;
-	bool creturn = false;
 	bool defreturn = false;
 	char drop_name[MTY_PATH_MAX];
 
@@ -914,9 +923,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
 			app->pen_had_barrel = pen_barrel;
 
-			if (app->pen_enabled && evt.pen.flags & MTY_PEN_FLAG_TOUCHING)
-				app->pen_type = MTY_PEN_TYPE_GENERIC;
-
 			if (!app->pen_enabled)
 				app_convert_pen_to_mouse(app, &evt, NULL);
 
@@ -1007,9 +1013,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			pkt.pkY = position.y;
 
 			wintab_on_packet(app->wintab, &evt, &pkt, focused_window->window);
-
-			if (app->pen_enabled && evt.pen.flags & MTY_PEN_FLAG_TOUCHING)
-				app->pen_type = MTY_PEN_TYPE_WACOM;
 
 			if (!app->pen_enabled || !app->pen_in_range)
 				app_convert_pen_to_mouse(app, &evt, &double_click);
@@ -1828,11 +1831,6 @@ const void *MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size
 	return id >= 4 ? mty_hid_device_get_touchpad(ctx->hid, id, size) : NULL;
 }
 
-MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
-{
-	return ctx->pen_type;
-}
-
 bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return ctx->pen_enabled;
@@ -1859,6 +1857,11 @@ MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
 {
+}
+
+void MTY_AppSetWMsgFunc(MTY_App *ctx, MTY_WMsgFunc func)
+{
+	ctx->wmsg_func = func;
 }
 
 

@@ -1008,11 +1008,6 @@ const void *MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size
 	return NULL;
 }
 
-MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
-{
-	return MTY_PEN_TYPE_NONE;
-}
-
 bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return false;
@@ -1028,6 +1023,10 @@ MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 }
 
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
+{
+}
+
+void MTY_AppSetWMsgFunc(MTY_App *ctx, MTY_WMsgFunc func)
 {
 }
 
@@ -1373,7 +1372,8 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 		XSendEvent(app->display, XRootWindowOfScreen(attr.screen), 0,
 			SubstructureNotifyMask | SubstructureRedirectMask, &evt);
 
-		XSetInputFocus(app->display, ctx->window, RevertToNone, CurrentTime);
+		if (attr.map_state == IsViewable)
+			XSetInputFocus(app->display, ctx->window, RevertToNone, CurrentTime);
 
 	} else {
 		XWithdrawWindow(app->display, ctx->window);

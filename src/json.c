@@ -858,7 +858,7 @@ bool MTY_JSONString(const MTY_JSON *json, char *value, size_t size)
 	return n >= 0;
 }
 
-const char *MTY_JSONFullString(const MTY_JSON *json)
+const char *MTY_JSONStringPtr(const MTY_JSON *json)
 {
 	if (!json || json->type != MTY_JSON_STRING)
 		return NULL;

@@ -261,17 +261,18 @@ bool mty_dns_query(const char *host, bool v6, char *ip, size_t size)
 		goto except;
 	}
 
-	const char *dst = NULL;
-	if (v6) {
+	const void *src = NULL;
+
+	if (af == AF_INET6) {
 		struct sockaddr_in6 *addr = (struct sockaddr_in6 *) servinfo->ai_addr;
-		dst = inet_ntop(af, &addr->sin6_addr, ip, size);
+		src = &addr->sin6_addr;
 
 	} else {
 		struct sockaddr_in *addr = (struct sockaddr_in *) servinfo->ai_addr;
-		dst = inet_ntop(af, &addr->sin_addr, ip, size);
+		src = &addr->sin_addr;
 	}
 
-	if (!dst) {
+	if (!inet_ntop(af, src, ip, size)) {
 		MTY_Log("'inet_ntop' failed with errno %d", errno);
 		r = false;
 		goto except;

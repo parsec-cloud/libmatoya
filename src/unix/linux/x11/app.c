@@ -54,7 +54,6 @@ struct MTY_App {
 	struct evdev *evdev;
 	struct window *windows[MTY_WINDOW_MAX];
 	uint32_t timeout;
-	uint32_t rate;
 	MTY_Time suspend_ts;
 	bool relative;
 	bool suspend_ss;
@@ -1002,11 +1001,6 @@ const void *MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size
 	return NULL;
 }
 
-MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
-{
-	return MTY_PEN_TYPE_NONE;
-}
-
 bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return false;
@@ -1022,6 +1016,10 @@ MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 }
 
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
+{
+}
+
+void MTY_AppSetWMsgFunc(MTY_App *ctx, MTY_WMsgFunc func)
 {
 }
 
@@ -1308,33 +1306,6 @@ float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 	return app->scale;
 }
 
-uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
-{
-	// TODO This will cache the rate after the first call to this function because
-	// XRRGetScreenInfo is very slow. This means it will not respond to rate changes
-	// during runtime. A better way of doing this would be to use XRRSelectInput
-	// with RRScreenChangeNotifyMask and fetch the new refresh rate in response to
-	// the event.
-
-	if (app->rate > 0)
-		return app->rate;
-
-	struct window *ctx = app_get_window(app, window);
-
-	if (ctx && XRRGetScreenInfo && XRRFreeScreenConfigInfo && XRRConfigCurrentRate) {
-		XRRScreenConfiguration *conf = XRRGetScreenInfo(app->display, ctx->window);
-
-		if (conf) {
-			app->rate = XRRConfigCurrentRate(conf);
-			XRRFreeScreenConfigInfo(conf);
-
-			return app->rate;
-		}
-	}
-
-	return 60;
-}
-
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
 	struct window *ctx = app_get_window(app, window);
@@ -1392,7 +1363,8 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 		XSendEvent(app->display, XRootWindowOfScreen(attr.screen), 0,
 			SubstructureNotifyMask | SubstructureRedirectMask, &evt);
 
-		XSetInputFocus(app->display, ctx->window, RevertToNone, CurrentTime);
+		if (attr.map_state == IsViewable)
+			XSetInputFocus(app->display, ctx->window, RevertToNone, CurrentTime);
 
 	} else {
 		XWithdrawWindow(app->display, ctx->window);

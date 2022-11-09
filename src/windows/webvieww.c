@@ -37,6 +37,8 @@ struct focus_changed {
 struct webview {
 	struct webview_common common;
 
+	bool has_focus;
+
 	HWND hwnd;
 	MTY_Thread *thread;
 	DWORD thread_id;
@@ -80,7 +82,7 @@ static HRESULT STDMETHODCALLTYPE mty_webview_environment_completed(ICoreWebView2
 	return ICoreWebView2Environment3_CreateCoreWebView2Controller(env, ctx->hwnd, &ctx->controller_completed.handler);
 }
 
-void mty_webview_navigate(struct webview *ctx)
+static void mty_webview_navigate(struct webview *ctx)
 {
 	size_t size = strlen(ctx->common.html);
 	size_t base64_size = ((4 * size / 3) + 3) & ~3;
@@ -131,6 +133,15 @@ static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2C
 	return S_OK;
 }
 
+static void mty_webview_handle_event(struct webview *ctx, const char *message)
+{
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_WEBVIEW;
+	evt.message = message;
+
+	ctx->common.event(&evt, ctx->common.opaque);
+}
+
 static HRESULT STDMETHODCALLTYPE mty_webview_message_received(ICoreWebView2WebMessageReceivedEventHandler *this, ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args)
 {
 	struct webview *ctx = ((struct web_message_received *) this)->context;
@@ -151,7 +162,7 @@ static HRESULT STDMETHODCALLTYPE mty_webview_focus_changed(ICoreWebView2FocusCha
 {
 	struct webview *ctx = ((struct focus_changed *) this)->context;
 
-	ctx->common.has_focus = !ctx->common.has_focus;
+	ctx->has_focus = !ctx->has_focus;
 
 	return 0;
 }
@@ -208,7 +219,10 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 {
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
-	mty_webview_create_common(ctx, html, debug, event, opaque);
+	ctx->common.html = MTY_Strdup(html);
+	ctx->common.debug = debug;
+	ctx->common.event = event;
+	ctx->common.opaque = opaque;
 
 	ctx->hwnd = (HWND) handle;
 
@@ -263,10 +277,15 @@ void mty_webview_destroy(struct webview **webview)
 	MTY_Free(ctx->controller_completed.handler.lpVtbl);
 	MTY_Free(ctx->environment_completed.handler.lpVtbl);
 
-	mty_webview_destroy_common(ctx);
+	MTY_Free(ctx->common.html);
 
 	MTY_Free(ctx);
 	*webview = NULL;
+}
+
+bool mty_webview_has_focus(struct webview *ctx)
+{
+	return ctx && ctx->has_focus;
 }
 
 void mty_webview_resize(struct webview *ctx)
@@ -277,7 +296,29 @@ void mty_webview_resize(struct webview *ctx)
 	PostThreadMessage(ctx->thread_id, WV_SIZE, 0, 0);
 }
 
-void mty_webview_javascript_eval(struct webview *ctx, const char *js)
+void mty_webview_show(struct webview *ctx, bool show)
 {
-	PostThreadMessage(ctx->thread_id, WV_SCRIPT_EVAL, 0, (LPARAM) MTY_MultiToWideD(js));
+	if (!ctx)
+		return;
+
+	ctx->common.hidden = !show;
+
+	mty_webview_resize(ctx);
+}
+
+bool mty_webview_is_visible(struct webview *ctx)
+{
+	return ctx && !ctx->common.hidden;
+}
+
+void mty_webview_event(struct webview *ctx, const char *name, const char *message)
+{
+	if (!ctx)
+		return;
+
+	char *javascript = MTY_SprintfD(JAVASCRIPT_EVENT_DISPATCH, name, message);
+
+	PostThreadMessage(ctx->thread_id, WV_SCRIPT_EVAL, 0, (LPARAM) MTY_MultiToWideD(javascript));
+
+	MTY_Free(javascript);
 }

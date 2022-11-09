@@ -49,7 +49,7 @@ static void mty_webview_destroy_event(struct mty_webview_event **event)
 	*event = NULL;
 }
 
-static bool mty_webview_navigate_html(struct mty_webview_event *event)
+static bool mty_webview_navigate(struct mty_webview_event *event)
 {
 	webkit_web_view_load_html(event->context->webview, event->data, NULL);
 
@@ -66,6 +66,15 @@ static bool mty_webview_enable_dev_tools(struct mty_webview_event *event)
 	mty_webview_destroy_event(&event);
 
 	return false;
+}
+
+static void mty_webview_handle_event(struct webview *ctx, const char *message)
+{
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_WEBVIEW;
+	evt.message = message;
+
+	ctx->common.event(&evt, ctx->common.opaque);
 }
 
 static void handle_script_message(WebKitUserContentManager *manager, WebKitJavascriptResult *result, void *opaque)
@@ -177,7 +186,10 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
-	mty_webview_create_common(ctx, html, debug, event, opaque);
+	ctx->common.html = MTY_Strdup(html);
+	ctx->common.debug = debug;
+	ctx->common.event = event;
+	ctx->common.opaque = opaque;
 
 	ctx->display = (Display *) ((void **) handle)[0];
 	ctx->window = (Window) ((void **) handle)[1];
@@ -190,7 +202,7 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 	DISPATCH(mty_webview_add_new, NULL, false);
 	DISPATCH(mty_webview_dispatch_resize, NULL, false);
 	DISPATCH(mty_webview_enable_dev_tools, ctx->common.debug, false);
-	DISPATCH(mty_webview_navigate_html, MTY_Strdup(ctx->common.html), true);
+	DISPATCH(mty_webview_navigate, MTY_Strdup(ctx->common.html), true);
 
 	return ctx;
 }
@@ -206,6 +218,8 @@ static bool mty_webview_dispatch_destroy(struct mty_webview_event *event)
 	gtk_widget_destroy((GtkWidget *) ctx->webview);
 	gtk_widget_destroy((GtkWidget *) ctx->gtk_window);
 	gtk_main_quit();
+
+	MTY_Free(ctx->common.html);
 
 	MTY_Free(ctx);
 
@@ -229,10 +243,35 @@ void mty_webview_destroy(struct webview **webview)
 
 void mty_webview_resize(struct webview *ctx)
 {
+	if (!ctx)
+		return;
+
 	DISPATCH(mty_webview_dispatch_resize, NULL, false);
 }
 
-void mty_webview_javascript_eval(struct webview *ctx, const char *js)
+void mty_webview_show(struct webview *ctx, bool show)
 {
-	DISPATCH(mty_webview_dispatch_javascript_eval, MTY_Strdup(js), true);
+	if (!ctx)
+		return;
+
+	ctx->common.hidden = !show;
+
+	mty_webview_resize(ctx);
+}
+
+bool mty_webview_is_visible(struct webview *ctx)
+{
+	return ctx && !ctx->common.hidden;
+}
+
+void mty_webview_event(struct webview *ctx, const char *name, const char *message)
+{
+	if (!ctx)
+		return;
+
+	char *javascript = MTY_SprintfD(JAVASCRIPT_EVENT_DISPATCH, name, message);
+
+	DISPATCH(mty_webview_dispatch_javascript_eval, MTY_Strdup(javascript), true);
+
+	MTY_Free(javascript);
 }

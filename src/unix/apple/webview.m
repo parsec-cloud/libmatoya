@@ -15,6 +15,15 @@ struct webview {
 	WKWebView *webview;
 };
 
+static void mty_webview_handle_event(struct webview *ctx, const char *message)
+{
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_WEBVIEW;
+	evt.message = message;
+
+	ctx->common.event(&evt, ctx->common.opaque);
+}
+
 @interface ScriptMessageHandler : NSObject <WKScriptMessageHandler>
 	@property struct webview *webview;
 @end
@@ -39,7 +48,10 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 {
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
-	mty_webview_create_common(ctx, html, debug, event, opaque);
+	ctx->common.html = MTY_Strdup(html);
+	ctx->common.debug = debug;
+	ctx->common.event = event;
+	ctx->common.opaque = opaque;
 
 	ctx->view = (__bridge const NSView *) handle;
 
@@ -86,6 +98,8 @@ void mty_webview_destroy(struct webview **webview)
 
 	[ctx->webview removeFromSuperview];
 
+	MTY_Free(ctx->common.html);
+
 	MTY_Free(ctx);
 	*webview = NULL;
 }
@@ -104,8 +118,30 @@ void mty_webview_resize(struct webview *ctx)
 	ctx->webview.frame = rect;
 }
 
-void mty_webview_javascript_eval(struct webview *ctx, const char *js)
+void mty_webview_show(struct webview *ctx, bool show)
 {
-	NSString *str = [NSString stringWithUTF8String:js];
+	if (!ctx)
+		return;
+
+	ctx->common.hidden = !show;
+
+	mty_webview_resize(ctx);
+}
+
+bool mty_webview_is_visible(struct webview *ctx)
+{
+	return ctx && !ctx->common.hidden;
+}
+
+void mty_webview_event(struct webview *ctx, const char *name, const char *message)
+{
+	if (!ctx)
+		return;
+
+	char *javascript = MTY_SprintfD(JAVASCRIPT_EVENT_DISPATCH, name, message);
+
+	NSString *str = [NSString stringWithUTF8String:javascript];
 	[ctx->webview evaluateJavaScript:str completionHandler:nil];
+
+	MTY_Free(javascript);
 }

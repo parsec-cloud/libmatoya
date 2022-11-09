@@ -37,7 +37,6 @@ OBJS = \
 	src/tlocal.o \
 	src/tls.o \
 	src/version.o \
-	src/webview.o \
 	src/gfx/gl/gl.o \
 	src/gfx/gl/gl-ui.o \
 	src/hid/utils.o \

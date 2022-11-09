@@ -28,7 +28,10 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 {
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
-	mty_webview_create_common(ctx, html, debug, event, opaque);
+	ctx->common.html = MTY_Strdup(html);
+	ctx->common.debug = debug;
+	ctx->common.event = event;
+	ctx->common.opaque = opaque;
 
 	ctx->obj = (jobject) ((void **) handle)[0];
 	ctx->get_screen_size = (get_screen_size) ((void **) handle)[1];
@@ -49,12 +52,17 @@ void mty_webview_destroy(struct webview **webview)
 
 	mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "webviewDestroy", "()V");
 
+	MTY_Free(ctx->common.html);
+
 	MTY_Free(ctx);
 	*webview = NULL;
 }
 
 void mty_webview_resize(struct webview *ctx)
 {
+	if (!ctx)
+		return;
+
 	uint32_t width = 0, height = 0;
 
 	if (!ctx->common.hidden)
@@ -63,9 +71,40 @@ void mty_webview_resize(struct webview *ctx)
 	mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "webviewResize", "(IIII)V", 0, 0, (int32_t) width, (int32_t) height);
 }
 
-void mty_webview_javascript_eval(struct webview *ctx, const char *js)
+void mty_webview_show(struct webview *ctx, bool show)
 {
-	mty_webview_call(ctx, "webviewJavascriptEval", js);
+	if (!ctx)
+		return;
+
+	ctx->common.hidden = !show;
+
+	mty_webview_resize(ctx);
+}
+
+bool mty_webview_is_visible(struct webview *ctx)
+{
+	return ctx && !ctx->common.hidden;
+}
+
+void mty_webview_event(struct webview *ctx, const char *name, const char *message)
+{
+	if (!ctx)
+		return;
+
+	char *javascript = MTY_SprintfD(JAVASCRIPT_EVENT_DISPATCH, name, message);
+
+	mty_webview_call(ctx, "webviewJavascriptEval", javascript);
+
+	MTY_Free(javascript);
+}
+
+static void mty_webview_handle_event(struct webview *ctx, const char *message)
+{
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_WEBVIEW;
+	evt.message = message;
+
+	ctx->common.event(&evt, ctx->common.opaque);
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_webview_1handle_1event(JNIEnv *env, jobject obj,

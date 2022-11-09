@@ -57,7 +57,6 @@ LOCAL_SRC_FILES := \
 	src/tlocal.c \
 	src/tls.c \
 	src/version.c \
-	src/webview.c \
 	src/gfx/gl/gl.c \
 	src/gfx/gl/gl-ui.c \
 	src/gfx/vk/vk.c \

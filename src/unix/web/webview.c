@@ -17,11 +17,23 @@ struct webview {
 	struct webview_common common;
 };
 
+static void mty_webview_handle_event(struct webview *ctx, const char *message)
+{
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_WEBVIEW;
+	evt.message = message;
+
+	ctx->common.event(&evt, ctx->common.opaque);
+}
+
 struct webview *mty_webview_create(void *handle, const char *html, bool debug, MTY_EventFunc event, void *opaque)
 {
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
-	mty_webview_create_common(ctx, html, debug, event, opaque);
+	ctx->common.html = MTY_Strdup(html);
+	ctx->common.debug = debug;
+	ctx->common.event = event;
+	ctx->common.opaque = opaque;
 
 	web_view_show(ctx, mty_webview_handle_event);
 
@@ -39,16 +51,43 @@ void mty_webview_destroy(struct webview **webview)
 
 	web_view_destroy();
 
+	MTY_Free(ctx->common.html);
+
 	MTY_Free(ctx);
 	*webview = NULL;
 }
 
 void mty_webview_resize(struct webview *ctx)
 {
+	if (!ctx)
+		return;
+
 	web_view_resize(ctx->common.hidden);
 }
 
-void mty_webview_javascript_eval(struct webview *ctx, const char *js)
+void mty_webview_show(struct webview *ctx, bool show)
 {
-	web_view_javascript_eval(js);
+	if (!ctx)
+		return;
+
+	ctx->common.hidden = !show;
+
+	mty_webview_resize(ctx);
+}
+
+bool mty_webview_is_visible(struct webview *ctx)
+{
+	return ctx && !ctx->common.hidden;
+}
+
+void mty_webview_event(struct webview *ctx, const char *name, const char *message)
+{
+	if (!ctx)
+		return;
+
+	char *javascript = MTY_SprintfD(JAVASCRIPT_EVENT_DISPATCH, name, message);
+
+	web_view_javascript_eval(javascript);
+
+	MTY_Free(javascript);
 }

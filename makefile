@@ -46,7 +46,6 @@ OBJS = \
 	src\tlocal.obj \
 	src\tls.obj \
 	src\version.obj \
-	src\webview.obj \
 	src\gfx\gl\gl.obj \
 	src\gfx\gl\gl-ui.obj \
 	src\gfx\vk\vk.obj \

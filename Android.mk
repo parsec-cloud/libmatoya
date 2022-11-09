@@ -76,6 +76,7 @@ LOCAL_SRC_FILES := \
 	src/unix/system.c \
 	src/unix/thread.c \
 	src/unix/time.c \
+	src/unix/pnpdevice.c \
 	src/unix/linux/dialog.c \
 	src/unix/linux/android/aes-gcm.c \
 	src/unix/linux/android/app.c \

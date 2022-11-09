@@ -18,21 +18,21 @@ static MTY_PnPDeviceStatus dev_node_status_to_mty(ULONG devStatus, ULONG devProb
 	// Device is operational
 	if ((devStatus & DN_DRIVER_LOADED) && (devStatus & DN_STARTED))
 		return  MTY_PNP_DEVICE_STATUS_NORMAL;
-	
+
 	// Device has problem status
 	if ((devStatus & DN_HAS_PROBLEM)) {
 		switch (devProblemCode) {
-		case CM_PROB_DISABLED:
-		case CM_PROB_HARDWARE_DISABLED:
-			return MTY_PNP_DEVICE_STATUS_DISABLED;
-		case CM_PROB_FAILED_POST_START:
-			return MTY_PNP_DEVICE_STATUS_DRIVER_ERROR;
-		case CM_PROB_NEED_RESTART:
-			return MTY_PNP_DEVICE_STATUS_RESTART_REQUIRED;
-		case CM_PROB_DISABLED_SERVICE:
-			return MTY_PNP_DEVICE_STATUS_DISABLED_SERVICE;
-		default:
-			return MTY_PNP_DEVICE_STATUS_UNKNOWN_PROBLEM;
+			case CM_PROB_DISABLED:
+			case CM_PROB_HARDWARE_DISABLED:
+				return MTY_PNP_DEVICE_STATUS_DISABLED;
+			case CM_PROB_FAILED_POST_START:
+				return MTY_PNP_DEVICE_STATUS_DRIVER_ERROR;
+			case CM_PROB_NEED_RESTART:
+				return MTY_PNP_DEVICE_STATUS_RESTART_REQUIRED;
+			case CM_PROB_DISABLED_SERVICE:
+				return MTY_PNP_DEVICE_STATUS_DISABLED_SERVICE;
+			default:
+				return MTY_PNP_DEVICE_STATUS_UNKNOWN_PROBLEM;
 		}
 	}
 
@@ -56,11 +56,10 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 
 	if (hDevInfo == INVALID_HANDLE_VALUE)
 		return succeeded;
-	
+
 	spDevInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
 
-	for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &spDevInfoData); i++)
-	{
+	for (DWORD i = 0; SetupDiEnumDeviceInfo(hDevInfo, i, &spDevInfoData); i++) {
 		DWORD type;
 		LPSTR buffer = NULL;
 		DWORD bufferSize = 0;
@@ -68,21 +67,22 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 
 		// get hardware ID(s) property
 		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo, &spDevInfoData, SPDRP_HARDWAREID, &type, (PBYTE) buffer, bufferSize, &bufferSize)) {
-			if (GetLastError() == ERROR_INVALID_DATA)
+			err = GetLastError();
+			if (err == ERROR_INVALID_DATA) {
 				break;
-			
-			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-				if (buffer)
-					LocalFree(buffer);
 
-				buffer = LocalAlloc(LPTR, bufferSize);
-
-			} else {
+			} else if (err != ERROR_INSUFFICIENT_BUFFER) {
 				goto except;
 			}
+
+			if (buffer)
+				LocalFree(buffer);
+
+			buffer = LocalAlloc(LPTR, bufferSize);
 		}
 
-		if (GetLastError() == ERROR_INVALID_DATA)
+		err = GetLastError();
+		if (err == ERROR_INVALID_DATA)
 			continue;
 
 		// Find device with matching Hardware ID
@@ -108,14 +108,14 @@ bool MTY_PnPDeviceGetStatus(const GUID* classGuid, const char* hardwareId, uint3
 	}
 
 	// device not found but no enumeration error
-	if (!found && GetLastError() == ERROR_SUCCESS) {
+	err = GetLastError();
+	if (!found && err == ERROR_SUCCESS) {
 		*status = MTY_PNP_DEVICE_STATUS_NOT_FOUND;
 		succeeded = true;
 	}
 
 	except:
 
-	err = GetLastError();
 	if (hDevInfo)
 		SetupDiDestroyDeviceInfoList(hDevInfo);
 
@@ -175,14 +175,14 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 			CONFIGRET ret = CM_Get_Device_Interface_Property(detailDataBuffer->DevicePath, &DEVPKEY_Device_InstanceId, &type, NULL, &bytes, 0);
 			if (ret != CR_BUFFER_SMALL)
 				goto except;
-			
+
 			instanceId = calloc(bytes, 1);
 
 			// get property content
 			ret = CM_Get_Device_Interface_Property(detailDataBuffer->DevicePath, &DEVPKEY_Device_InstanceId, &type, (PBYTE) instanceId, &bytes, 0);
 			if (ret != CR_SUCCESS)
 				goto except;
-			
+
 			DEVINST instance = 0;
 			// get instance handle from instance ID
 			ret = CM_Locate_DevNode(&instance, instanceId, CM_LOCATE_DEVNODE_NORMAL);
@@ -202,7 +202,8 @@ bool MTY_PnPDeviceInterfaceGetStatus(const GUID* interfaceGuid, uint32_t instanc
 	}
 
 	// device not found but no enumeration error
-	if (!found && (GetLastError() == ERROR_SUCCESS || GetLastError() == ERROR_NO_MORE_ITEMS)) {
+	err = GetLastError();
+	if (!found && (err == ERROR_SUCCESS || err == ERROR_NO_MORE_ITEMS)) {
 		*status = MTY_PNP_DEVICE_STATUS_NOT_FOUND;
 		succeeded = true;
 		SetLastError(ERROR_SUCCESS);
@@ -246,21 +247,22 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 
 		// get hardware ID(s) property
 		while (!SetupDiGetDeviceRegistryPropertyA(hDevInfo, &spDevInfoData, SPDRP_HARDWAREID, NULL, (PBYTE) buffer, bufferSize, &bufferSize)) {
-			if (GetLastError() == ERROR_INVALID_DATA)
+			err = GetLastError();
+			if (err == ERROR_INVALID_DATA) {
 				break;
 
-			if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-				if (buffer)
-					LocalFree(buffer);
-
-				buffer = LocalAlloc(LPTR, bufferSize);
-			} else {
-
+			} else if (err != ERROR_INSUFFICIENT_BUFFER) {
 				goto except;
 			}
+
+			if (buffer)
+				LocalFree(buffer);
+
+			buffer = LocalAlloc(LPTR, bufferSize);
 		}
 
-		if (GetLastError() == ERROR_INVALID_DATA)
+		err = GetLastError();
+		if (err == ERROR_INVALID_DATA)
 			continue;
 
 		// Find device with matching Hardware ID
@@ -327,7 +329,8 @@ bool MTY_PnPDeviceDriverGetVersion(const GUID* classGuid, const char* hardwareId
 	}
 
 	// device not found but no enumeration error
-	if (!found && GetLastError() == ERROR_SUCCESS)
+	err = GetLastError();
+	if (!found && err == ERROR_SUCCESS)
 		succeeded = false;
 
 except:

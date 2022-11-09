@@ -44,7 +44,8 @@ OBJS = \
 	src/unix/memory.o \
 	src/unix/system.o \
 	src/unix/thread.o \
-	src/unix/time.o
+	src/unix/time.o \
+	src/unix/pnpdevice.o
 
 SHADERS = \
 	src/gfx/gl/shaders/fs.h \

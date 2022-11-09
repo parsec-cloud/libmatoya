@@ -2,7 +2,7 @@
 
 #include "matoya.h"
 
-#define JAVASCRIPT_EVENT_DISPATCH "window.dispatchEvent(new CustomEvent('%s', { detail: '%s' } ));"
+#define JAVASCRIPT_EVENT_DISPATCH "window.dispatchEvent(new CustomEvent('%s', { detail: %s } ));"
 
 struct webview_common {
 	bool debug;

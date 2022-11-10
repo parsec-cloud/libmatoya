@@ -297,7 +297,6 @@ MTY_FreeRenderState(MTY_RenderState **state);
 #define MTY_WINDOW_MAX 8  ///< Maximum number of windows that can be created.
 #define MTY_SCREEN_MAX 32 ///< Maximum size of a screen identifier.
 
-// TODO
 #define MTY_DPAD(c) \
 	((c)->axes[MTY_CAXIS_DPAD].value)
 
@@ -330,6 +329,23 @@ typedef bool (*MTY_AppFunc)(void *opaque);
 /// @param opaque Pointer set via MTY_AppCreate.
 /// @returns Return true to show the menu item as checked, false to show it as unchecked.
 typedef bool (*MTY_MenuItemCheckedFunc)(void *opaque);
+
+/// @brief Function called to add custom processing to window messages.
+/// @details This function is called before any internal processing, and if `shouldReturn` is set
+///   to true, no internal handling of the message will take place. This may affect internal state
+///   tracking for certain message types.
+/// @param app The MTY_App.
+/// @param window The MTY_Window associated with the message.
+/// @param hwnd `HWND hwnd` value passed as the first argument to the `WNDPROC` callback.
+/// @param msg `UINT uMsg` value passed as the second argument to the `WNDPROC` callback.
+/// @param wparam `WPARAM wParam` value passed as the third argument to the `WNDPROC` callback.
+/// @param lparam `LPARAM lParam` value passed as the fourth argument to the `WNDPROC` callback.
+/// @param shouldReturn If set to true, no internal processing of this message will take place
+///   and the return value from this callback will be returned by the internal `WNDPROC` callback.
+/// @param opaque Pointer set via MTY_AppCreate.
+//- #support Windows
+typedef intptr_t (*MTY_WMsgFunc)(MTY_App *app, MTY_Window window, void *hwnd, uint32_t msg,
+	intptr_t wparam, uintptr_t lparam, bool *shouldReturn, void *opaque);
 
 /// @brief App events.
 /// @details See MTY_Event for details on how to respond to these values.
@@ -576,14 +592,6 @@ typedef enum {
 	MTY_CAXIS_MAX       = 16, ///< Maximum number of possible axes.
 	MTY_CAXIS_MAKE_32   = INT32_MAX,
 } MTY_CAxis;
-
-/// @brief Pen type.
-typedef enum {
-	MTY_PEN_TYPE_NONE    = 0, ///< Pen is disabled, and pen inputs are processed as mouse events.
-	MTY_PEN_TYPE_GENERIC = 1, ///< Generic pen support is enabled, providing essential features.
-	MTY_PEN_TYPE_WACOM   = 2, ///< Wacom pen support is enabled. Fallbacks to generic support if not available.
-	MTY_PEN_TYPE_MAKE_32 = INT32_MAX,
-} MTY_PenType;
 
 /// @brief Pen attributes.
 typedef enum {
@@ -1045,13 +1053,6 @@ MTY_AppRumbleController(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t high);
 MTY_EXPORT const void *
 MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size);
 
-/// @brief Get the last pen type used.
-/// @param ctx The MTY_App.
-/// @return The last pen type used.
-//- #support Windows macOS
-MTY_EXPORT MTY_PenType
-MTY_AppGetPenType(MTY_App *ctx);
-
 /// @brief Check if pen events are enabled.
 /// @param ctx The MTY_App.
 /// @return True if pen is enabled, false otherwise.
@@ -1091,6 +1092,13 @@ MTY_AppGetInputMode(MTY_App *ctx);
 //- #support Android
 MTY_EXPORT void
 MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode);
+
+/// @brief Set a custom window message handler for the app.
+/// @param ctx The MTY_App.
+/// @param func Function called internally for each window message. Setting this to NULL will
+///   remove any existing handler.
+MTY_EXPORT void
+MTY_AppSetWMsgFunc(MTY_App *ctx, MTY_WMsgFunc func);
 
 /// @brief Create an MTY_Window, the primary interactive view of an application.
 /// @details An MTY_Window is a child of the MTY_App object, so everywhere a window
@@ -1162,12 +1170,6 @@ MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window);
 ///   the interface should be reduced.
 MTY_EXPORT float
 MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window);
-
-/// @brief Get the refresh rate of the display where the window currently resides.
-/// @param app The MTY_App.
-/// @param window An MTY_Window.
-MTY_EXPORT uint32_t
-MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window);
 
 /// @brief Set the window's title.
 /// @param app The MTY_App.
@@ -2029,13 +2031,12 @@ MTY_JSONStringCreate(const char *value);
 MTY_EXPORT bool
 MTY_JSONString(const MTY_JSON *json, char *value, size_t size);
 
-/// @brief Get the internal string value from an MTY_JSON string.
+/// @brief Get the internal string pointer from an MTY_JSON string.
 /// @param json An MTY_JSON string.
-/// @returns Returns a reference to the string used internally by `json`.
-///   This reference is valid only as long as the `json` item is also valid.
-///   Returns NULL if the type of `json` is not MTY_JSON_STRING.
+/// @returns This reference is valid only as long as the `json` item is also valid.\n\n
+///   If `json` is not an MTY_JSON string, NULL is returned.
 MTY_EXPORT const char *
-MTY_JSONFullString(const MTY_JSON *json);
+MTY_JSONStringPtr(const MTY_JSON *json);
 
 /// @brief Create a new MTY_JSON array.
 /// @param len The number of elements allocated in the array.
@@ -2066,7 +2067,6 @@ MTY_JSONArrayGetItem(const MTY_JSON *json, uint32_t index);
 MTY_EXPORT bool
 MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, MTY_JSON *value);
 
-/// @brief Get a string value from a JSON object.
 /// @brief Create a new MTY_JSON object.
 /// @returns The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
 ///   remains the root item in the hierarchy.
@@ -2118,8 +2118,8 @@ MTY_JSONObjSetItem(MTY_JSON *json, const char *key, MTY_JSON *value);
 #define MTY_JSONObjGetString(json, key, val, size) \
 	MTY_JSONString(MTY_JSONObjGetItem(json, key), val, size)
 
-#define MTY_JSONObjGetFullString(json, key) \
-	MTY_JSONFullString(MTY_JSONObjGetItem(json, key))
+#define MTY_JSONObjGetStringPtr(json, key) \
+	MTY_JSONStringPtr(MTY_JSONObjGetItem(json, key))
 
 #define MTY_JSONObjSetBool(json, key, val) \
 	MTY_JSONObjSetItem(json, key, MTY_JSONBoolCreate(val))
@@ -2135,14 +2135,6 @@ MTY_JSONObjSetItem(MTY_JSON *json, const char *key, MTY_JSON *value);
 
 #define MTY_JSONArraySetString(json, index, val) \
 	MTY_JSONArraySetItem(json, index, MTY_JSONStringCreate(val))
-
-// TODO Cleanup
-#define MTY_JSONObjDeleteItem(json, key) \
-	MTY_JSONObjSetItem(json, key, NULL)
-
-// TODO Cleanup
-#define MTY_JSONObjSetFloat(json, key, val) \
-	MTY_JSONObjSetNumber(json, key, val)
 
 
 //- #module Log
@@ -3494,7 +3486,7 @@ MTY_GetTime(void);
 /// @param begin The beginning time stamp.
 /// @param end The ending time stamp.
 /// @returns This value can be negative if `begin > end`.
-MTY_EXPORT float
+MTY_EXPORT double
 MTY_TimeDiff(MTY_Time begin, MTY_Time end);
 
 /// @brief Suspend the current thread.
@@ -3502,6 +3494,16 @@ MTY_TimeDiff(MTY_Time begin, MTY_Time end);
 //- #support Windows macOS Android Linux
 MTY_EXPORT void
 MTY_Sleep(uint32_t timeout);
+
+/// @brief Suspend the current thread with high precision.
+/// @details This function uses a spinlock at the end of the sleep to get closer to the
+///   requested `timeout`. Depending on the value of `spin`, it can consume much more of the CPU
+///   than MTY_Sleep.
+/// @param timeout The total number of milliseconds to sleep.
+/// @param spin When less than `spin` milliseconds remain in the sleep, fall into a spinlock.
+//- #support Windows macOS Android Linux
+MTY_EXPORT void
+MTY_PreciseSleep(double timeout, double spin);
 
 /// @brief Set the sleep precision of all waitable objects.
 /// @details See `timeBeginPeriod` on Windows.

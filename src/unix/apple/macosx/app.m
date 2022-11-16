@@ -1538,7 +1538,14 @@ void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 		.size.height = frame->size.h,
 	}];
 
-	[ctx setFrame:r display:YES];
+	if ([NSThread isMainThread]) {
+		[ctx setFrame:r display:YES];
+
+	} else {
+		dispatch_sync(dispatch_get_main_queue(), ^{
+			[ctx setFrame:r display:YES];
+		});
+	}
 
 	if (frame->type & MTY_WINDOW_MAXIMIZED)
 		[ctx zoom:ctx];

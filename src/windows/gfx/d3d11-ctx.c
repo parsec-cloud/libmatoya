@@ -78,10 +78,9 @@ static bool d3d11_ctx_refresh_window_bounds(struct d3d11_ctx *ctx)
 	return changed;
 }
 
-static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
+// Caller must call Release() on the returned pointer when done using it
+static IDXGIOutput *d3d11_ctx_compute_hosting_output(struct d3d11_ctx *ctx)
 {
-	bool r = false;
-
 	// Courtesy of MSDN https://docs.microsoft.com/en-us/windows/win32/direct3darticles/high-dynamic-range
 
 	// Iterate through the DXGI outputs associated with the DXGI adapter,
@@ -94,10 +93,11 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 		IDXGIFactory1_Release(ctx->factory1);
 		ctx->factory1 = NULL;
 	}
+
 	HRESULT e = CreateDXGIFactory1(&IID_IDXGIFactory1, &ctx->factory1);
 	if (e != S_OK) {
 		MTY_Log("'CreateDXGIFactory1' failed with HRESULT 0x%X", e);
-		return r;
+		return NULL;
 	}
 
 	// Get the retangle bounds of the app window
@@ -120,7 +120,7 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 				MTY_Log("'IDXGIOutput_GetDesc' failed with HRESULT 0x%X", e);
 				continue;
 			}
-			
+
 			const RECT output_bounds = desc.DesktopCoordinates;
 			const LONG bx1 = output_bounds.left;
 			const LONG by1 = output_bounds.top;
@@ -145,27 +145,44 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 		IDXGIAdapter1_Release(adapter1);
 	}
 
+	return best_output;
+}
+
+static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
+{
+	bool r = false;
+
+	IDXGIOutput *output = d3d11_ctx_compute_hosting_output(ctx);
+	if (!output) {
+		MTY_Log("Failed to obtain the best display output that is hosting the app.", 0);
+		goto except;
+	}
+
 	// Having determined the output (display) upon which the app is primarily being
 	// rendered, retrieve the HDR capabilities of that display by checking the color space.
 	IDXGIOutput6 *output6 = NULL;
-	e = IDXGIOutput_QueryInterface(best_output, &IID_IDXGIOutput6, &output6);
+	HRESULT e = IDXGIOutput_QueryInterface(output, &IID_IDXGIOutput6, &output6);
 	if (e != S_OK) {
 		MTY_Log("'IDXGIOutput_QueryInterface' failed with HRESULT 0x%X", e);
-
-	} else {
-		DXGI_OUTPUT_DESC1 desc1 = {0};
-		e = IDXGIOutput6_GetDesc1(output6, &desc1);
-		if (e != S_OK) {
-			MTY_Log("'IDXGIOutput6_GetDesc1' failed with HRESULT 0x%X", e);
-
-		} else {
-			r = desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020; // this is the canonical check according to MSDN and NVIDIA
-		}
-
-		IDXGIOutput6_Release(output6);
+		goto except;
 	}
 
-	IDXGIOutput_Release(best_output);
+	DXGI_OUTPUT_DESC1 desc1 = {0};
+	e = IDXGIOutput6_GetDesc1(output6, &desc1);
+	if (e != S_OK) {
+		MTY_Log("'IDXGIOutput6_GetDesc1' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	// This is the canonical check for HDR support according to MSDN and NVIDIA
+	r = desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
+
+	IDXGIOutput6_Release(output6);
+
+	except:
+
+	if (output)
+		IDXGIOutput_Release(output);
 
 	return r;
 }

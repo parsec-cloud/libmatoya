@@ -29,6 +29,11 @@ struct web_message_received {
 	struct webview *context;
 };
 
+struct web_resource_requested {
+	ICoreWebView2WebResourceRequestedEventHandler handler;
+	struct webview *context;
+};
+
 struct focus_changed {
 	ICoreWebView2FocusChangedEventHandler handler;
 	struct webview *context;
@@ -51,6 +56,7 @@ struct webview {
 	struct environment_completed environment_completed;
 	struct controller_completed controller_completed;
 	struct web_message_received web_message_received;
+	struct web_resource_requested web_resource_requested;
 	struct focus_changed focus_changed;
 };
 
@@ -82,21 +88,6 @@ static HRESULT STDMETHODCALLTYPE mty_webview_environment_completed(ICoreWebView2
 	return ICoreWebView2Environment3_CreateCoreWebView2Controller(env, ctx->hwnd, &ctx->controller_completed.handler);
 }
 
-static void mty_webview_navigate(struct webview *ctx)
-{
-	size_t size = strlen(ctx->common.html);
-	size_t base64_size = ((4 * size / 3) + 3) & ~3;
-
-	char *base64 = MTY_Alloc(base64_size + 1, 1);
-	MTY_BytesToBase64(ctx->common.html, size, base64, base64_size);
-
-	char *encoded = MTY_SprintfD("data:text/html;charset=UTF-8;base64, %s", base64);
-	PostThreadMessage(ctx->thread_id, WV_NAVIGATE, 0, (LPARAM) MTY_MultiToWideD(encoded));
-	MTY_Free(encoded);
-
-	MTY_Free(base64);
-}
-
 static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *this, HRESULT code, ICoreWebView2Controller *controller)
 {
 	struct webview *ctx = ((struct controller_completed *) this)->context;
@@ -112,6 +103,7 @@ static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2C
 	ICoreWebView2Controller_add_GotFocus(ctx->controller, &ctx->focus_changed.handler, NULL);
 	ICoreWebView2Controller_add_LostFocus(ctx->controller, &ctx->focus_changed.handler, NULL);
 	ICoreWebView2_add_WebMessageReceived(ctx->webview, &ctx->web_message_received.handler, NULL);
+	ICoreWebView2_add_WebResourceRequested(ctx->webview, &ctx->web_resource_requested.handler, NULL);
 	ICoreWebView2_AddWebResourceRequestedFilter(ctx->webview, L"*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
 
 	// https://github.com/MicrosoftEdge/WebView2Feedback/issues/547
@@ -128,7 +120,43 @@ static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2C
 	ICoreWebView2Settings_put_AreDevToolsEnabled(ctx->settings, ctx->common.debug);
 	ICoreWebView2Settings_put_AreDefaultContextMenusEnabled(ctx->settings, ctx->common.debug);
 
-	mty_webview_navigate(ctx);
+	// TODO The whole request inerception thing should be removed when the 2MB limitation on Navigate and NavigateToString is gone.
+	// Tracking issue: https://github.com/MicrosoftEdge/WebView2Feedback/issues/1355
+	const char *bootstrap =
+		"<html>"
+		"    <head>"
+		"        <script>"
+		"            const currentScript = document.currentScript;"
+		"            fetch('https://app.local/index.html')"
+		"                .then(res => res.text())"
+		"                .then(res => {"
+		"                    const html = document.createElement('html');"
+		"                    html.innerHTML = res;"
+		""
+		"                    const head = html.querySelector('head');"
+		"                    const body = html.querySelector('body');"
+		""
+		"                    for (const child of head.children) document.head.append(child);"
+		"                    for (const child of body.children) document.body.append(child);"
+		""
+		"                    for (const child of head.querySelectorAll('script')) {"
+		"                        const script = document.createElement('script');"
+		"                        script.src = child.src ? child.src : URL.createObjectURL(new Blob([child.innerHTML]));"
+		"                        document.head.appendChild(script);"
+		"                    }"
+		""
+		"                    for (const child of body.querySelectorAll('script')) {"
+		"                        const script = document.createElement('script');"
+		"                        script.src = child.src ? child.src : URL.createObjectURL(new Blob([child.innerHTML]));"
+		"                        document.body.appendChild(script);"
+		"                    }"
+		""
+		"                    currentScript.remove();"
+		"                });"
+		"        </script>"
+		"    </head>"
+		"</html>";
+	PostThreadMessage(ctx->thread_id, WV_NAVIGATE, 0, (LPARAM) MTY_MultiToWideD(bootstrap));
 
 	return S_OK;
 }
@@ -158,6 +186,34 @@ static HRESULT STDMETHODCALLTYPE mty_webview_message_received(ICoreWebView2WebMe
 	return 0;
 }
 
+static HRESULT STDMETHODCALLTYPE mty_webview_resource_requested(ICoreWebView2WebResourceRequestedEventHandler *this, ICoreWebView2 *sender, ICoreWebView2WebResourceRequestedEventArgs *args)
+{
+	struct webview *ctx = ((struct web_resource_requested *) this)->context;
+
+	ICoreWebView2WebResourceRequest *request = NULL;
+	ICoreWebView2WebResourceRequestedEventArgs_get_Request(args, &request);
+
+	wchar_t *url_w = NULL;
+	ICoreWebView2WebResourceRequest_get_Uri(request, &url_w);
+
+	if (strcmp("https://app.local/index.html", MTY_WideToMultiDL(url_w)))
+		return S_OK;
+
+	const wchar_t *headers = 
+		L"Content-Type: text/html\n"
+		L"Access-Control-Allow-Origin: *\n";
+
+	ICoreWebView2WebResourceResponse *response = NULL;
+	IStream *stream = SHCreateMemStream((const BYTE *) ctx->common.html, (UINT) strlen(ctx->common.html));
+	ICoreWebView2Environment_CreateWebResourceResponse(ctx->environment, stream, 200, L"OK", headers, &response);
+	ICoreWebView2WebResourceRequestedEventArgs_put_Response(args, response);
+
+	ICoreWebView2WebResourceResponse_Release(response);
+	IStream_Release(stream);
+
+	return S_OK;
+}
+
 static HRESULT STDMETHODCALLTYPE mty_webview_focus_changed(ICoreWebView2FocusChangedEventHandler *this, ICoreWebView2Controller *sender, IUnknown *args)
 {
 	struct webview *ctx = ((struct focus_changed *) this)->context;
@@ -176,7 +232,6 @@ static void *mty_webview_thread_func(void *opaque)
 
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
-	SetEnvironmentVariable(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", L"--disable-web-security");
 	CreateCoreWebView2EnvironmentWithOptions(NULL, L"C:\\Windows\\Temp\\webview-data", NULL, &ctx->environment_completed.handler);
 
 	MSG msg = {0};
@@ -201,7 +256,7 @@ static void *mty_webview_thread_func(void *opaque)
 				MTY_Free((void *) msg.lParam);
 				break;
 			case WV_NAVIGATE:
-				ICoreWebView2_Navigate(ctx->webview, (wchar_t *) msg.lParam);
+				ICoreWebView2_NavigateToString(ctx->webview, (wchar_t *) msg.lParam);
 				MTY_Free((void *) msg.lParam);
 				break;
 			default:
@@ -229,6 +284,7 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 	ctx->environment_completed.context  = ctx;
 	ctx->controller_completed.context   = ctx;
 	ctx->web_message_received.context   = ctx;
+	ctx->web_resource_requested.context = ctx;
 	ctx->focus_changed.context          = ctx;
 
 	struct IUnknownVtbl common_vtbl = {0};
@@ -247,6 +303,10 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 	ctx->web_message_received.handler.lpVtbl = MTY_Alloc(1, sizeof(ICoreWebView2WebMessageReceivedEventHandlerVtbl));
 	*ctx->web_message_received.handler.lpVtbl = * (ICoreWebView2WebMessageReceivedEventHandlerVtbl *) &common_vtbl;
 	ctx->web_message_received.handler.lpVtbl->Invoke = mty_webview_message_received;
+
+	ctx->web_resource_requested.handler.lpVtbl = MTY_Alloc(1, sizeof(ICoreWebView2WebResourceRequestedEventHandlerVtbl));
+	*ctx->web_resource_requested.handler.lpVtbl = * (ICoreWebView2WebResourceRequestedEventHandlerVtbl *) &common_vtbl;
+	ctx->web_resource_requested.handler.lpVtbl->Invoke = mty_webview_resource_requested;
 
 	ctx->focus_changed.handler.lpVtbl = MTY_Alloc(1, sizeof(ICoreWebView2FocusChangedEventHandlerVtbl));
 	*ctx->focus_changed.handler.lpVtbl = * (ICoreWebView2FocusChangedEventHandlerVtbl *) &common_vtbl;
@@ -273,6 +333,7 @@ void mty_webview_destroy(struct webview **webview)
 	}
 
 	MTY_Free(ctx->focus_changed.handler.lpVtbl);
+	MTY_Free(ctx->web_resource_requested.handler.lpVtbl);
 	MTY_Free(ctx->web_message_received.handler.lpVtbl);
 	MTY_Free(ctx->controller_completed.handler.lpVtbl);
 	MTY_Free(ctx->environment_completed.handler.lpVtbl);

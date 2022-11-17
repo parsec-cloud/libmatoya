@@ -1378,9 +1378,27 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return app_get_window(app, window) != NULL;
 }
 
-bool MTY_WindowContainsCursor(MTY_App *app, MTY_Window window)
+bool MTY_WindowContainsCursor(MTY_App *app, MTY_Window winid)
 {
-	return false;
+	if (!app)
+		return false;
+
+	struct window *ctx = app_get_window(app, winid);
+	if (!ctx)
+		return false;
+
+	Window root_window = 0, child_window = 0;
+	int root_x = 0, root_y = 0, win_x = 0, win_y = 0;
+	unsigned mask = 0;
+	XQueryPointer(app->display, ctx->window, &root_window, &child_window,
+		&root_x, &root_y, &win_x, &win_y, &mask);
+
+	if (win_x <= 0 || win_x >= ctx->last_width)
+		return false;
+	if (win_y <= 0 || win_y >= ctx->last_height)
+		return false;
+
+	return true;
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)

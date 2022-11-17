@@ -232,6 +232,7 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	UINT flags = 0;
 	if (D3D11_CTX_DEBUG)
 		flags |= D3D11_CREATE_DEVICE_DEBUG;
+
 	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, levels,
 		sizeof(levels) / sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, &ctx->device, NULL, &ctx->context);
 	if (e != S_OK) {

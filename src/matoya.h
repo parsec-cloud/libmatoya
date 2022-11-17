@@ -136,34 +136,34 @@ typedef struct {
 
 /// @brief Description of a render operation.
 typedef struct {
-	MTY_ColorFormat format;    ///< The color format of a raw image.
-	MTY_Rotation rotation;     ///< Rotation applied to the image.
-	MTY_Chroma chroma;         ///< Color subsampling, chroma layout for planar YUV formats.
-	MTY_Filter filter;         ///< Filter applied to the image.
-	MTY_Effect effects[2];     ///< Effects applied to the image.
-	float levels[2];           ///< Intensity of the applied `effects` between `0.0f` and `1.0f`.
-	bool fullRangeYUV;         ///< Use the full 0-255 color range for YUV formats.
-	bool multiplyYUV;          ///< Properly normalize 10-bit YUV formats if not already done.
-	uint32_t imageWidth;       ///< The width in pixels of the image.
-	uint32_t imageHeight;      ///< The height in pixels of the image.
-	uint32_t cropWidth;        ///< Desired crop width of the image from the top left corner.
-	uint32_t cropHeight;       ///< Desired crop height of the image from the top left corner.
-	uint32_t viewWidth;        ///< The width of the viewport.
-	uint32_t viewHeight;       ///< The height of the viewport.
-	float aspectRatio;         ///< Desired aspect ratio of the image. The renderer will letterbox
-	                           ///<   the image to maintain the specified aspect ratio.
-	float scale;               ///< Multiplier applied to the dimensions of the image, producing an
-	                           ///<   minimized or magnified image. This can be set to 0
-	                           ///<   if unnecessary.
-	bool hdr;                  ///< If true, then the image is based on the rec2020 color primaries
-	                           ///<   and the rec2100 non-linear transfer function (ST 2084
-	                           ///<   perceptual quantizer, aka PQ). If false, then the image is
-	                           ///<   based on the rec709/sRGB primaries and transfer function.
-	bool hdrDescSpecified;     ///< Is HDR metadata provided. Only relevant if `hdr` is true.
-	MTY_HDRDesc hdrDesc;       ///< HDR metadata for the image. Only relevant if `hdr` is true.
-	MTY_DiffMode diffMode;     ///< Instead of rendering the quad, show a diff of it with the provided frame.
-	uint8_t diffBrightFactor;  ///< Brightens the diff output to make the visual more staggering. Min 1, Max 100.
-	uint8_t *diffImage;        ///< Pixel data for the frame which will be diff'd with the quad.
+	MTY_ColorFormat format;   ///< The color format of a raw image.
+	MTY_Rotation rotation;    ///< Rotation applied to the image.
+	MTY_Chroma chroma;        ///< Color subsampling, chroma layout for planar YUV formats.
+	MTY_Filter filter;        ///< Filter applied to the image.
+	MTY_Effect effects[2];    ///< Effects applied to the image.
+	float levels[2];          ///< Intensity of the applied `effects` between `0.0f` and `1.0f`.
+	bool fullRangeYUV;        ///< Use the full 0-255 color range for YUV formats.
+	bool multiplyYUV;         ///< Properly normalize 10-bit YUV formats if not already done.
+	uint32_t imageWidth;      ///< The width in pixels of the image.
+	uint32_t imageHeight;     ///< The height in pixels of the image.
+	uint32_t cropWidth;       ///< Desired crop width of the image from the top left corner.
+	uint32_t cropHeight;      ///< Desired crop height of the image from the top left corner.
+	uint32_t viewWidth;       ///< The width of the viewport.
+	uint32_t viewHeight;      ///< The height of the viewport.
+	float aspectRatio;        ///< Desired aspect ratio of the image. The renderer will letterbox
+	                          ///<   the image to maintain the specified aspect ratio.
+	float scale;              ///< Multiplier applied to the dimensions of the image, producing an
+	                          ///<   minimized or magnified image. This can be set to 0
+	                          ///<   if unnecessary.
+	bool hdr;                 ///< If true, then the image is based on the rec2020 color primaries
+	                          ///<   and the rec2100 non-linear transfer function (ST 2084
+	                          ///<   perceptual quantizer, aka PQ). If false, then the image is
+	                          ///<   based on the rec709/sRGB primaries and transfer function.
+	bool hdrDescSpecified;    ///< Is HDR metadata provided. Only relevant if `hdr` is true.
+	MTY_HDRDesc hdrDesc;      ///< HDR metadata for the image. Only relevant if `hdr` is true.
+	MTY_DiffMode diffMode;    ///< Instead of rendering the quad, show a diff of it with the provided frame.
+	uint8_t diffBrightFactor; ///< Brightens the diff output to make the visual more staggering. Min 1, Max 100.
+	uint8_t *diffImage;       ///< Pixel data for the frame which will be diff'd with the quad.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.

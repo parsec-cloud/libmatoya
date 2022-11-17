@@ -107,13 +107,6 @@ typedef enum {
 	MTY_CHROMA_MAKE_32 = INT32_MAX,
 } MTY_Chroma;
 
-typedef enum {
-	MTY_DIFF_MODE_DISABLED = 0, ///< Diff mode is not enabled.
-	MTY_DIFF_MODE_RGBDIFF  = 1, ///< RGB channels of the quad will be diff'd with that of the comparison frame.
-	MTY_DIFF_MODE_DELTAE   = 2, ///< Delta-E (1976) measure between the quad and the comparison frame.
-	MTY_DIFF_MODE_MAKE_32 = INT32_MAX,
-} MTY_DiffMode;
-
 /// @brief HDR metadata associated with an image being rendered.
 typedef struct {
 	float colorPrimaryRed[2];        ///< xy coordinates for the red primary of the image's color
@@ -161,9 +154,6 @@ typedef struct {
 	                          ///<   based on the rec709/sRGB primaries and transfer function.
 	bool hdrDescSpecified;    ///< Is HDR metadata provided. Only relevant if `hdr` is true.
 	MTY_HDRDesc hdrDesc;      ///< HDR metadata for the image. Only relevant if `hdr` is true.
-	MTY_DiffMode diffMode;    ///< Instead of rendering the quad, show a diff of it with the provided frame.
-	uint8_t diffBrightFactor; ///< Brightens the diff output to make the visual more staggering. Min 1, Max 100.
-	uint8_t *diffImage;       ///< Pixel data for the frame which will be diff'd with the quad.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.

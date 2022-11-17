@@ -4,9 +4,6 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
-#include "hdr10.hlsl"
-#include "framediff.hlsl"
-
 struct VS_OUTPUT {
 	float4 position : SV_POSITION;
 	float2 texcoord : TEXCOORD;
@@ -23,8 +20,6 @@ cbuffer VS_CONSTANT_BUFFER : register(b0) {
 	uint rotation;
 	uint conversion;
 	uint hdr;
-	uint diffmode;
-	float diffbrighten;
 };
 
 SamplerState ss {
@@ -33,28 +28,6 @@ SamplerState ss {
 Texture2D tex0 : register(t0);
 Texture2D tex1 : register(t1);
 Texture2D tex2 : register(t2);
-Texture2D texdiffrgba : register(t3);
-Texture2D texdiffrgb10a2 : register(t4);
-
-// Thanks to colour.py module for these constants
-static const float3x3 REC709_TO_XYZ =
-{
-	{0.4124,  0.3576,  0.1805},
-	{0.2126,  0.7152,  0.0722},
-	{0.0193,  0.1192,  0.9505}
-};
-
-// Thanks to colour.py module for these constants
-static const float3x3 REC2020_TO_XYZ =
-{
-	{0.63696,  0.14462,  0.16889},
-	{0.26270,  0.677998, 0.59302},
-	{0.49941,  0.28073,  0.106098}
-};
-
-// Thanks to https://www.mathworks.com/help/images/ref/whitepoint.html
-static const float3 D65_WHITE = {0.95047, 1, 1.08883};
-
 
 inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 {
@@ -91,8 +64,6 @@ inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 			v = (v - 128.0 / 255.0) * (255.0 / 224.0);
 		}
 	}
-
-	// TODO: Yo......what if we did 10-bit YCgCo for SDR instead of YCbCr????? Would that improve color accuracy????? Let's try it out!!!
 
 	float kr = hdr ? 0.2627 : 0.2126;
 	float kb = hdr ? 0.0593 : 0.0722;
@@ -201,54 +172,6 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 
 	// Sample
 	float4 rgba = sample_rgba(planes, conversion, hdr, uv);
-
-	// Compare sample with a diff texture
-	if (diffmode) {
-
-		float4 rgba_diff = 0;
-
-		if (hdr) {
-			rgba_diff = texdiffrgb10a2.Sample(ss, uv);
-		} else {
-			rgba_diff = texdiffrgba.Sample(ss, uv);
-
-			if (conversion & 0x2) // 10-bit SDR
-				// Final output is normed 8-bit but the decoded frame is normed 10-bit, so we re-normalize
-				rgba = round(rgba * 255.0f) / 255.0f;
-		}
-
-		if (diffmode == 1) {
-			rgba = abs(rgba - rgba_diff);
-			rgba *= diffbrighten; // brighten so the diff is stark
-
-		} else if (diffmode == 2) {
-			float3 actual = hdr ? rgba.rgb : rgba.rgb;
-			float3 diff = hdr ? rgba_diff.rgb : rgba_diff.rgb;
-
-			float de = hdr ? deltaE_ITP(actual, diff) : deltaE_2000(
-				actual,
-				diff, 
-				hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
-				D65_WHITE
-			); 
-			
-			if (de >= 2.0f) { // unacceptable - show as bright red
-				rgba = float4(1, 0, 0, 1);
-
-			} else if (de >= 1.0f) { // mediocre - lerp from red to yellow
-				rgba = float4(1, lerp(1, 0, de - 1.0f), 0, 1);
-
-			} else if (de >= 0.5f) { // satisfactory - lerp from yellow to green
-				rgba = float4(lerp(0, 1, (de - 0.5f) * 2.0f), 1, 0, 1);
-
-			} else { // great/perfect - lerp from green to black
-				rgba = float4(0, lerp(0, 1, de * 2.0f), 0, 1);
-			}
-
-		} else {
-			rgba = rgba_diff;
-		}
-	}
 
 	// Effects
 	for (uint y = 0; y < 2; y++)

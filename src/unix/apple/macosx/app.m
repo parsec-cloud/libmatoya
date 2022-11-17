@@ -542,7 +542,9 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
-	if (window.app.pen_enabled && (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
+	if (window.app.pen_enabled
+		&& (event.subtype == NSTabletPointEventSubtype)
+		&& (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
 		window_pen_event(window, event, pressed);
 
 	} else {
@@ -1347,13 +1349,6 @@ const void *MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size
 	return mty_hid_device_get_touchpad(app.hid, id, size);
 }
 
-MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
-{
-	App *app = (__bridge App *) ctx;
-
-	return app.pen_enabled ? MTY_PEN_TYPE_GENERIC : MTY_PEN_TYPE_NONE;
-}
-
 bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	App *app = (__bridge App *) ctx;
@@ -1374,6 +1369,10 @@ MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 }
 
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
+{
+}
+
+void MTY_AppSetWMsgFunc(MTY_App *ctx, MTY_WMsgFunc func)
 {
 }
 
@@ -1438,8 +1437,9 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	if (frame->type & MTY_WINDOW_MAXIMIZED)
 		[ctx zoom:ctx];
 
-	if (frame->type & MTY_WINDOW_FULLSCREEN)
-		MTY_WindowSetFullscreen(app, window, true);
+	// XXX Forcing fullscreen here does not seem required and causes issues in multi-screen setups
+	// if (frame->type & MTY_WINDOW_FULLSCREEN)
+	// 	MTY_WindowSetFullscreen(app, window, true);
 
 	if (!(frame->type & MTY_WINDOW_HIDDEN))
 		MTY_WindowActivate(app, window, true);
@@ -1545,8 +1545,9 @@ void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 	if (frame->type & MTY_WINDOW_MAXIMIZED)
 		[ctx zoom:ctx];
 
-	if (frame->type & MTY_WINDOW_FULLSCREEN)
-		MTY_WindowSetFullscreen(app, window, true);
+	// XXX Forcing fullscreen here does not seem required and causes issues in multi-screen setups
+	// if (frame->type & MTY_WINDOW_FULLSCREEN)
+	// 	MTY_WindowSetFullscreen(app, window, true);
 }
 
 void MTY_WindowSetMinSize(MTY_App *app, MTY_Window window, uint32_t minWidth, uint32_t minHeight)

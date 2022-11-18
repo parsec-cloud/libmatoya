@@ -232,59 +232,41 @@ static void *mty_webview_thread_func(void *opaque)
 
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
-	MSG msg = {0};
-	bool first_run = true;
-	bool running = true;
+	CreateCoreWebView2EnvironmentWithOptions(NULL, L"C:\\Windows\\Temp\\webview-data", NULL, &ctx->environment_completed.handler);
 
-	while (running) {
-		while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-			if (LOWORD(msg.message) == WM_QUIT) {
-				running = false;
+	MSG msg = {0};
+	while (GetMessage(&msg, NULL, 0, 0)) {
+		switch (msg.message) {
+			case WV_SIZE: {
+				RECT bounds = {0};
+
+				if (!ctx->common.hidden)
+					GetClientRect(ctx->hwnd, &bounds);
+
+				ICoreWebView2Controller3_put_BoundsMode(ctx->controller, COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS);
+				ICoreWebView2Controller_put_Bounds(ctx->controller, bounds);
 				break;
 			}
-
-			switch (msg.message) {
-				case WV_SIZE: {
-					RECT bounds = {0};
-
-					if (!ctx->common.hidden)
-						GetClientRect(ctx->hwnd, &bounds);
-
-					ICoreWebView2Controller3_put_BoundsMode(ctx->controller, COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS);
-					ICoreWebView2Controller_put_Bounds(ctx->controller, bounds);
-					break;
-				}
-				case WV_SCRIPT_INIT:
-					ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, (wchar_t *) msg.lParam, NULL);
-					MTY_Free((void *) msg.lParam);
-					break;
-				case WV_SCRIPT_EVAL:
-					ICoreWebView2_ExecuteScript(ctx->webview, (wchar_t *) msg.lParam, NULL);
-					MTY_Free((void *) msg.lParam);
-					break;
-				case WV_NAVIGATE:
-					ICoreWebView2_NavigateToString(ctx->webview, (wchar_t *) msg.lParam);
-					MTY_Free((void *) msg.lParam);
-					break;
-				default:
-					break;
-			}
-
-			TranslateMessage(&msg); // XXX: We MAY not need this, depending on whether webview requires 
-		                            // WM_CHAR messages or can handle WK_KEY* messages alone.
-		                            // Re-visit this later and remove this call if we can.
-			DispatchMessage(&msg);
+			case WV_SCRIPT_INIT:
+				ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, (wchar_t *) msg.lParam, NULL);
+				MTY_Free((void *) msg.lParam);
+				break;
+			case WV_SCRIPT_EVAL:
+				ICoreWebView2_ExecuteScript(ctx->webview, (wchar_t *) msg.lParam, NULL);
+				MTY_Free((void *) msg.lParam);
+				break;
+			case WV_NAVIGATE:
+				ICoreWebView2_NavigateToString(ctx->webview, (wchar_t *) msg.lParam);
+				MTY_Free((void *) msg.lParam);
+				break;
+			default:
+				break;
 		}
 
-		if (first_run) {
-			// This function must be called after the thread's message loop has been initialized
-			// in order to avoid race conditions with processing messages sent from the WebView2 callbacks
-			CreateCoreWebView2EnvironmentWithOptions(NULL, L"C:\\Windows\\Temp\\webview-data", NULL, &ctx->environment_completed.handler);
-			first_run = false;
-		}
-		
-		if (running)
-			WaitMessage(); // blocks until a message is enqueued, effectively replicating the behaviour of GetMessage
+		TranslateMessage(&msg); // XXX: We MAY not need this, depending on whether webview requires 
+		                        // WM_CHAR messages or can handle WK_KEY* messages alone.
+		                        // Re-visit this later and remove this call if we can.
+		DispatchMessage(&msg);
 	}
 
 	return NULL;

@@ -263,6 +263,9 @@ static void *mty_webview_thread_func(void *opaque)
 				break;
 		}
 
+		TranslateMessage(&msg); // XXX: We MAY not need this, depending on whether webview requires 
+		                        // WM_CHAR messages or can handle WK_KEY* messages alone.
+		                        // Re-visit this later and remove this call if we can.
 		DispatchMessage(&msg);
 	}
 

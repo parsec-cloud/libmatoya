@@ -263,7 +263,6 @@ static void *mty_webview_thread_func(void *opaque)
 				break;
 		}
 
-		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
 

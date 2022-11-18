@@ -542,7 +542,9 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
-	if (window.app.pen_enabled && (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
+	if (window.app.pen_enabled
+		&& (event.subtype == NSTabletPointEventSubtype)
+		&& (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
 		window_pen_event(window, event, pressed);
 
 	} else {

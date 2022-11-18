@@ -595,9 +595,8 @@ bool mty_d3d11_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
 	} else {
 		const bool adapter_reset = !ctx->factory1 || !IDXGIFactory1_IsCurrent(ctx->factory1);
 		const bool window_moved = d3d11_ctx_refresh_window_bounds(ctx); // includes when moved to different display
-		if (window_moved || adapter_reset) {
+		if (window_moved || adapter_reset)
 			ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
-		}
 	}
 
 	return ctx->hdr_supported;

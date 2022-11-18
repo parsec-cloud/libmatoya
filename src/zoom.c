@@ -79,17 +79,6 @@ static float mty_zoom_transform_x(MTY_Zoom *ctx, float value)
 	return offset_x + zoom_w * ratio_x;
 }
 
-static float mty_zoom_inverse_transform_x(MTY_Zoom *ctx, float value)
-{
-	float offset_x = -ctx->image.x / ctx->scale_screen + ctx->image_min.x;
-	float zoom_w   = ctx->window_w / ctx->scale_screen;
-
-	if (zoom_w == 0 || ctx->window_w == 0)
-		return 0.0f;
-
-	return (value - offset_x) / (zoom_w / ctx->window_w);
-}
-
 static float mty_zoom_transform_y(MTY_Zoom *ctx, float value)
 {
 	float offset_y = -ctx->image.y / ctx->scale_screen + ctx->image_min.y;
@@ -97,17 +86,6 @@ static float mty_zoom_transform_y(MTY_Zoom *ctx, float value)
 	float ratio_y  = value / ctx->window_h;
 
 	return offset_y + zoom_h * ratio_y;
-}
-
-static float mty_zoom_inverse_transform_y(MTY_Zoom *ctx, float value)
-{
-	float offset_y = -ctx->image.y / ctx->scale_screen + ctx->image_min.y;
-	float zoom_h   = ctx->window_h / ctx->scale_screen;
-
-	if (zoom_h == 0 || ctx->window_h == 0)
-		return 0.0f;
-
-	return (value - offset_y) / (zoom_h / ctx->window_h);
 }
 
 static void mty_zoom_restrict_image(MTY_Zoom *ctx)
@@ -134,22 +112,6 @@ static void mty_zoom_restrict_image(MTY_Zoom *ctx)
 		if (ctx->image.y < ctx->image_max.y - image_scaled_h)
 			ctx->image.y = ctx->image_max.y - image_scaled_h;
 	}
-}
-
-MTY_Point MTY_ZoomGetImageMin(MTY_Zoom *ctx)
-{
-	MTY_Point nullpos = { .x = 0, .y = 0 };
-	VALIDATE_CTX(ctx, nullpos);
-
-	return ctx->image_min;
-}
-
-MTY_Point MTY_ZoomGetImageMax(MTY_Zoom *ctx)
-{
-	MTY_Point nullpos = { .x = 0, .y = 0 };
-	VALIDATE_CTX(ctx, nullpos);
-
-	return ctx->image_max;
 }
 
 void MTY_ZoomUpdate(MTY_Zoom *ctx, uint32_t windowWidth, uint32_t windowHeight, uint32_t imageWidth, uint32_t imageHeight)
@@ -354,32 +316,6 @@ int32_t MTY_ZoomTransformY(MTY_Zoom *ctx, int32_t value)
 		return lrint(ctx->cursor.y);
 
 	return lrint(mty_zoom_transform_y(ctx, (float) value));
-}
-
-float MTY_ZoomInverseTransformX(MTY_Zoom *ctx, float value)
-{
-	VALIDATE_CTX(ctx, value);
-
-	if (ctx->relative)
-		return value * ctx->scale_screen;
-
-	if (ctx->mode == MTY_INPUT_MODE_TRACKPAD)
-		return ctx->cursor.x;
-
-	return mty_zoom_inverse_transform_x(ctx, value);
-}
-
-float MTY_ZoomInverseTransformY(MTY_Zoom *ctx, float value)
-{
-	VALIDATE_CTX(ctx, value);
-
-	if (ctx->relative)
-		return value * ctx->scale_screen;
-
-	if (ctx->mode == MTY_INPUT_MODE_TRACKPAD)
-		return ctx->cursor.y;
-
-	return mty_zoom_inverse_transform_y(ctx, value);
 }
 
 float MTY_ZoomGetScale(MTY_Zoom *ctx)

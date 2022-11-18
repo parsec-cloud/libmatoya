@@ -3648,22 +3648,6 @@ MTY_ZoomTransformX(MTY_Zoom *ctx, int32_t value);
 MTY_EXPORT int32_t
 MTY_ZoomTransformY(MTY_Zoom *ctx, int32_t value);
 
-/// @brief Transform a zoom-relative X position to an absolute position.
-///   (Calculates the inverse of MTY_ZoomTransformX)
-/// @param ctx The MTY_Zoom.
-/// @param value The zoom-relative X position.
-/// @returns The absolute X position.
-MTY_EXPORT float
-MTY_ZoomInverseTransformX(MTY_Zoom *ctx, float value);
-
-/// @brief Transform a zoom-relative Y position to an absolute position.
-///   (Calculates the inverse of MTY_ZoomTransformY)
-/// @param ctx The MTY_Zoom.
-/// @param value The zoom-relative Y position.
-/// @returns The absolute Y position.
-MTY_EXPORT float
-MTY_ZoomInverseTransformY(MTY_Zoom *ctx, float value);
-
 /// @brief Get the computed image scale value for the current zoom.
 /// @param ctx The MTY_Zoom.
 /// @returns The computed scale value.
@@ -3706,14 +3690,6 @@ MTY_ZoomGetCursorX(MTY_Zoom *ctx);
 /// @returns The vertical position, in screen coordinates.
 MTY_EXPORT int32_t
 MTY_ZoomGetCursorY(MTY_Zoom *ctx);
-
-/// @brief Get the minimum image point for the current zoom.
-MTY_EXPORT MTY_Point
-MTY_ZoomGetImageMin(MTY_Zoom *ctx);
-
-/// @brief Get the maximum image point for the current zoom.
-MTY_EXPORT MTY_Point
-MTY_ZoomGetImageMax(MTY_Zoom *ctx);
 
 /// @brief Check whether a scaling gesture is in progress or not.
 /// @param ctx The MTY_Zoom.

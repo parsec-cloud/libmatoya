@@ -27,6 +27,8 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 	#define D3D11_CTX_DEBUG false
 #endif
 
+#define D3D11_CTX_HDR_REFRESH_MAX_TRIES 60
+
 struct d3d11_ctx {
 	HWND hwnd;
 	bool vsync;
@@ -41,6 +43,7 @@ struct d3d11_ctx {
 	IDXGISwapChain4 *swap_chain4;
 	IDXGIFactory1 *factory1;
 	HANDLE waitable;
+	uint32_t hdr_refresh_tries;
 	bool hdr_init;
 	bool hdr_supported;
 	bool hdr; // is the swap chain currently setup for HDR?
@@ -189,6 +192,11 @@ static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
 
 static void d3d11_ctx_free_hdr(struct d3d11_ctx *ctx)
 {
+	ctx->hdr_init = false;
+	ctx->hdr_supported = false;
+	ctx->hdr = false;
+	ctx->hdr_new = false;
+
 	if (ctx->swap_chain4)
 		IDXGISwapChain4_Release(ctx->swap_chain4);
 
@@ -227,6 +235,35 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	ctx->factory1 = NULL;
 	ctx->context = NULL;
 	ctx->device = NULL;
+}
+
+static bool d3d11_ctx_init_hdr(struct d3d11_ctx *ctx)
+{
+	HRESULT e = IDXGISwapChain2_QueryInterface(ctx->swap_chain2, &IID_IDXGISwapChain3, &ctx->swap_chain3);
+	if (e != S_OK) {
+		MTY_Log("'IDXGISwapChain2_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGISwapChain2_QueryInterface(ctx->swap_chain2, &IID_IDXGISwapChain4, &ctx->swap_chain4);
+	if (e != S_OK) {
+		MTY_Log("'IDXGISwapChain2_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	ctx->hdr_init = true;
+	d3d11_ctx_refresh_window_bounds(ctx);
+	ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
+
+	if (ctx->hdr_refresh_tries >= D3D11_CTX_HDR_REFRESH_MAX_TRIES)
+		MTY_Log("HDR for D3D11 will not be used due to making %u failed attempts to update swap chain for HDR", ctx->hdr_refresh_tries);
+
+	except:
+
+	if (e != S_OK)
+		d3d11_ctx_free_hdr(ctx);
+
+	return e == S_OK;
 }
 
 static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
@@ -324,27 +361,7 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 		MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
 
 	// HDR init
-
-	HRESULT e_hdr = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain3, &ctx->swap_chain3);
-	if (e_hdr != S_OK) {
-		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e_hdr);
-		goto except_hdr;
-	}
-
-	e_hdr = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain4, &ctx->swap_chain4);
-	if (e_hdr != S_OK) {
-		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e_hdr);
-		goto except_hdr;
-	}
-
-	ctx->hdr_init = true;
-	d3d11_ctx_refresh_window_bounds(ctx);
-	ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
-
-	except_hdr:
-
-	if (e_hdr != S_OK)
-		d3d11_ctx_free_hdr(ctx);
+	d3d11_ctx_init_hdr(ctx);	
 
 	except:
 
@@ -436,29 +453,35 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 		}
 	}
 
-	if (ctx->hdr != ctx->hdr_new) {
+	if (ctx->hdr != ctx->hdr_new && ctx->hdr_refresh_tries < D3D11_CTX_HDR_REFRESH_MAX_TRIES) {
 		// If in HDR mode, we keep swap chain in HDR10 (rec2020 10-bit RGB + ST2084 PQ);
 		// otherwise in SDR mode, it's the standard BGRA8 sRGB
 		DXGI_FORMAT format = ctx->hdr_new ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
 		DXGI_COLOR_SPACE_TYPE colorspace = ctx->hdr_new ? DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
 
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0, format, D3D11_SWFLAGS);
-		if (e == S_OK) {
-			e = IDXGISwapChain3_SetColorSpace1(ctx->swap_chain3, colorspace);
-
-			if (e == S_OK) {
-				ctx->hdr = ctx->hdr_new;
-
-			} else if (DXGI_FATAL(e)) {
-				MTY_Log("'IDXGISwapChain3_SetColorSpace1' failed with HRESULT 0x%X", e);
-				d3d11_ctx_free(ctx);
-				d3d11_ctx_init(ctx);
-			}
-
-		} else if (DXGI_FATAL(e)) {
+		if (e != S_OK) {
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
-			d3d11_ctx_free(ctx);
-			d3d11_ctx_init(ctx);
+			goto except;
+		}
+
+		e = IDXGISwapChain3_SetColorSpace1(ctx->swap_chain3, colorspace);
+		if (e != S_OK) {
+			MTY_Log("'IDXGISwapChain3_SetColorSpace1' failed with HRESULT 0x%X", e);
+			goto except;
+		}
+
+		// Success!
+		ctx->hdr = ctx->hdr_new;
+		ctx->hdr_refresh_tries = 0;
+		
+		except:
+
+		if (e != S_OK) {
+			ctx->hdr_refresh_tries++;
+
+			d3d11_ctx_free_hdr(ctx);
+			d3d11_ctx_init_hdr(ctx);
 		}
 	}
 

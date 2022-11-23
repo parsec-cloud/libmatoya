@@ -234,6 +234,8 @@ static void *mty_webview_thread_func(void *opaque)
 
 	CreateCoreWebView2EnvironmentWithOptions(NULL, L"C:\\Windows\\Temp\\webview-data", NULL, &ctx->environment_completed.handler);
 
+	char hr_str[1024] = {0};
+	HRESULT hr = S_OK;
 	MSG msg = {0};
 	while (GetMessage(&msg, NULL, 0, 0)) {
 		switch (msg.message) {
@@ -243,24 +245,32 @@ static void *mty_webview_thread_func(void *opaque)
 				if (!ctx->common.hidden)
 					GetClientRect(ctx->hwnd, &bounds);
 
-				ICoreWebView2Controller3_put_BoundsMode(ctx->controller, COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS);
-				ICoreWebView2Controller_put_Bounds(ctx->controller, bounds);
+				hr = ICoreWebView2Controller3_put_BoundsMode(ctx->controller, COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS);
+				if (hr == S_OK)
+					hr = ICoreWebView2Controller_put_Bounds(ctx->controller, bounds);
 				break;
 			}
 			case WV_SCRIPT_INIT:
-				ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, (wchar_t *) msg.lParam, NULL);
+				hr = ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, (wchar_t *) msg.lParam, NULL);
 				MTY_Free((void *) msg.lParam);
 				break;
 			case WV_SCRIPT_EVAL:
-				ICoreWebView2_ExecuteScript(ctx->webview, (wchar_t *) msg.lParam, NULL);
+				hr = ICoreWebView2_ExecuteScript(ctx->webview, (wchar_t *) msg.lParam, NULL);
 				MTY_Free((void *) msg.lParam);
 				break;
 			case WV_NAVIGATE:
-				ICoreWebView2_NavigateToString(ctx->webview, (wchar_t *) msg.lParam);
+				hr = ICoreWebView2_NavigateToString(ctx->webview, (wchar_t *) msg.lParam);
 				MTY_Free((void *) msg.lParam);
 				break;
 			default:
 				break;
+		}
+
+		if (FAILED(hr)) {
+			FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, hr, 0, hr_str, sizeof(hr_str), NULL);
+			MTY_Log("[MTY_Webview] Failed to invoke ICoreWebView2 function. Reason: %s", hr_str);
+
+			hr = S_OK;
 		}
 
 		TranslateMessage(&msg); // XXX: We MAY not need this, depending on whether webview requires 

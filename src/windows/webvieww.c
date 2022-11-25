@@ -24,6 +24,11 @@ struct controller_completed {
 	struct webview *context;
 };
 
+struct dom_load_completed {
+	ICoreWebView2DOMContentLoadedEventHandler handler;
+	struct webview *context;
+};
+
 struct web_message_received {
 	ICoreWebView2WebMessageReceivedEventHandler handler;
 	struct webview *context;
@@ -51,12 +56,14 @@ struct webview {
 	HANDLE event_webview_ready;
 
 	ICoreWebView2 *webview;
+	ICoreWebView2_2 *webview2;
 	ICoreWebView2Environment *environment;
 	ICoreWebView2Controller3 *controller;
 	ICoreWebView2Settings *settings;
 
 	struct environment_completed environment_completed;
 	struct controller_completed controller_completed;
+	struct dom_load_completed dom_load_completed;
 	struct web_message_received web_message_received;
 	struct web_resource_requested web_resource_requested;
 	struct focus_changed focus_changed;
@@ -108,6 +115,12 @@ static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2C
 	ICoreWebView2_add_WebResourceRequested(ctx->webview, &ctx->web_resource_requested.handler, NULL);
 	ICoreWebView2_AddWebResourceRequestedFilter(ctx->webview, L"*", COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
 
+	ICoreWebView2_QueryInterface(ctx->webview, &IID_ICoreWebView2_2, &ctx->webview2);
+	if (ctx->webview2) {
+		ICoreWebView2_2_add_DOMContentLoaded(ctx->webview2, &ctx->dom_load_completed.handler, NULL);
+		ICoreWebView2_2_Release(ctx->webview2);
+	}
+
 	// https://github.com/MicrosoftEdge/WebView2Feedback/issues/547
 	// https://github.com/MicrosoftEdge/WebView2Feedback/issues/1907
 	// https://github.com/MicrosoftEdge/WebView2Feedback/issues/468#issuecomment-1016993455
@@ -121,6 +134,7 @@ static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2C
 	ICoreWebView2_get_Settings(ctx->webview, &ctx->settings);
 	ICoreWebView2Settings_put_AreDevToolsEnabled(ctx->settings, ctx->common.debug);
 	ICoreWebView2Settings_put_AreDefaultContextMenusEnabled(ctx->settings, ctx->common.debug);
+	ICoreWebView2Settings_put_IsZoomControlEnabled(ctx->settings, FALSE);
 
 	// TODO The whole request inerception thing should be removed when the 2MB limitation on Navigate and NavigateToString is gone.
 	// Tracking issue: https://github.com/MicrosoftEdge/WebView2Feedback/issues/1355
@@ -161,6 +175,16 @@ static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2C
 	PostThreadMessage(ctx->thread_id, WV_NAVIGATE, 0, (LPARAM) MTY_MultiToWideD(bootstrap));
 
 	SetEvent(ctx->event_webview_ready);
+
+	return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE mty_webview_dom_load_completed(ICoreWebView2DOMContentLoadedEventHandler *this, ICoreWebView2 *sender, ICoreWebView2DOMContentLoadedEventArgs *args)
+{
+	struct webview *ctx = ((struct dom_load_completed *) this)->context;
+
+	// TODO: This is still not enough? GRR!! I don't really like the webview_event("init") approach, so think this through some more....there HAS to be a callback called AFTER we have begun listening for events!
+	mty_webview_event(ctx, "parsec_config", "{ data: 123, datum: \"you know me\"}");
 
 	return S_OK;
 }
@@ -339,6 +363,7 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 
 	ctx->environment_completed.context  = ctx;
 	ctx->controller_completed.context   = ctx;
+	ctx->dom_load_completed.context     = ctx;
 	ctx->web_message_received.context   = ctx;
 	ctx->web_resource_requested.context = ctx;
 	ctx->focus_changed.context          = ctx;
@@ -355,6 +380,10 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 	ctx->controller_completed.handler.lpVtbl = MTY_Alloc(1, sizeof(ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl));
 	*ctx->controller_completed.handler.lpVtbl = * (ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl *) &common_vtbl;
 	ctx->controller_completed.handler.lpVtbl->Invoke = mty_webview_controller_completed;
+
+	ctx->dom_load_completed.handler.lpVtbl = MTY_Alloc(1, sizeof(ICoreWebView2DOMContentLoadedEventHandlerVtbl));
+	*ctx->dom_load_completed.handler.lpVtbl = * (ICoreWebView2DOMContentLoadedEventHandlerVtbl *) &common_vtbl;
+	ctx->dom_load_completed.handler.lpVtbl->Invoke = mty_webview_dom_load_completed;
 
 	ctx->web_message_received.handler.lpVtbl = MTY_Alloc(1, sizeof(ICoreWebView2WebMessageReceivedEventHandlerVtbl));
 	*ctx->web_message_received.handler.lpVtbl = * (ICoreWebView2WebMessageReceivedEventHandlerVtbl *) &common_vtbl;
@@ -395,6 +424,7 @@ void mty_webview_destroy(struct webview **webview)
 	MTY_Free(ctx->focus_changed.handler.lpVtbl);
 	MTY_Free(ctx->web_resource_requested.handler.lpVtbl);
 	MTY_Free(ctx->web_message_received.handler.lpVtbl);
+	MTY_Free(ctx->dom_load_completed.handler.lpVtbl);
 	MTY_Free(ctx->controller_completed.handler.lpVtbl);
 	MTY_Free(ctx->environment_completed.handler.lpVtbl);
 

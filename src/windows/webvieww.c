@@ -48,6 +48,8 @@ struct webview {
 	MTY_Thread *thread;
 	DWORD thread_id;
 
+	HANDLE event_webview_ready;
+
 	ICoreWebView2 *webview;
 	ICoreWebView2Environment *environment;
 	ICoreWebView2Controller3 *controller;
@@ -158,6 +160,8 @@ static HRESULT STDMETHODCALLTYPE mty_webview_controller_completed(ICoreWebView2C
 		"</html>";
 	PostThreadMessage(ctx->thread_id, WV_NAVIGATE, 0, (LPARAM) MTY_MultiToWideD(bootstrap));
 
+	SetEvent(ctx->event_webview_ready);
+
 	return S_OK;
 }
 
@@ -225,6 +229,45 @@ static HRESULT STDMETHODCALLTYPE mty_webview_focus_changed(ICoreWebView2FocusCha
 
 // Private
 
+static void mty_webview_thread_handle_msg(struct webview *ctx, MSG *msg)
+{
+	char hr_str[1024] = {0};
+	HRESULT hr = S_OK;
+
+	switch (msg->message) {
+		case WV_SIZE: {
+			RECT bounds = {0};
+
+			if (!ctx->common.hidden)
+				GetClientRect(ctx->hwnd, &bounds);
+
+			hr = ICoreWebView2Controller3_put_BoundsMode(ctx->controller, COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS);
+			if (hr == S_OK)
+				hr = ICoreWebView2Controller_put_Bounds(ctx->controller, bounds);
+			break;
+		}
+		case WV_SCRIPT_INIT:
+			hr = ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, (wchar_t *) msg->lParam, NULL);
+			MTY_Free((void *) msg->lParam);
+			break;
+		case WV_SCRIPT_EVAL:
+			hr = ICoreWebView2_ExecuteScript(ctx->webview, (wchar_t *) msg->lParam, NULL);
+			MTY_Free((void *) msg->lParam);
+			break;
+		case WV_NAVIGATE:
+			hr = ICoreWebView2_NavigateToString(ctx->webview, (wchar_t *) msg->lParam);
+			MTY_Free((void *) msg->lParam);
+			break;
+		default:
+			break;
+	}
+
+	if (FAILED(hr)) {
+		FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, hr, 0, hr_str, sizeof(hr_str), NULL);
+		MTY_Log("[MTY_Webview] Failed to invoke ICoreWebView2 function. Reason: %s", hr_str);
+	}
+}
+
 static void *mty_webview_thread_func(void *opaque)
 {
 	struct webview *ctx = opaque;
@@ -232,52 +275,53 @@ static void *mty_webview_thread_func(void *opaque)
 
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
+	// Ensure the thread message loop is initialized before we create the webview
+	MSG msg = {0};
+	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE); // see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagea#remarks
+	
 	CreateCoreWebView2EnvironmentWithOptions(NULL, L"C:\\Windows\\Temp\\webview-data", NULL, &ctx->environment_completed.handler);
 
-	char hr_str[1024] = {0};
-	HRESULT hr = S_OK;
-	MSG msg = {0};
-	while (GetMessage(&msg, NULL, 0, 0)) {
-		switch (msg.message) {
-			case WV_SIZE: {
-				RECT bounds = {0};
+	MTY_List *early_msg_q = MTY_ListCreate();
 
-				if (!ctx->common.hidden)
-					GetClientRect(ctx->hwnd, &bounds);
-
-				hr = ICoreWebView2Controller3_put_BoundsMode(ctx->controller, COREWEBVIEW2_BOUNDS_MODE_USE_RAW_PIXELS);
-				if (hr == S_OK)
-					hr = ICoreWebView2Controller_put_Bounds(ctx->controller, bounds);
+	bool running = true;
+	while (running) {
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+			if (LOWORD(msg.message) == WM_QUIT) {
+				running = false;
 				break;
 			}
-			case WV_SCRIPT_INIT:
-				hr = ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, (wchar_t *) msg.lParam, NULL);
-				MTY_Free((void *) msg.lParam);
-				break;
-			case WV_SCRIPT_EVAL:
-				hr = ICoreWebView2_ExecuteScript(ctx->webview, (wchar_t *) msg.lParam, NULL);
-				MTY_Free((void *) msg.lParam);
-				break;
-			case WV_NAVIGATE:
-				hr = ICoreWebView2_NavigateToString(ctx->webview, (wchar_t *) msg.lParam);
-				MTY_Free((void *) msg.lParam);
-				break;
-			default:
-				break;
+
+			if (WaitForSingleObject(ctx->event_webview_ready, 0) != WAIT_OBJECT_0) {
+				MSG *p = MTY_Alloc(1, sizeof(MSG));
+				*p = msg;
+				MTY_ListAppend(early_msg_q, p);
+
+			} else {
+				mty_webview_thread_handle_msg(ctx, &msg);
+			}
+
+			TranslateMessage(&msg); // XXX: We MAY not need this, depending on whether webview requires 
+								// WM_CHAR messages or can handle WK_KEY* messages alone.
+								// Re-visit this later and remove this call if we can.
+			DispatchMessage(&msg);
 		}
 
-		if (FAILED(hr)) {
-			FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, hr, 0, hr_str, sizeof(hr_str), NULL);
-			MTY_Log("[MTY_Webview] Failed to invoke ICoreWebView2 function. Reason: %s", hr_str);
+		for (MTY_ListNode *n = MTY_ListGetFirst(early_msg_q); n; /* nothing */) {
+			MTY_ListNode *next = n->next;
 
-			hr = S_OK;
+			mty_webview_thread_handle_msg(ctx, (MSG *) n->value);
+
+			MTY_Free(n->value);
+			MTY_ListRemove(early_msg_q, n);
+
+			n = next;
 		}
 
-		TranslateMessage(&msg); // XXX: We MAY not need this, depending on whether webview requires 
-		                        // WM_CHAR messages or can handle WK_KEY* messages alone.
-		                        // Re-visit this later and remove this call if we can.
-		DispatchMessage(&msg);
+		if (running && MTY_ListGetFirst(early_msg_q) == NULL)
+			WaitMessage(); // blocks until a message is enqueued, effectively replicating the behaviour of GetMessage
 	}
+
+	MTY_ListDestroy(&early_msg_q, MTY_Free);
 
 	return NULL;
 }
@@ -326,6 +370,8 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 
 	ctx->thread = MTY_ThreadCreate(mty_webview_thread_func, ctx);
 
+	ctx->event_webview_ready = CreateEvent(NULL, TRUE, FALSE, NULL);
+
 	return ctx;
 }
 
@@ -335,6 +381,8 @@ void mty_webview_destroy(struct webview **webview)
 		return;
 
 	struct webview *ctx = *webview;
+
+	CloseHandle(ctx->event_webview_ready);
 
 	if (ctx->controller)
 		ICoreWebView2Controller_Close(ctx->controller);
@@ -390,6 +438,8 @@ void mty_webview_event(struct webview *ctx, const char *name, const char *messag
 		return;
 
 	char *javascript = MTY_SprintfD(JAVASCRIPT_EVENT_DISPATCH, name, message);
+
+	WaitForSingleObject(ctx->event_webview_ready, INFINITE);
 
 	PostThreadMessage(ctx->thread_id, WV_SCRIPT_EVAL, 0, (LPARAM) MTY_MultiToWideD(javascript));
 

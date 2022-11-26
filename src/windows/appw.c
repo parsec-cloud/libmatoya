@@ -1841,7 +1841,7 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
 {
 	if (ctx->wintab)
-		wintab_recreate(&ctx->wintab, app_get_main_hwnd(ctx), override);
+		wintab_override_controls(ctx->wintab, override);
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)

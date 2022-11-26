@@ -17,9 +17,9 @@
 struct wintab;
 
 struct wintab *wintab_create(HWND hwnd, bool override);
-void wintab_recreate(struct wintab **ctx, HWND hwnd, bool override);
 void wintab_destroy(struct wintab **wintab, bool unload_symbols);
 
+void wintab_override_controls(struct wintab *ctx, bool override);
 void wintab_overlap_context(struct wintab *ctx, bool overlap);
 void wintab_get_packet(struct wintab *ctx, WPARAM wparam, LPARAM lparam, void *pkt);
 

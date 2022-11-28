@@ -543,7 +543,9 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
-	if (window.app.pen_enabled && (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
+	if (window.app.pen_enabled
+		&& (event.subtype == NSTabletPointEventSubtype)
+		&& (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
 		window_pen_event(window, event, pressed);
 
 	} else {
@@ -1409,6 +1411,10 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 	App *app = (__bridge App *) ctx;
 
 	app.pen_enabled = enable;
+}
+
+void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
+{
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)

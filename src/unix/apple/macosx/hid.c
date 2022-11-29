@@ -308,3 +308,8 @@ uint32_t mty_hid_device_get_input_report_size(struct hid_dev *ctx)
 {
 	return ctx->input_size;
 }
+
+bool mty_hid_device_get_is_virtual(struct hid_dev *ctx)
+{
+	return false;
+}

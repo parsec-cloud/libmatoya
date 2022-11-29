@@ -58,8 +58,8 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 
 	bool r = false;
 	WCHAR *symlink = NULL;
-	WCHAR *instanceId = NULL;
-	WCHAR *rootInstanceId = NULL;
+	WCHAR *instance_id = NULL;
+	WCHAR *root_instance_id = NULL;
 
 	UINT size = 0;
 	// get symlink buffer required size
@@ -82,30 +82,18 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 	ULONG bytes = 0, chars = 0;
 	DEVPROPTYPE type = 0;
 	// get instance ID required buffer size
-	CONFIGRET ret = CM_Get_Device_Interface_Property(
-		symlink,
-		&DEVPKEY_Device_InstanceId,
-		&type,
-		NULL,
-		&bytes,
-		0
-	);
+	CONFIGRET ret = CM_Get_Device_Interface_Property(symlink, &DEVPKEY_Device_InstanceId, &type,
+		NULL, &bytes, 0);
 	if (ret != CR_BUFFER_SMALL) {
 		r = false;
 		MTY_Log("'CM_Get_Device_Interface_Property' (size) failed with error 0x%X", ret);
 		goto except;
 	}
 
-	instanceId = MTY_Alloc(bytes, 1);
+	instance_id = MTY_Alloc(bytes, 1);
 	// get instance ID buffer content
-	ret = CM_Get_Device_Interface_Property(
-		symlink,
-		&DEVPKEY_Device_InstanceId,
-		&type,
-		(PBYTE)instanceId,
-		&bytes,
-		0
-	);
+	ret = CM_Get_Device_Interface_Property(symlink, &DEVPKEY_Device_InstanceId, &type,
+		(PBYTE) instance_id, &bytes, 0);
 	if (ret != CR_SUCCESS) {
 		r = false;
 		MTY_Log("'CM_Get_Device_Interface_Property' (content) failed with error 0x%X", ret);
@@ -114,38 +102,42 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 
 	DEVINST instance = 0;
 	// get instance handle from instance ID
-	ret = CM_Locate_DevNode(&instance, instanceId, CM_LOCATE_DEVNODE_NORMAL);
+	ret = CM_Locate_DevNode(&instance, instance_id, CM_LOCATE_DEVNODE_NORMAL);
 	if (ret != CR_SUCCESS) {
 		r = false;
 		MTY_Log("'CM_Locate_DevNode' failed with error 0x%X", ret);
 		goto except;
 	}
-	
+
 	DEVINST parent = 0, dev = instance;
 	// walk up to topmost parent
 	do {
 		ret = CM_Get_Parent(&parent, dev, 0);
 		if (ret != CR_SUCCESS)
 			break;
-		
+
 		chars = 0;
 		ret = CM_Get_Device_ID_Size(&chars, parent, 0);
 		if (ret != CR_SUCCESS)
 			break;
 
-		WCHAR *parentId = MTY_Alloc(chars + 1, sizeof(WCHAR));
-		ret = CM_Get_Device_ID(parent, parentId, chars, 0);
+		WCHAR *parent_id = MTY_Alloc(chars + 1, sizeof(WCHAR));
+		ret = CM_Get_Device_ID(parent, parent_id, chars, 0);
 		if (ret != CR_SUCCESS)
 			break;
-		
-		bool matches = !_wcsicmp(parentId, L"HTREE\\ROOT\\0");
 
-		if (parentId)
-			MTY_Free(parentId);
+		char *parent_id_m = MTY_WideToMultiD(parent_id);
+		MTY_Log("Parent: %s", parent_id_m);
+		MTY_Free(parent_id_m);
+
+		bool matches = !_wcsicmp(parent_id, L"HTREE\\ROOT\\0");
+
+		if (parent_id)
+			MTY_Free(parent_id);
 
 		if (matches)
 			break;
-		
+
 		dev = parent;
 
 	} while (ret == CR_SUCCESS);
@@ -158,23 +150,23 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 		goto except;
 	}
 
-	rootInstanceId = MTY_Alloc(chars + 1, sizeof(WCHAR));
-	ret = CM_Get_Device_ID(dev, rootInstanceId, size, 0);
+	root_instance_id = MTY_Alloc(chars + 1, sizeof(WCHAR));
+	ret = CM_Get_Device_ID(dev, root_instance_id, size, 0);
 	if (ret != CR_SUCCESS) {
 		r = false;
 		MTY_Log("'CM_Get_Device_ID' failed with error 0x%X", ret);
 		goto except;
 	}
 
-	*is_virtual = (wcsstr(rootInstanceId, L"ROOT\\SYSTEM") != NULL || wcsstr(rootInstanceId, L"ROOT\\USB") != NULL);
+	*is_virtual = (wcsstr(root_instance_id, L"ROOT\\SYSTEM") != NULL || wcsstr(root_instance_id, L"ROOT\\USB") != NULL);
 	r = true;
 
 	except:
 
-	if (rootInstanceId)
-		MTY_Free(rootInstanceId);
-	if (instanceId)
-		MTY_Free(instanceId);
+	if (root_instance_id)
+		MTY_Free(root_instance_id);
+	if (instance_id)
+		MTY_Free(instance_id);
 	if (symlink)
 		MTY_Free(symlink);
 
@@ -473,7 +465,7 @@ void mty_hid_default_state(struct hid_dev *ctx, const void *buf, size_t size, MT
 	c->vid = (uint16_t) ctx->di.hid.dwVendorId;
 	c->pid = (uint16_t) ctx->di.hid.dwProductId;
 	c->id = ctx->id;
-	c->is_virtual = ctx->is_virtual;
+	c->isVirtual = ctx->is_virtual;
 }
 
 void mty_hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)

@@ -50,11 +50,13 @@ struct MTY_App {
 	HINSTANCE instance;
 	HHOOK kbhook;
 	DWORD cb_seq;
+	HWND hovered_hwnd;
 	bool pen_in_range;
 	bool pen_enabled;
 	bool pen_had_barrel;
 	bool pen_touched_left;
 	bool pen_touched_right;
+	bool pen_double_click;
 	bool touch_active;
 	bool relative;
 	bool kbgrab;
@@ -668,6 +670,8 @@ static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
 
 static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_click)
 {
+	MTY_Event new_evt = {0};
+
 	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
 	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
 
@@ -675,26 +679,28 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_
 		if (double_click)
 			*double_click = evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK ? true : false;
 
-		evt->type = MTY_EVENT_BUTTON;
-		evt->button.button = button;
-		evt->button.pressed = true;
+		new_evt.type = MTY_EVENT_BUTTON;
+		new_evt.button.button = button;
+		new_evt.button.pressed = true;
 
 		*touched = true;
 
 	} else if (*touched && !(evt->pen.flags & MTY_PEN_FLAG_TOUCHING)) {
-		evt->type = MTY_EVENT_BUTTON;
-		evt->button.button = button;
-		evt->button.pressed = false;
+		new_evt.type = MTY_EVENT_BUTTON;
+		new_evt.button.button = button;
+		new_evt.button.pressed = false;
 
 		*touched = false;
 
 	} else {
-		evt->type = MTY_EVENT_MOTION;
-		evt->motion.relative = false;
-		evt->motion.synth = false;
-		evt->motion.x = evt->pen.x;
-		evt->motion.y = evt->pen.y;
+		new_evt.type = MTY_EVENT_MOTION;
+		new_evt.motion.relative = false;
+		new_evt.motion.synth = false;
+		new_evt.motion.x = evt->pen.x;
+		new_evt.motion.y = evt->pen.y;
 	}
+
+	*evt = new_evt;
 }
 
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -704,19 +710,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	LRESULT r = 0;
 	bool creturn = false;
 
-	// Custom window message handler
-	if (app->wmsg_func) {
-		r = app->wmsg_func(app, ctx->window, hwnd, msg, wparam, lparam, &creturn, app->opaque);
-
-		if (creturn)
-			return r;
-	}
-
 	MTY_Event evt = {0};
 	evt.window = ctx->window;
 
-	HWND focused_hwnd = hwnd;
-	bool double_click = false;
+	app->hovered_hwnd = hwnd;
+	app->pen_double_click = false;
 	bool defreturn = false;
 	char drop_name[MTY_PATH_MAX];
 
@@ -987,13 +985,19 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	// Tray
 	app_tray_msg(app, msg, wparam, lparam, &evt);
 
+	// Custom window message handler
+	if (app->wmsg_func) {
+		MTY_WMsgState state = { .hwnd = hwnd, .msg = msg, .wparam = wparam, .lparam = lparam };
+		app->wmsg_func(ctx->app, ctx->window, &state, &evt, app->opaque);
+	}
+
 	// Transform keyboard into hotkey
 	if (evt.type == MTY_EVENT_KEY)
 		app_kb_to_hotkey(app, &evt);
 
 	// Record pressed buttons
 	if (evt.type == MTY_EVENT_BUTTON) {
-		app_set_button_coords(focused_hwnd, &evt);
+		app_set_button_coords(app->hovered_hwnd, &evt);
 
 		if (evt.button.pressed) {
 			app->buttons |= 1 << evt.button.button;
@@ -1013,7 +1017,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	if (evt.type != MTY_EVENT_NONE) {
 		app->event_func(&evt, app->opaque);
 
-		if (evt.type == MTY_EVENT_BUTTON && double_click) {
+		if (evt.type == MTY_EVENT_BUTTON && app->pen_double_click) {
 			evt.button.pressed = false;
 			app->event_func(&evt, app->opaque);
 			evt.button.pressed = true;
@@ -1777,6 +1781,36 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 	ctx->pen_enabled = enable;
+}
+
+void MTY_AppSetPenProximity(MTY_App *ctx, bool proximity)
+{
+	ctx->pen_in_range = proximity;
+
+	app_apply_clip(ctx, MTY_AppIsActive(ctx));
+}
+
+void MTY_AppConvertPenToMouse(MTY_App *ctx, MTY_Event *evt)
+{
+	if (!ctx->pen_enabled || !ctx->pen_in_range)
+		app_convert_pen_to_mouse(ctx, evt, &ctx->pen_double_click);
+}
+
+bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y)
+{
+	POINT position = {0};
+	struct window *hovered_window = app_get_hovered_window(ctx, &position);
+
+	ctx->filter_relative = hovered_window == NULL;
+	if (!hovered_window)
+		return false;
+
+	ctx->hovered_hwnd = hovered_window->hwnd;
+
+	*x = (uint32_t) position.x;
+	*y = (uint32_t) position.y;
+
+	return true;
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)

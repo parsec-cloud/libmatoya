@@ -111,7 +111,7 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 
 	DEVINST parent = 0, dev = instance;
 	// walk up to topmost parent
-	do {
+	while (ret == CR_SUCCESS && !*is_virtual) {
 		ret = CM_Get_Parent(&parent, dev, 0);
 		if (ret != CR_SUCCESS)
 			break;
@@ -126,10 +126,32 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 		if (ret != CR_SUCCESS)
 			break;
 
-		char *parent_id_m = MTY_WideToMultiD(parent_id);
-		MTY_Log("Parent: %s", parent_id_m);
-		MTY_Free(parent_id_m);
+		//Hardware ID: Root\Parsec\VUSBA / Root\ViGEmBus
+		//CM_Get_DevInst_Registry_Property
+		//CM_Get_Class_Registry_Property
+		/*
+		CMAPI
+		CONFIGRET
+		WINAPI
+		CM_Get_DevNode_Registry_PropertyW(
+		    _In_  DEVINST       dnDevInst,
+		    _In_  ULONG         ulProperty,
+		    _Out_opt_ PULONG    pulRegDataType,
+		    _Out_writes_bytes_opt_(*pulLength) PVOID Buffer,
+		    _Inout_ PULONG      pulLength,
+		    _In_  ULONG         ulFlags
+		    );
+		*/
+		ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, NULL, &bytes, 0);
+		if (ret == CR_BUFFER_SMALL) {
+			WCHAR *hardwareid = MTY_Alloc(bytes, 1);
+			ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, hardwareid, &bytes, 0);
 
+			char *tmp_buf = MTY_WideToMultiD(hardwareid);
+			MTY_Log("HardwareID: %s", tmp_buf);
+			MTY_Log(tmp_buf);
+		}
+		ret = CR_SUCCESS;
 		bool matches = !_wcsicmp(parent_id, L"HTREE\\ROOT\\0");
 
 		if (parent_id)
@@ -139,8 +161,7 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 			break;
 
 		dev = parent;
-
-	} while (ret == CR_SUCCESS);
+	};
 
 	chars = 0;
 	ret = CM_Get_Device_ID_Size(&chars, dev, 0);

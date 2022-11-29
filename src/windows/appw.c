@@ -17,7 +17,6 @@
 #include <dbt.h>
 
 #include "xip.h"
-#include "wintab.h"
 #include "hid/hid.h"
 
 #define APP_CLASS_NAME L"MTY_Window"
@@ -72,7 +71,6 @@ struct MTY_App {
 	int32_t last_y;
 	struct hid *hid;
 	struct xip *xip;
-	struct wintab *wintab;
 	MTY_Button buttons;
 	MTY_DetachState detach;
 	MTY_Hash *hotkey;
@@ -786,9 +784,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
-			if (app && app->wintab)
-				wintab_overlap_context(app->wintab, true);
-
 			if (!app->filter_move && !app->pen_in_range && (!app->relative || app_hwnd_active(hwnd))) {
 				evt.motion.x = GET_X_LPARAM(lparam);
 				evt.motion.y = GET_Y_LPARAM(lparam);
@@ -859,8 +854,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		}
 		case WM_POINTERLEAVE:
-			if (!app->wintab)
-				app->pen_in_range = false;
+			app->pen_in_range = false;
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
@@ -986,55 +980,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			// This is an add bug related to the tray menu
 			// https://social.msdn.microsoft.com/Forums/vstudio/en-US/ab973de0-da5f-4e26-8f7c-ac099396c830
 			if (wparam == DBT_DEVNODES_CHANGED && app->tray.menu_open)
-				EndMenu();
-			break;
-		case WT_PACKET: {
-			if (!app || !app->wintab)
-				break;
-
-			PACKET pkt = {0};
-			wintab_get_packet(app->wintab, wparam, lparam, &pkt);
-
-			POINT position = {0};
-			struct window *focused_window = app_get_hovered_window(app, &position);
-			app->filter_relative = focused_window == NULL;
-			if (!focused_window)
-				break;
-
-			focused_hwnd = focused_window->hwnd;
-
-			pkt.pkX = position.x;
-			pkt.pkY = position.y;
-
-			wintab_on_packet(app->wintab, &evt, &pkt, focused_window->window);
-
-			if (!app->pen_enabled || !app->pen_in_range)
-				app_convert_pen_to_mouse(app, &evt, &double_click);
-
-			break;
-		}
-		case WT_PACKETEXT: {
-			if (!app || !app->wintab)
-				break;
-
-			PACKETEXT pktext = {0};
-			wintab_get_packet(app->wintab, wparam, lparam, &pktext);
-			wintab_on_packetext(app->wintab, &evt, &pktext);
-
-			app->filter_move = true;
-
-			break;
-		}
-		case WT_PROXIMITY:
-			if (!app || !app->wintab)
-				break;
-
-			app->pen_in_range = wintab_on_proximity(app->wintab, &evt, lparam);
-			app_apply_clip(app, MTY_AppIsActive(app));
-			break;
-		case WT_INFOCHANGE:
-			if (app)
-				wintab_on_infochange(&app->wintab, app_get_main_hwnd(app));
+				EndMenu();		
 			break;
 	}
 
@@ -1288,8 +1234,6 @@ void MTY_AppDestroy(MTY_App **app)
 		return;
 
 	MTY_App *ctx = *app;
-
-	wintab_destroy(&ctx->wintab, true);
 
 	if (ctx->custom_cursor)
 		DestroyIcon(ctx->custom_cursor);
@@ -1833,15 +1777,6 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 	ctx->pen_enabled = enable;
-
-	if (enable && !ctx->wintab)
-		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);
-}
-
-void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
-{
-	if (ctx->wintab)
-		wintab_override_controls(ctx->wintab, override);
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)

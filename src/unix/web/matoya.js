@@ -540,10 +540,10 @@ function mty_decompress_image(input, func) {
 
 		let canvas = null;
 		if (typeof OffscreenCanvas !== "undefined") {
-			const canvas = new OffscreenCanvas(width, height);
+			canvas = new OffscreenCanvas(width, height);
 
 		} else {
-			const canvas = document.createElement('canvas');
+			canvas = document.createElement('canvas');
 			canvas.width = width;
 			canvas.height = height;
 		}

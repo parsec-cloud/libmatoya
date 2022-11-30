@@ -1174,7 +1174,7 @@ const MTY_WEB_API = {
 		iframe.style.left = '0';
 		iframe.style.top = '0';
 
-		iframe.onload = () => setTimeout(() => iframe.style.visibility = 'visible', 250);
+		iframe.onload = () => setTimeout(() => iframe.style.visibility = 'visible', 500);
 
 		window.addEventListener('message', function (msg) {
 			const buf = MTY_Alloc(1, msg.data.length + 1);
@@ -1189,7 +1189,7 @@ const MTY_WEB_API = {
 
 		MTY.webview = iframe;
 
-		MTY_WEB_API.web_view_resize(ctx, false);
+		MTY_WEB_API.web_view_resize(false);
 	},
 	web_view_destroy: function () {
 		if (!MTY.webview)

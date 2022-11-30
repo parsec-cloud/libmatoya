@@ -126,24 +126,16 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 		ret = CM_Get_Device_ID(parent, parent_id, chars, 0);
 		if (ret != CR_SUCCESS)
 			break;
+		{
+			char *tmp_buf = MTY_WideToMultiD(parent_id);
+			MTY_Log("Parent ID: %s", tmp_buf);
+			MTY_Log(tmp_buf);
+		}
 
 		//Hardware ID: Root\Parsec\VUSBA / Root\ViGEmBus
-		//CM_Get_DevInst_Registry_Property
-		//CM_Get_Class_Registry_Property
-		/*
-		CMAPI
-		CONFIGRET
-		WINAPI
-		CM_Get_DevNode_Registry_PropertyW(
-		    _In_  DEVINST       dnDevInst,
-		    _In_  ULONG         ulProperty,
-		    _Out_opt_ PULONG    pulRegDataType,
-		    _Out_writes_bytes_opt_(*pulLength) PVOID Buffer,
-		    _Inout_ PULONG      pulLength,
-		    _In_  ULONG         ulFlags
-		    );
-		*/
+		bytes = 0;
 		ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, NULL, &bytes, 0);
+		MTY_Log("Result registry: %08x %u", ret, bytes);
 		if (ret == CR_BUFFER_SMALL || ret == CR_SUCCESS) {
 			WCHAR *hardwareid = MTY_Alloc(bytes, 1);
 			ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, hardwareid, &bytes, 0);

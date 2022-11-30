@@ -114,14 +114,14 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 	while (ret == CR_SUCCESS && !*is_virtual) {
 		ret = CM_Get_Parent(&parent, dev, 0);
 		if (ret != CR_SUCCESS) {
-			MTY_Log("No more parents.");
+			printf("No more parents.\n");
 			goto next_dev;
 		}
 
 		//Hardware ID: Root\Parsec\VUSBA / Root\ViGEmBus
 		chars = 0;
 		ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, NULL, &chars, 0);
-		MTY_Log("Result registry: %08x %u", ret, chars);
+		printf("Result registry: %08x %u", ret, chars);
 		if (ret == CR_BUFFER_SMALL || ret == CR_SUCCESS) {
 			WCHAR *hardwareid = MTY_Alloc(chars, 1);
 			ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, hardwareid, &chars, 0);
@@ -129,8 +129,9 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 			*is_virtual = !_wcsicmp(hardwareid, L"Root\\Parsec\\VUSBA") || !_wcsicmp(hardwareid, L"Root\\ViGEmBus");
 
 			char *tmp_buf = MTY_WideToMultiD(hardwareid);
-			MTY_Log("HardwareID: %s[%s]", tmp_buf, *is_virtual ? "Yes" : "No");
-			MTY_Log(tmp_buf);
+			printf("HardwareID: %s[%s]\n", tmp_buf, *is_virtual ? "Yes" : "No");
+			MTY_Free(tmp_buf);
+			MTY_Free(hardwareid);
 		}
 		ret = CR_SUCCESS;
 

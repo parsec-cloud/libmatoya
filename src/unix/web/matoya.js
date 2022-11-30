@@ -1246,6 +1246,9 @@ const MTY_WASI_API = {
 
 		return 28;
 	},
+	fd_sync: (fd) => {
+		return 0;
+	},
 
 	// Paths
 	path_filestat_get: function (fd, flags, cpath, _0, filestat_out) {

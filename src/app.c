@@ -201,9 +201,9 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		PEVENT(MTY_EVENT_BACK, evt, "");
 
 		case MTY_EVENT_CONTROLLER: {
-			PFMT(MTY_EVENT_CONTROLLER, evt, "id: %u, type: %u, vid-pid: %04X-%04X, numButtons: %u, numAxes: %u",
+			PFMT(MTY_EVENT_CONTROLLER, evt, "id: %u, type: %u, vid-pid: %04X-%04X, numButtons: %u, numAxes: %u, virtual: %s",
 				evt->controller.id, evt->controller.type, evt->controller.vid, evt->controller.pid,
-				evt->controller.numButtons, evt->controller.numAxes);
+				evt->controller.numButtons, evt->controller.numAxes, evt->controller.isVirtual ? "Yes" : "No");
 
 			printf("  buttons: ");
 			for (uint8_t x = 0; x < evt->controller.numButtons; x++)

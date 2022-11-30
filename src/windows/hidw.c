@@ -156,8 +156,6 @@ static struct hid_dev *hid_device_create(HANDLE device)
 		goto except;
 	}
 
-	MTY_Log("ctx->is_virtual: %d", ctx->is_virtual);
-
 	UINT size = 0;
 	UINT e = GetRawInputDeviceInfo(device, RIDI_PREPARSEDDATA, NULL, &size);
 	if (e != 0) {

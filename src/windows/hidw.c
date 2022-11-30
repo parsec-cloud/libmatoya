@@ -60,7 +60,6 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 	bool r = false;
 	WCHAR *symlink = NULL;
 	WCHAR *instance_id = NULL;
-	WCHAR *root_instance_id = NULL;
 
 	UINT size = 0;
 	// get symlink buffer required size
@@ -114,71 +113,35 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 	// walk up to topmost parent
 	while (ret == CR_SUCCESS && !*is_virtual) {
 		ret = CM_Get_Parent(&parent, dev, 0);
-		if (ret != CR_SUCCESS)
-			break;
-
-		chars = 0;
-		ret = CM_Get_Device_ID_Size(&chars, parent, 0);
-		if (ret != CR_SUCCESS)
-			break;
-
-		WCHAR *parent_id = MTY_Alloc(chars + 1, sizeof(WCHAR));
-		ret = CM_Get_Device_ID(parent, parent_id, chars, 0);
-		if (ret != CR_SUCCESS)
-			break;
-		{
-			char *tmp_buf = MTY_WideToMultiD(parent_id);
-			MTY_Log("Parent ID: %s", tmp_buf);
-			MTY_Log(tmp_buf);
+		if (ret != CR_SUCCESS) {
+			MTY_Log("No more parents.");
+			goto next_dev;
 		}
 
 		//Hardware ID: Root\Parsec\VUSBA / Root\ViGEmBus
-		bytes = 0;
-		ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, NULL, &bytes, 0);
-		MTY_Log("Result registry: %08x %u", ret, bytes);
+		chars = 0;
+		ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, NULL, &chars, 0);
+		MTY_Log("Result registry: %08x %u", ret, chars);
 		if (ret == CR_BUFFER_SMALL || ret == CR_SUCCESS) {
-			WCHAR *hardwareid = MTY_Alloc(bytes, 1);
-			ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, hardwareid, &bytes, 0);
+			WCHAR *hardwareid = MTY_Alloc(chars, 1);
+			ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, hardwareid, &chars, 0);
+
+			*is_virtual = !_wcsicmp(hardwareid, L"Root\\Parsec\\VUSBA") || !_wcsicmp(hardwareid, L"Root\\ViGEmBus");
 
 			char *tmp_buf = MTY_WideToMultiD(hardwareid);
-			MTY_Log("HardwareID: %s", tmp_buf);
+			MTY_Log("HardwareID: %s[%s]", tmp_buf, *is_virtual ? "Yes" : "No");
 			MTY_Log(tmp_buf);
 		}
 		ret = CR_SUCCESS;
-		bool matches = !_wcsicmp(parent_id, L"HTREE\\ROOT\\0");
 
-		if (parent_id)
-			MTY_Free(parent_id);
-
-		if (matches)
-			break;
-
+		next_dev:
 		dev = parent;
 	};
 
-	chars = 0;
-	ret = CM_Get_Device_ID_Size(&chars, dev, 0);
-	if (ret != CR_SUCCESS) {
-		r = false;
-		MTY_Log("'CM_Get_Device_ID_Size' failed with error 0x%X", ret);
-		goto except;
-	}
-
-	root_instance_id = MTY_Alloc(chars + 1, sizeof(WCHAR));
-	ret = CM_Get_Device_ID(dev, root_instance_id, size, 0);
-	if (ret != CR_SUCCESS) {
-		r = false;
-		MTY_Log("'CM_Get_Device_ID' failed with error 0x%X", ret);
-		goto except;
-	}
-
-	*is_virtual = (wcsstr(root_instance_id, L"ROOT\\SYSTEM") != NULL || wcsstr(root_instance_id, L"ROOT\\USB") != NULL);
 	r = true;
 
 	except:
 
-	if (root_instance_id)
-		MTY_Free(root_instance_id);
 	if (instance_id)
 		MTY_Free(instance_id);
 	if (symlink)

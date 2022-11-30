@@ -538,7 +538,16 @@ function mty_decompress_image(input, func) {
 		const width = img.naturalWidth;
 		const height = img.naturalHeight;
 
-		const canvas = new OffscreenCanvas(width, height);
+		let canvas = null;
+		if (typeof OffscreenCanvas !== "undefined") {
+			const canvas = new OffscreenCanvas(width, height);
+
+		} else {
+			const canvas = document.createElement('canvas');
+			canvas.width = width;
+			canvas.height = height;
+		}
+
 		const ctx = canvas.getContext('2d');
 		ctx.drawImage(img, 0, 0, width, height);
 

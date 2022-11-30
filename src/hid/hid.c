@@ -91,7 +91,7 @@ void mty_hid_driver_init(struct hid_dev *device)
 bool mty_hid_driver_state(struct hid_dev *device, const void *buf, size_t size, MTY_ControllerEvent *c)
 {
 	c->isVirtual = mty_hid_device_get_is_virtual(device);
-	printf("Device is virtual: %s\n", c->isVirtual);
+	printf("Device is virtual: %s\n", c->isVirtual ? "Yes" : "No");
 
 	switch (hid_driver(device)) {
 		case MTY_CTYPE_SWITCH:

@@ -852,7 +852,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		}
 		case WM_POINTERLEAVE:
-			app->pen_in_range = false;
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:

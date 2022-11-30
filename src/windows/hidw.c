@@ -56,6 +56,7 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 	if (!is_virtual)
 		return false;
 
+	*is_virtual = false;
 	bool r = false;
 	WCHAR *symlink = NULL;
 	WCHAR *instance_id = NULL;
@@ -143,7 +144,7 @@ static bool hid_device_is_virtual(HANDLE device, bool *is_virtual)
 		    );
 		*/
 		ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, NULL, &bytes, 0);
-		if (ret == CR_BUFFER_SMALL) {
+		if (ret == CR_BUFFER_SMALL || ret == CR_SUCCESS) {
 			WCHAR *hardwareid = MTY_Alloc(bytes, 1);
 			ret = CM_Get_DevInst_Registry_Property(parent, CM_DRP_HARDWAREID, NULL, hardwareid, &bytes, 0);
 

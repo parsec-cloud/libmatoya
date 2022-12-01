@@ -682,6 +682,8 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_
 		new_evt.type = MTY_EVENT_BUTTON;
 		new_evt.button.button = button;
 		new_evt.button.pressed = true;
+		new_evt.button.x = evt->pen.x;
+		new_evt.button.y = evt->pen.y;
 
 		*touched = true;
 
@@ -689,6 +691,8 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_
 		new_evt.type = MTY_EVENT_BUTTON;
 		new_evt.button.button = button;
 		new_evt.button.pressed = false;
+		new_evt.button.x = evt->pen.x;
+		new_evt.button.y = evt->pen.y;
 
 		*touched = false;
 

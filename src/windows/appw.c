@@ -670,7 +670,7 @@ static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
 
 static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_click)
 {
-	MTY_Event new_evt = {0};
+	MTY_Event new_evt = { .window = evt->window };
 
 	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
 	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
@@ -1806,6 +1806,7 @@ bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint
 
 	ctx->hovered_hwnd = hovered_window->hwnd;
 
+	*window = hovered_window->window;
 	*x = (uint32_t) position.x;
 	*y = (uint32_t) position.y;
 

@@ -159,11 +159,6 @@ void MTY_AppRumbleController(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t h
 {
 }
 
-MTY_PenType MTY_AppGetPenType(MTY_App *ctx)
-{
-	return MTY_PEN_TYPE_NONE;
-}
-
 bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return false;
@@ -173,12 +168,20 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
+void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
+{
+}
+
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 {
 	return MTY_INPUT_MODE_UNSPECIFIED;
 }
 
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
+{
+}
+
+void MTY_AppSetWMsgFunc(MTY_App *ctx, MTY_WMsgFunc func)
 {
 }
 

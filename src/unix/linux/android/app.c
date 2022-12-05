@@ -1140,7 +1140,7 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 
 bool MTY_WindowContainsCursor(MTY_App *app, MTY_Window window)
 {
-	return false;
+	return true;
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)

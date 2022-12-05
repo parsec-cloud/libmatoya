@@ -3769,9 +3769,10 @@ typedef struct MTY_Cursor MTY_Cursor;
 /// @brief Create a cursor context.
 /// @param ctx The MTY_Cursor.
 /// @param window The target window.
+/// @param id The cursor identifier.
 /// @returns The newly created cursor context.
 MTY_EXPORT MTY_Cursor *
-MTY_CursorCreate(MTY_App *app, MTY_Window window);
+MTY_CursorCreate(MTY_App *app, MTY_Window window, uint32_t id);
 
 /// @brief Destroy the cursor context.
 /// @param ctx The MTY_Cursor.
@@ -3799,6 +3800,12 @@ MTY_CursorSetHotspot(MTY_Cursor *ctx, uint16_t hotX, uint16_t hotY);
 MTY_EXPORT void
 MTY_CursorSetImage(MTY_Cursor *ctx, const void *data, size_t size);
 
+/// @brief Set the window to which the cursor belongs.
+/// @param ctx The MTY_Cursor.
+/// @param window The new window the cursor belongs to.
+MTY_EXPORT void
+MTY_CursorSetWindow(MTY_Cursor *ctx, MTY_Window window);
+
 /// @brief Move the cursor to the specified position.
 /// @param ctx The MTY_Cursor.
 /// @param x The new cursor's horizontal position.
@@ -3812,6 +3819,12 @@ MTY_CursorMove(MTY_Cursor *ctx, int32_t x, int32_t y, float scale);
 /// @param zoom The MTY_Zoom.
 MTY_EXPORT void
 MTY_CursorMoveFromZoom(MTY_Cursor *ctx, MTY_Zoom *zoom);
+
+/// @brief Check if the cursor has moved since the previous call.
+/// @param ctx The MTY_Cursor.
+/// @returns True if the cursor has moved, false otherwise.
+MTY_EXPORT bool
+MTY_CursorHasMoved(MTY_Cursor *ctx);
 
 /// @brief Draw the cursor on the specified window
 /// @details The configured cursor will be drawn on top of any other drawing operation

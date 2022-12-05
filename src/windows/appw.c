@@ -65,7 +65,6 @@ struct MTY_App {
 	bool hide_cursor;
 	bool ghk_disabled;
 	bool filter_move;
-	bool filter_relative;
 	uint64_t prev_state;
 	uint64_t state;
 	uint32_t timeout;
@@ -1010,9 +1009,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 	}
 
-	if (evt.type == MTY_EVENT_PEN && evt.pen.flags & MTY_PEN_FLAG_LEAVE)
-		app->filter_relative = true;
-
 	if (evt.type == MTY_EVENT_BUTTON && !app_get_hovered_window(app, NULL))
 		evt.type = MTY_EVENT_NONE;
 
@@ -1496,11 +1492,6 @@ bool MTY_AppGetRelativeMouse(MTY_App *ctx)
 
 void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 {
-	if (ctx->filter_relative && relative) {
-		ctx->filter_relative = false;
-		return;
-	}
-
 	if (relative && !ctx->relative) {
 		ctx->relative = true;
 		ctx->last_x = ctx->last_y = -1;
@@ -1803,8 +1794,6 @@ bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint
 {
 	POINT position = {0};
 	struct window *hovered_window = app_get_hovered_window(ctx, &position);
-
-	ctx->filter_relative = hovered_window == NULL;
 	if (!hovered_window)
 		return false;
 

@@ -42,7 +42,6 @@ LOCAL_CFLAGS = $(DEFS) $(FLAGS)
 LOCAL_SRC_FILES := \
 	src/app.c \
 	src/crypto.c \
-	src/cursor.c \
 	src/file.c \
 	src/hash.c \
 	src/image.c \
@@ -58,7 +57,6 @@ LOCAL_SRC_FILES := \
 	src/tlocal.c \
 	src/tls.c \
 	src/version.c \
-	src/zoom.c \
 	src/gfx/gl/gl.c \
 	src/gfx/gl/gl-ui.c \
 	src/gfx/vk/vk.c \

@@ -476,7 +476,7 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 static void app_apply_clip(MTY_App *app, bool focus)
 {
 	if (focus) {
-		if (app->relative && app->detach != MTY_DETACH_STATE_FULL && !app->pen_in_range) {
+		if (app->relative && app->detach != MTY_DETACH_STATE_FULL) {
 			ClipCursor(&app->clip);
 
 		} else if (app->mgrab && app->detach == MTY_DETACH_STATE_NONE) {
@@ -513,7 +513,7 @@ static void app_apply_cursor(MTY_App *app, bool focus)
 
 static void app_apply_mouse_ri(MTY_App *app, bool focus)
 {
-	if (app->relative && !app->pen_in_range) {
+	if (app->relative) {
 		if (focus) {
 			if (app->detach == MTY_DETACH_STATE_FULL) {
 				app_register_raw_input(0x01, 0x02, 0, NULL);
@@ -630,9 +630,9 @@ static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int3
 		return false;
 	}
 
-	int32_t x      = (int32_t) (point.x - origin.x);
-	int32_t y      = (int32_t) (point.y - origin.y);
-	int32_t width  = size.right  - size.left;
+	int32_t x = (int32_t) (point.x - origin.x);
+	int32_t y = (int32_t) (point.y - origin.y);
+	int32_t width = size.right - size.left;
 	int32_t height = size.bottom - size.top;
 
 	if (x < 0 || x > width || y < 0 || y > height)
@@ -667,16 +667,19 @@ static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
 	return NULL;
 }
 
-static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_click)
+static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
 {
 	MTY_Event new_evt = { .window = evt->window };
 
 	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
 	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
 
-	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
-		if (double_click)
-			*double_click = evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK ? true : false;
+	if (app->relative) {
+		new_evt.type = MTY_EVENT_NONE;
+
+	} else if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
+		if (app->pen_double_click)
+			app->pen_double_click = (evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK) == MTY_PEN_FLAG_DOUBLE_CLICK;
 
 		new_evt.type = MTY_EVENT_BUTTON;
 		new_evt.button.button = button;
@@ -911,9 +914,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
 			app->pen_had_barrel = pen_barrel;
 
-			if (!app->pen_enabled)
-				app_convert_pen_to_mouse(app, &evt, NULL);
-
 			defreturn = true;
 			break;
 		case WM_HOTKEY:
@@ -1011,6 +1011,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	if (evt.type == MTY_EVENT_BUTTON && !app_get_hovered_window(app, NULL))
 		evt.type = MTY_EVENT_NONE;
+
+	if (evt.type == MTY_EVENT_PEN) {
+		bool pen_active = app->pen_enabled && app->pen_in_range;
+		app->pen_in_range = (evt.pen.flags & MTY_PEN_FLAG_LEAVE) != MTY_PEN_FLAG_LEAVE;
+
+		if (!pen_active || app->relative)
+			app_convert_pen_to_mouse(app, &evt);
+	}
 
 	// Process the message
 	if (evt.type != MTY_EVENT_NONE) {
@@ -1775,19 +1783,9 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 	ctx->pen_enabled = enable;
-}
 
-void MTY_AppSetPenProximity(MTY_App *ctx, bool proximity)
-{
-	ctx->pen_in_range = proximity;
-
-	app_apply_clip(ctx, MTY_AppIsActive(ctx));
-}
-
-void MTY_AppConvertPenToMouse(MTY_App *ctx, MTY_Event *evt)
-{
-	if (!ctx->pen_enabled || !ctx->pen_in_range)
-		app_convert_pen_to_mouse(ctx, evt, &ctx->pen_double_click);
+	if (!ctx->pen_enabled)
+		ctx->pen_in_range = false;
 }
 
 bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y)
@@ -2208,8 +2206,6 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 	POINT p = {.x = x, .y = y};
 	if (ClientToScreen(ctx->hwnd, &p))
 		SetCursorPos(p.x, p.y);
-
-	MTY_AppSetRelativeMouse(app, false);
 }
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)

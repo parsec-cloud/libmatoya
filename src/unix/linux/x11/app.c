@@ -1010,14 +1010,6 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
-void MTY_AppSetPenProximity(MTY_App *ctx, bool proximity)
-{
-}
-
-void MTY_AppConvertPenToMouse(MTY_App *ctx, MTY_Event *evt)
-{
-}
-
 bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y)
 {
 	return false;

@@ -1051,22 +1051,6 @@ MTY_AppIsPenEnabled(MTY_App *ctx);
 MTY_EXPORT void
 MTY_AppEnablePen(MTY_App *ctx, bool enable);
 
-/// @brief Set whether a pen is in range or not.
-/// @param ctx The MTY_App.
-/// @param proximity The pen proximity status.
-//- #support Windows
-MTY_EXPORT void
-MTY_AppSetPenProximity(MTY_App *ctx, bool proximity);
-
-/// @brief Converts a pen event to a mouse of button event.
-/// @details Conversion occurs only if enhanced pen is disabled or the pen is not
-///    considered in range.
-/// @param ctx The MTY_App.
-/// @param enable The MTY_Event to convert.
-//- #support Windows
-MTY_EXPORT void
-MTY_AppConvertPenToMouse(MTY_App *ctx, MTY_Event *evt);
-
 /// @brief Get the currently hovered MTY_Window.
 /// @param ctx The MTY_App.
 /// @param window The hovered MTY_Window, or NULL if not found.

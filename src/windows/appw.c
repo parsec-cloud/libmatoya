@@ -674,7 +674,7 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
 	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
 	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
 
-	if (app->relative) {
+	if (app->relative && app->detach == MTY_DETACH_STATE_NONE) {
 		new_evt.type = MTY_EVENT_NONE;
 
 	} else if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {

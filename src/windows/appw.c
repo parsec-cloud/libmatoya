@@ -675,9 +675,11 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
 	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
 
 	if (app->relative && app->detach == MTY_DETACH_STATE_NONE) {
-		new_evt.type = MTY_EVENT_NONE;
+		evt->pen.x = (uint16_t) app->clip.left;
+		evt->pen.y = (uint16_t) app->clip.top;
+	}
 
-	} else if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
+	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
 		if (app->pen_double_click)
 			app->pen_double_click = (evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK) == MTY_PEN_FLAG_DOUBLE_CLICK;
 
@@ -1016,7 +1018,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		bool pen_active = app->pen_enabled && app->pen_in_range;
 		app->pen_in_range = (evt.pen.flags & MTY_PEN_FLAG_LEAVE) != MTY_PEN_FLAG_LEAVE;
 
-		if (!pen_active || app->relative)
+		if (!pen_active || (app->relative && app->detach == MTY_DETACH_STATE_NONE))
 			app_convert_pen_to_mouse(app, &evt);
 	}
 
@@ -1783,9 +1785,6 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 	ctx->pen_enabled = enable;
-
-	if (!ctx->pen_enabled)
-		ctx->pen_in_range = false;
 }
 
 bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y)

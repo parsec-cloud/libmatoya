@@ -14,6 +14,7 @@ typedef BOOL(API *WTOVERLAP)(HCTX, BOOL);
 
 static struct wt {
 	MTY_SO *instance;
+	bool failure;
 
 	WTINFOA  info;
 	WTOPENA  open;
@@ -87,6 +88,9 @@ static void wintab_override_extension(struct wintab *ctx, uint8_t tablet_i, uint
 
 struct wintab *wintab_create(HWND hwnd, bool override)
 {
+	if (wt.failure)
+		return NULL;
+
 	bool r = false;
 
 	struct wintab *ctx = MTY_Alloc(1, sizeof(struct wintab));
@@ -154,6 +158,7 @@ struct wintab *wintab_create(HWND hwnd, bool override)
 	if (!r) {
 		MTY_LogParams("Wacom", "Wintab context failed to initialize");
 		wintab_destroy(&ctx, true);
+		wt.failure = true;
 
 	} else {
 		MTY_LogParams("Wacom", "Wintab context successfully created");

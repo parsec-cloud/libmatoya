@@ -141,7 +141,7 @@ struct wintab *wintab_create(HWND hwnd, bool override)
 	lc.lcPktData = PACKETDATA | touch_strip_mask | touch_ring_mask | exp_keys_mask;
 	lc.lcOutExtY = -lc.lcOutExtY;
 
-	ctx->context = NULL;//wt.open(hwnd, &lc, TRUE);
+	ctx->context = wt.open(hwnd, &lc, TRUE);
 	if (!ctx->context)
 		goto except;
 

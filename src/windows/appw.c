@@ -725,6 +725,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	app->pen_double_click = false;
 	bool defreturn = false;
 	char drop_name[MTY_PATH_MAX];
+	bool pen_active = app->pen_enabled && app->pen_in_range;
 
 	switch (msg) {
 		case WM_CLOSE:
@@ -790,7 +791,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
-			if (!app->filter_move && !app->pen_in_range && (!app->relative || app_hwnd_active(hwnd))) {
+			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
 				evt.motion.x = GET_X_LPARAM(lparam);
 				evt.motion.y = GET_Y_LPARAM(lparam);
 
@@ -808,7 +809,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
-			if (!app->pen_in_range) {
+			if (!pen_active) {
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = MTY_BUTTON_LEFT;
 				evt.button.pressed = msg == WM_LBUTTONDOWN;
@@ -816,7 +817,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_RBUTTONDOWN:
 		case WM_RBUTTONUP:
-			if (!app->pen_in_range) {
+			if (!pen_active) {
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = MTY_BUTTON_RIGHT;
 				evt.button.pressed = msg == WM_RBUTTONDOWN;
@@ -1015,7 +1016,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		evt.type = MTY_EVENT_NONE;
 
 	if (evt.type == MTY_EVENT_PEN) {
-		bool pen_active = app->pen_enabled && app->pen_in_range;
 		app->pen_in_range = (evt.pen.flags & MTY_PEN_FLAG_LEAVE) != MTY_PEN_FLAG_LEAVE;
 
 		if (!pen_active || (app->relative && app->detach == MTY_DETACH_STATE_NONE))

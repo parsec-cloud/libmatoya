@@ -236,7 +236,7 @@ static void app_fix_mouse_buttons(App *ctx)
 
 		if (!self.cont) {
 			// Post a dummy event to spin the event loop
-			NSEvent *dummy = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0)
+			NSEvent *dummy = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSMakePoint(0, 0)
 				modifierFlags:0 timestamp:[[NSDate date] timeIntervalSince1970] windowNumber:0
 				context:nil subtype:0 data1:0 data2:0];
 
@@ -543,7 +543,7 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
 	if (window.app.pen_enabled
-		&& (event.subtype == NSTabletPointEventSubtype)
+		&& (event.subtype == NSEventSubtypeTabletPoint)
 		&& (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
 		window_pen_event(window, event, pressed);
 
@@ -633,7 +633,7 @@ static void window_mouse_motion_event(Window *window, NSEvent *event, bool pen_i
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	bool pen_in_range = event.subtype == NSTabletPointEventSubtype;
+	bool pen_in_range = event.subtype == NSEventSubtypeTabletPoint;
 
 	if (window.app.pen_enabled && pen_in_range) {
 		window_pen_event(window, event, false);

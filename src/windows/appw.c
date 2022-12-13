@@ -724,8 +724,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	app->hovered_hwnd = hwnd;
 	app->pen_double_click = false;
 	bool defreturn = false;
-	char drop_name[MTY_PATH_MAX];
 	bool pen_active = app->pen_enabled && app->pen_in_range;
+	char drop_name[MTY_PATH_MAX];
 
 	switch (msg) {
 		case WM_CLOSE:
@@ -983,7 +983,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			// This is an add bug related to the tray menu
 			// https://social.msdn.microsoft.com/Forums/vstudio/en-US/ab973de0-da5f-4e26-8f7c-ac099396c830
 			if (wparam == DBT_DEVNODES_CHANGED && app->tray.menu_open)
-				EndMenu();		
+				EndMenu();
 			break;
 	}
 

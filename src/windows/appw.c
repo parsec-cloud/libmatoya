@@ -476,7 +476,7 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 static void app_apply_clip(MTY_App *app, bool focus)
 {
 	if (focus) {
-		if (app->relative && app->detach != MTY_DETACH_STATE_FULL) {
+		if (app->relative && app->detach != MTY_DETACH_STATE_FULL && !app->pen_in_range) {
 			ClipCursor(&app->clip);
 
 		} else if (app->mgrab && app->detach == MTY_DETACH_STATE_NONE) {
@@ -673,11 +673,6 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
 
 	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
 	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
-
-	if (app->relative && app->detach == MTY_DETACH_STATE_NONE) {
-		evt->pen.x = (uint16_t) app->clip.left;
-		evt->pen.y = (uint16_t) app->clip.top;
-	}
 
 	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
 		if (app->pen_double_click)
@@ -1018,8 +1013,12 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	if (evt.type == MTY_EVENT_PEN) {
 		app->pen_in_range = (evt.pen.flags & MTY_PEN_FLAG_LEAVE) != MTY_PEN_FLAG_LEAVE;
 
-		if (!pen_active || (app->relative && app->detach == MTY_DETACH_STATE_NONE))
+		if (app->relative && !app_hwnd_active(app->hovered_hwnd)) {
+			evt.type = MTY_EVENT_NONE;
+
+		} else if (!pen_active) {
 			app_convert_pen_to_mouse(app, &evt);
+		}
 	}
 
 	// Process the message

@@ -477,8 +477,9 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
-void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
+bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y)
 {
+	return false;
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)

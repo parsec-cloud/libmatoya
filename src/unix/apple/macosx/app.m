@@ -99,8 +99,6 @@ static void app_apply_relative(App *ctx)
 		int32_t y = 0;
 		CGGetLastMouseDelta(&x, &y);
 	}
-
-	app_show_cursor(ctx, !rel);
 }
 
 static void app_apply_cursor(App *ctx)
@@ -1363,8 +1361,9 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 	app.pen_enabled = enable;
 }
 
-void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
+bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y)
 {
+	return false;
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
@@ -1665,7 +1664,6 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 		return;
 
 	window_warp_cursor(ctx, x, y);
-	MTY_AppSetRelativeMouse(app, false);
 }
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)

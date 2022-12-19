@@ -330,23 +330,6 @@ typedef bool (*MTY_AppFunc)(void *opaque);
 /// @returns Return true to show the menu item as checked, false to show it as unchecked.
 typedef bool (*MTY_MenuItemCheckedFunc)(void *opaque);
 
-/// @brief Function called to add custom processing to window messages.
-/// @details This function is called before any internal processing, and if `shouldReturn` is set
-///   to true, no internal handling of the message will take place. This may affect internal state
-///   tracking for certain message types.
-/// @param app The MTY_App.
-/// @param window The MTY_Window associated with the message.
-/// @param hwnd `HWND hwnd` value passed as the first argument to the `WNDPROC` callback.
-/// @param msg `UINT uMsg` value passed as the second argument to the `WNDPROC` callback.
-/// @param wparam `WPARAM wParam` value passed as the third argument to the `WNDPROC` callback.
-/// @param lparam `LPARAM lParam` value passed as the fourth argument to the `WNDPROC` callback.
-/// @param shouldReturn If set to true, no internal processing of this message will take place
-///   and the return value from this callback will be returned by the internal `WNDPROC` callback.
-/// @param opaque Pointer set via MTY_AppCreate.
-//- #support Windows
-typedef intptr_t (*MTY_WMsgFunc)(MTY_App *app, MTY_Window window, void *hwnd, uint32_t msg,
-	intptr_t wparam, uintptr_t lparam, bool *shouldReturn, void *opaque);
-
 /// @brief App events.
 /// @details See MTY_Event for details on how to respond to these values.
 typedef enum {
@@ -372,7 +355,6 @@ typedef enum {
 	MTY_EVENT_BACK         = 19, ///< The mobile back command has been triggered.
 	MTY_EVENT_SIZE         = 20, ///< The size of a window has changed.
 	MTY_EVENT_MOVE         = 21, ///< The window's top left corner has moved.
-	MTY_EVENT_WINTAB       = 22, ///< Creative tablets extended input has occurred.
 	MTY_EVENT_MAKE_32      = INT32_MAX,
 } MTY_EventType;
 
@@ -649,14 +631,6 @@ typedef enum {
 	MTY_CONTEXT_STATE_MAKE_32 = INT32_MAX,
 } MTY_ContextState;
 
-/// @brief Wintab input type.
-typedef enum {
-	MTY_WINTAB_TYPE_KEY     = 0, ///< The Wintab input comes from an ExpressKey button.
-	MTY_WINTAB_TYPE_STRIP   = 1, ///< The Wintab input comes from a TouchStrip manipulation.
-	MTY_WINTAB_TYPE_RING    = 2, ///< The Wintab input comes from a TouchRing manipulation.
-	MTY_WINTAB_TYPE_MAKE_32 = INT32_MAX,
-} MTY_WintabType;
-
 /// @brief Window modes and behaviors.
 typedef enum {
 	MTY_WINDOW_NORMAL     = 0x0, ///< Normal resizable, bordered window.
@@ -737,15 +711,6 @@ typedef struct {
 	int8_t tiltY;      ///< Vertical tilt of the pen between -90 and 90.
 } MTY_PenEvent;
 
-/// @brief Wintab input event.
-typedef struct {
-	MTY_WintabType type; ///< The Wintab input type.
-	uint16_t position;   ///< The position of the control (when applicable).
-	uint8_t device;      ///< The originating Wintab device.
-	uint8_t control;     ///< The control identifier on the device.
-	uint8_t state;       ///< The state of the control.
-} MTY_WintabEvent;
-
 /// @brief App event encapsulating all event types.
 /// @details First inspect the `type` member to determine what kind of event it is,
 ///   then choose one of the members from the nameless union.
@@ -762,7 +727,6 @@ typedef struct MTY_Event {
 		MTY_DropEvent drop;             ///< Valid on MTY_EVENT_DROP.
 		MTY_PenEvent pen;               ///< Valid on MTY_EVENT_PEN.
 		MTY_KeyEvent key;               ///< Valid on MTY_EVENT_KEY.
-		MTY_WintabEvent wintab;         ///< Valid on MTY_EVENT_WINTAB.
 
 		const char *reopenArg; ///< Valid on MTY_EVENT_REOPEN, the argument supplied.
 		uint32_t hotkey;       ///< Valid on MTY_EVENT_HOTKEY, the `id` set via MTY_AppSetHotkey.
@@ -771,6 +735,25 @@ typedef struct MTY_Event {
 		bool focus;            ///< Valid on MTY_EVENT_FOCUS, the focus state.
 	};
 } MTY_Event;
+
+/// @brief Windows message state.
+typedef struct {
+	void *hwnd;       ///< `HWND hwnd` value passed as the first argument to the `WNDPROC` callback.
+	uint32_t msg;     ///< `UINT uMsg` value passed as the second argument to the `WNDPROC` callback.
+	uintptr_t wparam; ///< `WPARAM wParam` value passed as the third argument to the `WNDPROC` callback.
+	intptr_t lparam;  ///< `LPARAM lParam` value passed as the fourth argument to the `WNDPROC` callback.
+} MTY_WMsgState;
+
+/// @brief Function called to add custom processing to window messages.
+/// @details This function is called before any internal processing. This may affect internal state
+///   tracking for certain message types.
+/// @param app The MTY_App.
+/// @param window The MTY_Window associated with the message.
+/// @param state The current Windows message state.
+/// @param evt The processing MTY_Event.
+/// @param opaque Pointer set via MTY_AppCreate.
+//- #support Windows
+typedef void (*MTY_WMsgFunc)(MTY_App *app, MTY_Window window, const MTY_WMsgState *state, MTY_Event *evt, void *opaque);
 
 /// @brief Menu item on a tray's menu.
 typedef struct {
@@ -1068,15 +1051,15 @@ MTY_AppIsPenEnabled(MTY_App *ctx);
 MTY_EXPORT void
 MTY_AppEnablePen(MTY_App *ctx, bool enable);
 
-/// @brief Enable or disable extended tablet controls override.
-/// @details When overriden, tablet controls (e.g. ExpressKeys) will be received as
-///   through the MTY_EVENT_WINTAB event, and their configured keystrokes will not
-///   be executed.
+/// @brief Get the currently hovered MTY_Window.
 /// @param ctx The MTY_App.
-/// @param enable Set true to override controls, false to revert the override.
+/// @param window The hovered MTY_Window, or NULL if not found.
+/// @param x The cursor horizontal position on the window.
+/// @param y The cursor vertical position on the window.
+/// @returns True if the cursor hovers a window, false otherwise.
 //- #support Windows
-MTY_EXPORT void
-MTY_AppOverrideTabletControls(MTY_App *ctx, bool override);
+MTY_EXPORT bool
+MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y);
 
 /// @brief Get the app's current mobile input mode.
 /// @param ctx The MTY_App.

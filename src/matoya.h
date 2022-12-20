@@ -1284,10 +1284,11 @@ MTY_EXPORT MTY_ContextState
 MTY_WindowGetContextState(MTY_App *app, MTY_Window window);
 
 /// @brief Get the OS's native window.
-/// @details This will be an `HWND` on Windows.
+/// @details This function will return an `HWND` on Windows, an `NSWindow *` on
+///   macOS, and an `ANativeWindow *` on Android.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
-//- #support Windows
+//- #support Windows macOS Android
 MTY_EXPORT void *
 MTY_WindowGetNative(MTY_App *app, MTY_Window window);
 

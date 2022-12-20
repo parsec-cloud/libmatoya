@@ -49,7 +49,6 @@ struct MTY_App {
 	HINSTANCE instance;
 	HHOOK kbhook;
 	DWORD cb_seq;
-	HWND hovered_hwnd;
 	bool pen_in_range;
 	bool pen_enabled;
 	bool pen_had_barrel;
@@ -708,7 +707,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	MTY_Event evt = {0};
 	evt.window = ctx->window;
 
-	app->hovered_hwnd = hwnd;
 	bool defreturn = false;
 	bool pen_active = app->pen_enabled && app->pen_in_range;
 	char drop_name[MTY_PATH_MAX];
@@ -988,7 +986,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	// Record pressed buttons
 	if (evt.type == MTY_EVENT_BUTTON) {
-		app_set_button_coords(app->hovered_hwnd, &evt);
+		app_set_button_coords(hwnd, &evt);
 
 		if (evt.button.pressed) {
 			app->buttons |= 1 << evt.button.button;
@@ -1004,7 +1002,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	if (evt.type == MTY_EVENT_PEN) {
 		app->pen_in_range = (evt.pen.flags & MTY_PEN_FLAG_LEAVE) != MTY_PEN_FLAG_LEAVE;
 
-		if (app->relative && !app_hwnd_active(app->hovered_hwnd)) {
+		if (app->relative && !app_hwnd_active(hwnd)) {
 			evt.type = MTY_EVENT_NONE;
 
 		} else if (!pen_active) {
@@ -1763,22 +1761,6 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 	ctx->pen_enabled = enable;
 }
 
-bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y)
-{
-	POINT position = {0};
-	struct window *hovered_window = app_get_hovered_window(ctx, &position);
-	if (!hovered_window)
-		return false;
-
-	ctx->hovered_hwnd = hovered_window->hwnd;
-
-	*window = hovered_window->window;
-	*x = (uint32_t) position.x;
-	*y = (uint32_t) position.y;
-
-	return true;
-}
-
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 {
 	return MTY_INPUT_MODE_UNSPECIFIED;
@@ -2213,7 +2195,7 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 	return ctx->api;
 }
 
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)

@@ -1034,7 +1034,6 @@ MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size);
 
 /// @brief Check if pen events are enabled.
 /// @param ctx The MTY_App.
-/// @return True if pen is enabled, false otherwise.
 //- #support Windows macOS
 MTY_EXPORT bool
 MTY_AppIsPenEnabled(MTY_App *ctx);
@@ -1047,16 +1046,6 @@ MTY_AppIsPenEnabled(MTY_App *ctx);
 //- #support Windows macOS
 MTY_EXPORT void
 MTY_AppEnablePen(MTY_App *ctx, bool enable);
-
-/// @brief Get the currently hovered MTY_Window.
-/// @param ctx The MTY_App.
-/// @param window The hovered MTY_Window, or NULL if not found.
-/// @param x The cursor horizontal position on the window.
-/// @param y The cursor vertical position on the window.
-/// @returns True if the cursor hovers a window, false otherwise.
-//- #support Windows
-MTY_EXPORT bool
-MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y);
 
 /// @brief Get the app's current mobile input mode.
 /// @param ctx The MTY_App.
@@ -1296,6 +1285,9 @@ MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync);
 /// @param window An MTY_Window.
 MTY_EXPORT MTY_ContextState
 MTY_WindowGetContextState(MTY_App *app, MTY_Window window);
+
+MTY_EXPORT void *
+MTY_WindowGetNative(MTY_App *app, MTY_Window window);
 
 /// @brief Fill an MTY_Frame taking the current display settings into account.
 /// @details The returned MTY_Frame can be passed directly to MTY_WindowCreate or

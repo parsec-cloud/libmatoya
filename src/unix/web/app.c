@@ -477,11 +477,6 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
-bool MTY_AppGetHoveredWindow(MTY_App *ctx, MTY_Window *window, uint32_t *x, uint32_t *y)
-{
-	return false;
-}
-
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 {
 	return MTY_INPUT_MODE_UNSPECIFIED;
@@ -609,7 +604,7 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 	return app->api;
 }
 
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
 {
 	return NULL;
 }

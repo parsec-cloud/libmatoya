@@ -55,7 +55,6 @@ struct MTY_App {
 	bool pen_had_barrel;
 	bool pen_touched_left;
 	bool pen_touched_right;
-	bool pen_double_click;
 	bool touch_active;
 	bool relative;
 	bool kbgrab;
@@ -667,13 +666,10 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
 {
 	MTY_Event new_evt = { .window = evt->window };
 
-	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
+	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
 	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
 
 	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
-		if (app->pen_double_click)
-			app->pen_double_click = (evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK) == MTY_PEN_FLAG_DOUBLE_CLICK;
-
 		new_evt.type = MTY_EVENT_BUTTON;
 		new_evt.button.button = button;
 		new_evt.button.pressed = true;
@@ -713,7 +709,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	evt.window = ctx->window;
 
 	app->hovered_hwnd = hwnd;
-	app->pen_double_click = false;
 	bool defreturn = false;
 	bool pen_active = app->pen_enabled && app->pen_in_range;
 	char drop_name[MTY_PATH_MAX];
@@ -905,7 +900,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			// We must send a last barrel to notify it has been released
 			bool pen_barrel = (ppi.penFlags & PEN_FLAG_BARREL) ? true : false;
 			if (pen_barrel || app->pen_had_barrel)
-				evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
+				evt.pen.flags |= MTY_PEN_FLAG_BARREL;
 			app->pen_had_barrel = pen_barrel;
 
 			defreturn = true;
@@ -1020,13 +1015,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	// Process the message
 	if (evt.type != MTY_EVENT_NONE) {
 		app->event_func(&evt, app->opaque);
-
-		if (evt.type == MTY_EVENT_BUTTON && app->pen_double_click) {
-			evt.button.pressed = false;
-			app->event_func(&evt, app->opaque);
-			evt.button.pressed = true;
-			app->event_func(&evt, app->opaque);
-		}
 
 		if (evt.type == MTY_EVENT_DROP)
 			MTY_Free((void *) evt.drop.buf);

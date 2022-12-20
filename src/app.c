@@ -190,8 +190,8 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		PEVENT(MTY_EVENT_CLIPBOARD, evt, "");
 		PEVENT(MTY_EVENT_TRAY, evt, "id: %u", evt->trayID);
 		PEVENT(MTY_EVENT_REOPEN, evt, "arg: %s", evt->reopenArg);
-		PEVENT(MTY_EVENT_PEN, evt, "x: %u, y: %u, z: %u, flags: 0x%X, pressure: %u, rotation: %u, tiltX: %d, tiltY: %d",
-			evt->pen.x, evt->pen.y, evt->pen.z, evt->pen.flags, evt->pen.pressure, evt->pen.rotation, evt->pen.tiltX, evt->pen.tiltY);
+		PEVENT(MTY_EVENT_PEN, evt, "x: %u, y: %u, flags: 0x%X, pressure: %u, rotation: %u, tiltX: %d, tiltY: %d",
+			evt->pen.x, evt->pen.y, evt->pen.flags, evt->pen.pressure, evt->pen.rotation, evt->pen.tiltX, evt->pen.tiltY);
 		PEVENT(MTY_EVENT_CONNECT, evt, "id: %u", evt->controller.id);
 		PEVENT(MTY_EVENT_DISCONNECT, evt, "id: %u", evt->controller.id);
 		PEVENT(MTY_EVENT_SIZE, evt, "");

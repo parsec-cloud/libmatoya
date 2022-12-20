@@ -718,7 +718,6 @@ typedef struct {
 	MTY_PenFlag flags; ///< Pen attributes.
 	uint16_t x;        ///< The horizontal position in the client area of the window.
 	uint16_t y;        ///< The vertical position in the client area of the window.
-	uint16_t __z;      ///< FIXME
 	uint16_t pressure; ///< Pressure on the drawing surface between 0 and 1024.
 	uint16_t rotation; ///< Rotation of the pen between 0 and 359.
 	int8_t tiltX;      ///< Horizontal tilt of the pen between -90 and 90.

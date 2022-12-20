@@ -330,6 +330,23 @@ typedef bool (*MTY_AppFunc)(void *opaque);
 /// @returns Return true to show the menu item as checked, false to show it as unchecked.
 typedef bool (*MTY_MenuItemCheckedFunc)(void *opaque);
 
+/// @brief Function called to add custom processing to window messages.
+/// @details This function is called before any internal processing, and if `shouldReturn` is set
+///   to true, no internal handling of the message will take place. This may affect internal state
+///   tracking for certain message types.
+/// @param app The MTY_App.
+/// @param window The MTY_Window associated with the message.
+/// @param hwnd `HWND hwnd` value passed as the first argument to the `WNDPROC` callback.
+/// @param msg `UINT uMsg` value passed as the second argument to the `WNDPROC` callback.
+/// @param wparam `WPARAM wParam` value passed as the third argument to the `WNDPROC` callback.
+/// @param lparam `LPARAM lParam` value passed as the fourth argument to the `WNDPROC` callback.
+/// @param shouldReturn If set to true, no internal processing of this message will take place
+///   and the return value from this callback will be returned by the internal `WNDPROC` callback.
+/// @param opaque Pointer set via MTY_AppCreate.
+//- #support Windows
+typedef intptr_t (*MTY_WMsgFunc)(MTY_App *app, MTY_Window window, void *hwnd, uint32_t msg,
+	intptr_t wparam, uintptr_t lparam, bool *shouldReturn, void *opaque);
+
 /// @brief App events.
 /// @details See MTY_Event for details on how to respond to these values.
 typedef enum {
@@ -732,25 +749,6 @@ typedef struct MTY_Event {
 		bool focus;            ///< Valid on MTY_EVENT_FOCUS, the focus state.
 	};
 } MTY_Event;
-
-/// @brief Windows message state.
-typedef struct {
-	void *hwnd;       ///< `HWND hwnd` value passed as the first argument to the `WNDPROC` callback.
-	uint32_t msg;     ///< `UINT uMsg` value passed as the second argument to the `WNDPROC` callback.
-	uintptr_t wparam; ///< `WPARAM wParam` value passed as the third argument to the `WNDPROC` callback.
-	intptr_t lparam;  ///< `LPARAM lParam` value passed as the fourth argument to the `WNDPROC` callback.
-} MTY_WMsgState;
-
-/// @brief Function called to add custom processing to window messages.
-/// @details This function is called before any internal processing. This may affect internal state
-///   tracking for certain message types.
-/// @param app The MTY_App.
-/// @param window The MTY_Window associated with the message.
-/// @param state The current Windows message state.
-/// @param evt The processing MTY_Event.
-/// @param opaque Pointer set via MTY_AppCreate.
-//- #support Windows
-typedef void (*MTY_WMsgFunc)(MTY_App *app, MTY_Window window, const MTY_WMsgState *state, MTY_Event *evt, void *opaque);
 
 /// @brief Menu item on a tray's menu.
 typedef struct {

@@ -704,6 +704,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	LRESULT r = 0;
 	bool creturn = false;
 
+	// Custom window message handler
+	if (app->wmsg_func) {
+		r = app->wmsg_func(app, ctx->window, hwnd, msg, wparam, lparam, &creturn, app->opaque);
+
+		if (creturn)
+			return r;
+	}
+
 	MTY_Event evt = {0};
 	evt.window = ctx->window;
 
@@ -973,12 +981,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	// Tray
 	app_tray_msg(app, msg, wparam, lparam, &evt);
-
-	// Custom window message handler
-	if (app->wmsg_func) {
-		MTY_WMsgState state = { .hwnd = hwnd, .msg = msg, .wparam = wparam, .lparam = lparam };
-		app->wmsg_func(ctx->app, ctx->window, &state, &evt, app->opaque);
-	}
 
 	// Transform keyboard into hotkey
 	if (evt.type == MTY_EVENT_KEY)

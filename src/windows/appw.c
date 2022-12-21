@@ -617,30 +617,6 @@ static struct window *app_get_hovered_window(MTY_App *ctx)
 	return NULL;
 }
 
-static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
-{
-	MTY_Event new_evt = { .window = evt->window };
-
-	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
-
-	if (evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
-		new_evt.type = MTY_EVENT_BUTTON;
-		new_evt.button.button = button;
-		new_evt.button.pressed = true;
-		new_evt.button.x = evt->pen.x;
-		new_evt.button.y = evt->pen.y;
-
-	} else {
-		new_evt.type = MTY_EVENT_MOTION;
-		new_evt.motion.relative = false;
-		new_evt.motion.synth = false;
-		new_evt.motion.x = evt->pen.x;
-		new_evt.motion.y = evt->pen.y;
-	}
-
-	*evt = new_evt;
-}
-
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	MTY_App *app = ctx->app;
@@ -952,7 +928,23 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			evt.type = MTY_EVENT_NONE;
 
 		} else if (!pen_active) {
-			app_convert_pen_to_mouse(app, &evt);
+			if (evt.pen.flags & MTY_PEN_FLAG_TOUCHING) {
+				evt = (MTY_Event) {
+					.type = MTY_EVENT_BUTTON,
+					.button.button = evt.pen.flags & MTY_PEN_FLAG_BARREL ?
+						MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT,
+					.button.pressed = true,
+					.button.x = evt.pen.x,
+					.button.y = evt.pen.y,
+				};
+
+			} else {
+				evt = (MTY_Event) {
+					.type = MTY_EVENT_MOTION,
+					.motion.x = evt.pen.x,
+					.motion.y = evt.pen.y,
+				};
+			}
 		}
 	}
 

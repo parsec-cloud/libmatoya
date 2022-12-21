@@ -52,8 +52,6 @@ struct MTY_App {
 	bool pen_in_range;
 	bool pen_enabled;
 	bool pen_had_barrel;
-	bool pen_touched_left;
-	bool pen_touched_right;
 	bool touch_active;
 	bool relative;
 	bool kbgrab;
@@ -624,25 +622,13 @@ static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt)
 	MTY_Event new_evt = { .window = evt->window };
 
 	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
-	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
 
-	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
+	if (evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
 		new_evt.type = MTY_EVENT_BUTTON;
 		new_evt.button.button = button;
 		new_evt.button.pressed = true;
 		new_evt.button.x = evt->pen.x;
 		new_evt.button.y = evt->pen.y;
-
-		*touched = true;
-
-	} else if (*touched && !(evt->pen.flags & MTY_PEN_FLAG_TOUCHING)) {
-		new_evt.type = MTY_EVENT_BUTTON;
-		new_evt.button.button = button;
-		new_evt.button.pressed = false;
-		new_evt.button.x = evt->pen.x;
-		new_evt.button.y = evt->pen.y;
-
-		*touched = false;
 
 	} else {
 		new_evt.type = MTY_EVENT_MOTION;

@@ -597,24 +597,21 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Event *evt)
 	}
 }
 
-static struct window *app_get_hovered_window(MTY_App *ctx)
+static bool app_is_hovered(MTY_App *ctx)
 {
 	POINT cursor = {0};
 	if (!GetCursorPos(&cursor))
-		return NULL;
+		return false;
 
 	HWND hwnd = WindowFromPoint(cursor);
 	if (!hwnd)
-		return NULL;
+		return false;
 
-	for (uint8_t i = 0; i < MTY_WINDOW_MAX; i++) {
-		if (!ctx->windows[i] || ctx->windows[i]->hwnd != hwnd)
-			continue;
+	for (int8_t i = 0; i < MTY_WINDOW_MAX; i++)
+		if (ctx->windows[i] && ctx->windows[i]->hwnd == hwnd)
+			return true;
 
-		return ctx->windows[i];
-	}
-
-	return NULL;
+	return false;
 }
 
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -918,7 +915,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 	}
 
-	if (evt.type == MTY_EVENT_BUTTON && !app_get_hovered_window(app))
+	if (evt.type == MTY_EVENT_BUTTON && !app_is_hovered(app))
 		evt.type = MTY_EVENT_NONE;
 
 	if (evt.type == MTY_EVENT_PEN) {

@@ -97,8 +97,6 @@ struct MTY_App {
 
 	BOOL (WINAPI *GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
 	BOOL (WINAPI *GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
-	BOOL (WINAPI *PhysicalToLogicalPointForPerMonitorDPI)(HWND hWnd, LPPOINT lpPoint);
-	BOOL (WINAPI *PhysicalToLogicalPoint)(HWND hWnd, LPPOINT lpPoint);
 	BOOL (WINAPI *AdjustWindowRectExForDpi)(LPRECT lpRect, DWORD dwStyle, BOOL bMenu,
 		DWORD dwExStyle, UINT dpi);
 };
@@ -601,46 +599,7 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Event *evt)
 	}
 }
 
-static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int32_t pointer_y, POINT *position)
-{
-	POINT origin = {0};
-	if (!ClientToScreen(hwnd, &origin))
-		return false;
-
-	RECT size = {0};
-	if (!GetClientRect(hwnd, &size))
-		return false;
-
-	POINT point = {pointer_x, pointer_y};
-	if (ctx->PhysicalToLogicalPointForPerMonitorDPI) {
-		if (!ctx->PhysicalToLogicalPointForPerMonitorDPI(hwnd, &point))
-			return false;
-
-	} else if (ctx->PhysicalToLogicalPoint) {
-		if (!ctx->PhysicalToLogicalPoint(hwnd, &point))
-			return false;
-
-	} else {
-		return false;
-	}
-
-	int32_t x = (int32_t) (point.x - origin.x);
-	int32_t y = (int32_t) (point.y - origin.y);
-	int32_t width = size.right - size.left;
-	int32_t height = size.bottom - size.top;
-
-	if (x < 0 || x > width || y < 0 || y > height)
-		return false;
-
-	if (position) {
-		position->x = x;
-		position->y = y;
-	}
-
-	return true;
-}
-
-static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
+static struct window *app_get_hovered_window(MTY_App *ctx)
 {
 	POINT cursor = {0};
 	if (!GetCursorPos(&cursor))
@@ -654,8 +613,7 @@ static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
 		if (!ctx->windows[i] || ctx->windows[i]->hwnd != hwnd)
 			continue;
 
-		if (app_adjust_position(ctx, hwnd, cursor.x, cursor.y, position))
-			return ctx->windows[i];
+		return ctx->windows[i];
 	}
 
 	return NULL;
@@ -998,7 +956,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 	}
 
-	if (evt.type == MTY_EVENT_BUTTON && !app_get_hovered_window(app, NULL))
+	if (evt.type == MTY_EVENT_BUTTON && !app_get_hovered_window(app))
 		evt.type = MTY_EVENT_NONE;
 
 	if (evt.type == MTY_EVENT_PEN) {
@@ -1207,8 +1165,6 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	HMODULE user32 = GetModuleHandle(L"user32.dll");
 	ctx->GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
 	ctx->GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
-	ctx->PhysicalToLogicalPoint = (void *) GetProcAddress(user32, "PhysicalToLogicalPoint");
-	ctx->PhysicalToLogicalPointForPerMonitorDPI = (void *) GetProcAddress(user32, "PhysicalToLogicalPointForPerMonitorDPI");
 	ctx->AdjustWindowRectExForDpi = (void *) GetProcAddress(user32, "AdjustWindowRectExForDpi");
 
 	ImmDisableIME(0);

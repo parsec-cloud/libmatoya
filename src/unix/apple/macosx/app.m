@@ -99,8 +99,6 @@ static void app_apply_relative(App *ctx)
 		int32_t y = 0;
 		CGGetLastMouseDelta(&x, &y);
 	}
-
-	app_show_cursor(ctx, !rel);
 }
 
 static void app_apply_cursor(App *ctx)
@@ -1413,10 +1411,6 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 	app.pen_enabled = enable;
 }
 
-void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
-{
-}
-
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 {
 	return MTY_INPUT_MODE_UNSPECIFIED;
@@ -1719,12 +1713,20 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 		return;
 
 	window_warp_cursor(ctx, x, y);
-	MTY_AppSetRelativeMouse(app, false);
 }
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
 	return MTY_CONTEXT_STATE_NORMAL;
+}
+
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
+{
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return NULL;
+
+	return (__bridge void *) ctx;
 }
 
 // Webview
@@ -1785,6 +1787,7 @@ void MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, con
 	mty_webview_event(w.webview, name, message);
 }
 
+
 // Window Private
 
 void mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
@@ -1807,15 +1810,6 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 		*gfx_ctx = ctx.gfx_ctx;
 
 	return ctx.api;
-}
-
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
-{
-	Window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return (__bridge void *) ctx;
 }
 
 

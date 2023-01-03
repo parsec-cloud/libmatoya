@@ -967,10 +967,6 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
-void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
-{
-}
-
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 {
 	return ctx->input;
@@ -1153,6 +1149,13 @@ MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 	return state;
 }
 
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
+{
+	// Function calls internally rely on 'app' and 'window' being ignored
+
+	return CTX.window;
+}
+
 // Webview
 
 void MTY_WebviewCreate(MTY_App *app, MTY_Window window, const char *html, bool debug)
@@ -1202,13 +1205,6 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 		*gfx_ctx = app->gfx_ctx;
 
 	return app->api;
-}
-
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
-{
-	// Function calls internally rely on 'app' and 'window' being ignored
-
-	return CTX.window;
 }
 
 

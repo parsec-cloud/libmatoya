@@ -168,10 +168,6 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
-void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
-{
-}
-
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 {
 	return MTY_INPUT_MODE_UNSPECIFIED;
@@ -257,6 +253,11 @@ MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 	return MTY_CONTEXT_STATE_NORMAL;
 }
 
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
+{
+	return NULL;
+}
+
 
 // Window Private
 
@@ -267,11 +268,6 @@ void mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx
 MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
 {
 	return MTY_GFX_NONE;
-}
-
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
-{
-	return NULL;
 }
 
 

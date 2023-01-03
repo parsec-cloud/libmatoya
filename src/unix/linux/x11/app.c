@@ -1017,10 +1017,6 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
-void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
-{
-}
-
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 {
 	return MTY_INPUT_MODE_UNSPECIFIED;
@@ -1427,6 +1423,15 @@ MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 	return MTY_CONTEXT_STATE_NORMAL;
 }
 
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return NULL;
+
+	return (void *) &ctx->info;
+}
+
 // Webview
 
 void MTY_WebviewCreate(MTY_App *app, MTY_Window window, const char *html, bool debug)
@@ -1463,13 +1468,6 @@ void MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, con
 {
 	mty_webview_event(app->windows[window]->webview, name, message);
 }
-
-// Window Private
-
-void mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
 		return;
 
 	ctx->api = api;
@@ -1486,15 +1484,6 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 		*gfx_ctx = ctx->gfx_ctx;
 
 	return ctx->api;
-}
-
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return (void *) &ctx->info;
 }
 
 

@@ -103,7 +103,7 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 	}
 
 	if (api != MTY_GFX_NONE && MTY_WindowExists(app, window)) {
-		void *native = mty_window_get_native(app, window);
+		void *native = MTY_WindowGetNative(app, window);
 
 		gfx_ctx = GFX_CTX_API[api].create(native, vsync);
 
@@ -190,10 +190,8 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		PEVENT(MTY_EVENT_CLIPBOARD, evt, "");
 		PEVENT(MTY_EVENT_TRAY, evt, "id: %u", evt->trayID);
 		PEVENT(MTY_EVENT_REOPEN, evt, "arg: %s", evt->reopenArg);
-		PEVENT(MTY_EVENT_PEN, evt, "x: %u, y: %u, z: %u, flags: 0x%X, pressure: %u, rotation: %u, tiltX: %d, tiltY: %d",
-			evt->pen.x, evt->pen.y, evt->pen.z, evt->pen.flags, evt->pen.pressure, evt->pen.rotation, evt->pen.tiltX, evt->pen.tiltY);
-		PEVENT(MTY_EVENT_WINTAB, evt, "type: %d, device: %d, control: %d, state: %d, position: %d",
-			evt->wintab.type, evt->wintab.device, evt->wintab.control, evt->wintab.state, evt->wintab.position);
+		PEVENT(MTY_EVENT_PEN, evt, "x: %u, y: %u, flags: 0x%X, pressure: %u, rotation: %u, tiltX: %d, tiltY: %d",
+			evt->pen.x, evt->pen.y, evt->pen.flags, evt->pen.pressure, evt->pen.rotation, evt->pen.tiltX, evt->pen.tiltY);
 		PEVENT(MTY_EVENT_WEBVIEW, evt, "message: %s", evt->message);
 		PEVENT(MTY_EVENT_CONNECT, evt, "id: %u", evt->controller.id);
 		PEVENT(MTY_EVENT_DISCONNECT, evt, "id: %u", evt->controller.id);

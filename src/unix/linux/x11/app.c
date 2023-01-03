@@ -1468,6 +1468,11 @@ void MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, con
 {
 	mty_webview_event(app->windows[window]->webview, name, message);
 }
+
+void mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
 		return;
 
 	ctx->api = api;

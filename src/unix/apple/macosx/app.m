@@ -14,6 +14,7 @@
 #include "keymap.h"
 #include "hid/hid.h"
 #include "hid/utils.h"
+//#include "keyboard.c"
 
 
 // Private global hotkey interface
@@ -38,6 +39,7 @@ CGError CGSSetGlobalHotKeyOperatingMode(int32_t conn, enum CGSGlobalHotKeyOperat
 	@property MTY_Hash *hotkey;
 	@property MTY_Hash *deduper;
 	@property MTY_DetachState detach;
+	@property MTY_Mod mod_state;
 	@property void *opaque;
 	@property void *kb_mode;
 	@property bool relative;
@@ -671,7 +673,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 {
 	MTY_Event evt = window_event(window, MTY_EVENT_KEY);
 	evt.key.key = keymap_keycode_to_key(key_code);
-	evt.key.mod = keymap_modifier_flags_to_keymod(flags);
+	evt.key.mod = window.app.mod_state;
 	evt.key.pressed = pressed;
 
 	MTY_Mod mod = evt.key.mod & 0xFF;
@@ -690,28 +692,6 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 		if (evt.key.key != MTY_KEY_NONE)
 			window.app.event_func(&evt, window.app.opaque);
 	}
-}
-
-static void window_mod_event(Window *window, NSEvent *event)
-{
-	MTY_Event evt = window_event(window, MTY_EVENT_KEY);
-	evt.key.key = keymap_keycode_to_key(event.keyCode);
-	evt.key.mod = keymap_modifier_flags_to_keymod(event.modifierFlags);
-
-	switch (evt.key.key) {
-		case MTY_KEY_LSHIFT: evt.key.pressed = evt.key.mod & MTY_MOD_LSHIFT; break;
-		case MTY_KEY_LCTRL:  evt.key.pressed = evt.key.mod & MTY_MOD_LCTRL;  break;
-		case MTY_KEY_LALT:   evt.key.pressed = evt.key.mod & MTY_MOD_LALT;   break;
-		case MTY_KEY_LWIN:   evt.key.pressed = evt.key.mod & MTY_MOD_LWIN;   break;
-		case MTY_KEY_RSHIFT: evt.key.pressed = evt.key.mod & MTY_MOD_RSHIFT; break;
-		case MTY_KEY_RCTRL:  evt.key.pressed = evt.key.mod & MTY_MOD_RCTRL;  break;
-		case MTY_KEY_RALT:   evt.key.pressed = evt.key.mod & MTY_MOD_RALT;   break;
-		case MTY_KEY_RWIN:   evt.key.pressed = evt.key.mod & MTY_MOD_RWIN;   break;
-		default:
-			return;
-	}
-
-	window.app.event_func(&evt, window.app.opaque);
 }
 
 @implementation Window : NSWindow
@@ -737,17 +717,13 @@ static void window_mod_event(Window *window, NSEvent *event)
 	{
 		bool cmd = event.modifierFlags & NSEventModifierFlagCommand;
 		bool ctrl = event.modifierFlags & NSEventModifierFlagControl;
+		bool option = event.modifierFlags & NSEventModifierFlagOption;
 
-		bool cmd_tab = event.keyCode == kVK_Tab && cmd;
-		bool ctrl_tab = event.keyCode == kVK_Tab && ctrl;
-		bool cmd_q = event.keyCode == kVK_ANSI_Q && cmd;
-		bool cmd_w = event.keyCode == kVK_ANSI_W && cmd;
-		bool cmd_space = event.keyCode == kVK_Space && cmd;
+		bool caught = cmd || ctrl || option;
 
 		// While keyboard is grabbed, make sure we pass through special OS hotkeys
-		if (self.app.grab_kb && (cmd_tab || ctrl_tab || cmd_q || cmd_w || cmd_space)) {
+		if (self.app.grab_kb && caught) {
 			window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
-			window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
 
 			return YES;
 		}
@@ -819,25 +795,19 @@ static void window_mod_event(Window *window, NSEvent *event)
 
 	- (void)keyUp:(NSEvent *)event
 	{
-		window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
+		// Not used for now
 	}
 
 	- (void)keyDown:(NSEvent *)event
 	{
+		self.app.mod_state = keymap_modifier_flags_to_keymod(event.modifierFlags);
 		window_text_event(self, [event.characters UTF8String]);
 		window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
 	}
 
 	- (void)flagsChanged:(NSEvent *)event
 	{
-		// Simulate full button press for the Caps Lock key
-		if (event.keyCode == kVK_CapsLock) {
-			window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
-			window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
-
-		} else {
-			window_mod_event(self, event);
-		}
+		self.app.mod_state = keymap_modifier_flags_to_keymod(event.modifierFlags);
 	}
 
 	- (void)mouseUp:(NSEvent *)event
@@ -1002,6 +972,67 @@ static void app_hid_disconnect(struct hid_dev *device, void *opaque)
 	ctx.event_func(&evt, ctx.opaque);
 }
 
+static bool app_update_mod_flags(App *ctx, MTY_Key keycode, bool key_down)
+{
+	MTY_Mod mod_flags = 0;
+	switch (keycode) {
+		case MTY_KEY_CAPS: mod_flags = MTY_MOD_CAPS;   break;
+		case MTY_KEY_NUM_LOCK:  mod_flags = MTY_MOD_NUM;    break;
+		case MTY_KEY_LSHIFT:    mod_flags = MTY_MOD_LSHIFT; break;
+		case MTY_KEY_LCTRL:     mod_flags = MTY_MOD_LCTRL;  break;
+		case MTY_KEY_LALT:      mod_flags = MTY_MOD_LALT;   break;
+		case MTY_KEY_LWIN:      mod_flags = MTY_MOD_LWIN;   break;
+		case MTY_KEY_RSHIFT:    mod_flags = MTY_MOD_RSHIFT; break;
+		case MTY_KEY_RCTRL:     mod_flags = MTY_MOD_RCTRL;  break;
+		case MTY_KEY_RALT:      mod_flags = MTY_MOD_RALT;   break;
+		case MTY_KEY_RWIN:      mod_flags = MTY_MOD_RWIN;   break;
+		default:
+			return false;
+	}
+
+	if (key_down)
+		ctx.mod_state |= mod_flags;
+	else
+		ctx.mod_state =  ctx.mod_state & ~mod_flags;
+
+	return true;
+
+}
+static void app_hid_key_value(uint32_t usage, bool down, void *opaque)
+{
+	App *ctx = (__bridge App *) opaque;
+
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_KEY;
+	evt.window = 0;
+	evt.key.key = keymap_usage_to_key(usage);
+	bool is_mod = app_update_mod_flags(ctx, evt.key.key, down);
+
+	evt.key.mod = ctx.mod_state;
+	evt.key.pressed = down;
+
+	MTY_Mod mod = evt.key.mod & 0xFF;
+
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(ctx.hotkey, (mod << 16) | evt.key.key);
+
+	// MacOS misses a lot of key-ups on hotkeys and other special keys, but does pretty well with
+	// key-downs, so we use low level HID events for ups, and normal window events for downs so as
+	// to get OS behavior like key repeating.
+	if ((is_mod || !evt.key.pressed) && MTY_AppIsActive((MTY_App *) opaque) && evt.key.key != MTY_KEY_NONE) {
+		if (hotkey != 0) {
+			if (evt.key.pressed) {
+				evt.type = MTY_EVENT_HOTKEY;
+				evt.hotkey = hotkey;
+
+				ctx.event_func(&evt, ctx.opaque);
+			}
+
+		} else {
+				ctx.event_func(&evt, ctx.opaque);
+		}
+	}
+}
+
 static void app_hid_report(struct hid_dev *device, const void *buf, size_t size, void *opaque)
 {
 	App *ctx = (__bridge App *) opaque;
@@ -1042,7 +1073,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx.cursor_showing = true;
 	ctx.cont = true;
 
-	ctx.hid = mty_hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
+	ctx.hid = mty_hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app_hid_key_value, app);
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
 	ctx.hotkey = MTY_HashCreate(0);
@@ -1359,6 +1390,10 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 	App *app = (__bridge App *) ctx;
 
 	app.pen_enabled = enable;
+}
+
+void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
+{
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)

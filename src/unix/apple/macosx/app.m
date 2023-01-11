@@ -467,7 +467,7 @@ static Window *window_find_mouse(Window *me, NSPoint *p)
 
 // Pen
 
-static void window_pen_event(Window *window, NSEvent *event)
+static void window_pen_event(Window *window, NSEvent *event, bool pressed)
 {
 	NSPoint p = {0};
 	Window *cur = window_find_mouse(window, &p);
@@ -479,11 +479,11 @@ static void window_pen_event(Window *window, NSEvent *event)
 	evt.pen.pressure = (uint16_t) lrint(event.pressure * 1024.0f);
 	evt.pen.rotation = (uint16_t) lrint(event.rotation * 359.0f);
 	evt.pen.tiltX = (int8_t) lrint(event.tilt.x * 90.0f);
-	evt.pen.tiltY = (int8_t) lrint(event.tilt.y * 90.0f);
+	evt.pen.tiltY = (int8_t) lrint(event.tilt.y * -90.0f);
 	evt.pen.x = lrint(p.x * scale);
 	evt.pen.y = lrint(p.y * scale);
 
-	bool touching = event.buttonMask & NSEventButtonMaskPenTip;
+	bool touching = event.buttonMask & NSEventButtonMaskPenTip || pressed;
 
 	// INVERTED must be set while hovering, but ERASER should only be set by
 	// while TOUCHING is also true
@@ -496,12 +496,6 @@ static void window_pen_event(Window *window, NSEvent *event)
 		}
 
 	} else if (touching) {
-		evt.pen.flags |= MTY_PEN_FLAG_TOUCHING;
-	}
-
-	// While BARREL is held, TOUCHING must also be set
-	if (event.buttonMask & NSEventButtonMaskPenLowerSide) {
-		evt.pen.flags |= MTY_PEN_FLAG_BARREL;
 		evt.pen.flags |= MTY_PEN_FLAG_TOUCHING;
 	}
 
@@ -547,8 +541,10 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
-	if (window.app.pen_enabled && event.subtype == NSEventSubtypeTabletPoint) {
-		window_pen_event(window, event);
+	if (window.app.pen_enabled
+		&& (event.subtype == NSEventSubtypeTabletPoint)
+		&& (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
+		window_pen_event(window, event, pressed);
 
 	} else {
 		window_mouse_button_event(window, index, pressed);
@@ -639,7 +635,7 @@ static void window_motion_event(Window *window, NSEvent *event)
 	bool pen_in_range = event.subtype == NSEventSubtypeTabletPoint;
 
 	if (window.app.pen_enabled && pen_in_range) {
-		window_pen_event(window, event);
+		window_pen_event(window, event, false);
 
 	} else {
 		window_mouse_motion_event(window, event, pen_in_range);
@@ -1392,7 +1388,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	Window *ctx = nil;
 	View *content = nil;
 
-	NSScreen *screen = screen_from_display_id(atoi(frame->screen));
+	NSScreen *screen = [NSScreen mainScreen];
 
 	window = app_find_open_window(app, index);
 	if (window == -1) {
@@ -1435,8 +1431,9 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	if (frame->type & MTY_WINDOW_MAXIMIZED)
 		[ctx zoom:ctx];
 
-	if (frame->type & MTY_WINDOW_FULLSCREEN)
-		MTY_WindowSetFullscreen(app, window, true);
+	// XXX Forcing fullscreen here does not seem required and causes issues in multi-screen setups
+	// if (frame->type & MTY_WINDOW_FULLSCREEN)
+	// 	MTY_WindowSetFullscreen(app, window, true);
 
 	if (!(frame->type & MTY_WINDOW_HIDDEN))
 		MTY_WindowActivate(app, window, true);
@@ -1545,8 +1542,9 @@ void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 	if (frame->type & MTY_WINDOW_MAXIMIZED)
 		[ctx zoom:ctx];
 
-	if (frame->type & MTY_WINDOW_FULLSCREEN)
-		MTY_WindowSetFullscreen(app, window, true);
+	// XXX Forcing fullscreen here does not seem required and causes issues in multi-screen setups
+	// if (frame->type & MTY_WINDOW_FULLSCREEN)
+	// 	MTY_WindowSetFullscreen(app, window, true);
 }
 
 void MTY_WindowSetMinSize(MTY_App *app, MTY_Window window, uint32_t minWidth, uint32_t minHeight)

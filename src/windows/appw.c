@@ -51,6 +51,7 @@ struct MTY_App {
 	DWORD cb_seq;
 	bool pen_in_range;
 	bool pen_enabled;
+	bool pen_had_barrel;
 	bool touch_active;
 	bool relative;
 	bool kbgrab;
@@ -776,8 +777,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			if (ppi.penFlags & PEN_FLAG_ERASER)
 				evt.pen.flags |= MTY_PEN_FLAG_ERASER;
 
-			if (ppi.penFlags & PEN_FLAG_BARREL)
+			// We must send a last barrel to notify it has been released
+			bool pen_barrel = (ppi.penFlags & PEN_FLAG_BARREL) ? true : false;
+			if (pen_barrel || app->pen_had_barrel)
 				evt.pen.flags |= MTY_PEN_FLAG_BARREL;
+			app->pen_had_barrel = pen_barrel;
 
 			defreturn = true;
 			break;

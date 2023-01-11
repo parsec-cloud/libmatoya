@@ -21,6 +21,7 @@
 #include "keymap.h"
 #include "gfx/gl-ctx.h"
 #include "hid/utils.h"
+#include "webview.h"
 
 static struct MTY_App {
 	MTY_EventFunc event_func;
@@ -57,6 +58,7 @@ static struct MTY_App {
 
 	MTY_GFX api;
 	struct gfx_ctx *gfx_ctx;
+	struct webview *webview;
 } CTX;
 
 static const MTY_ControllerEvent APP_ZEROED_CTRL = {
@@ -230,6 +232,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_gfx_1resize(JNIEnv *env, job
 	evt.type = MTY_EVENT_SIZE;
 
 	app_push_event(&CTX, &evt);
+
+	mty_webview_resize(CTX.webview);
 
 	mty_gfx_unlock();
 }
@@ -731,6 +735,7 @@ void MTY_AppDestroy(MTY_App **app)
 	MTY_App *ctx = *app;
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
+	mty_webview_destroy(&ctx->webview);
 	*app = NULL;
 }
 
@@ -1151,6 +1156,40 @@ void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
 	return CTX.window;
 }
 
+// Webview
+
+void MTY_WebviewCreate(MTY_App *app, MTY_Window window, const char *html, bool debug)
+{
+	void *handle[2] = { app->obj, mty_gfx_size };
+
+	if (!app->webview)
+		app->webview = mty_webview_create(handle, html, debug, app->event_func, app->opaque);
+}
+
+void MTY_WebviewDestroy(MTY_App *app, MTY_Window window)
+{
+	mty_webview_destroy(&app->webview);
+}
+
+bool MTY_WebviewExists(MTY_App *app, MTY_Window window)
+{
+	return app->webview != NULL;
+}
+
+void MTY_WebviewShow(MTY_App *app, MTY_Window window, bool show)
+{
+	mty_webview_show(app->webview, show);
+}
+
+bool MTY_WebviewIsVisible(MTY_App *app, MTY_Window window)
+{
+	return mty_webview_is_visible(app->webview);
+}
+
+void MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, const char *message)
+{
+	mty_webview_event(app->webview, name, message);
+}
 
 // Window Private
 

@@ -88,6 +88,7 @@ LOCAL_SRC_FILES := \
 	src/unix/net/net.c \
 	src/unix/net/secure.c \
 	src/unix/net/tcp.c \
-	src/unix/net/ws.c
+	src/unix/net/ws.c \
+	src/unix/linux/android/webview.c
 
 include $(BUILD_STATIC_LIBRARY)

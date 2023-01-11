@@ -18,6 +18,7 @@
 #include "hid/utils.h"
 #include "evdev.h"
 #include "keymap.h"
+#include "webview.h"
 
 struct window {
 	Window window;
@@ -28,6 +29,7 @@ struct window {
 	int32_t last_width;
 	int32_t last_height;
 	struct gfx_ctx *gfx_ctx;
+	struct webview *webview;
 	struct xinfo info;
 };
 
@@ -513,6 +515,8 @@ static void app_event(MTY_App *ctx, XEvent *event)
 					win->frame.size.w = xc->width;
 					win->frame.size.h = xc->height;
 				}
+
+				mty_webview_resize(win->webview);
 			}
 
 			if (xc->send_event && (win->frame.x != xc->x || win->frame.y != xc->y)) {
@@ -675,6 +679,9 @@ void MTY_AppDestroy(MTY_App **app)
 		return;
 
 	MTY_App *ctx = *app;
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+		MTY_WindowDestroy(ctx, x);
 
 	if (ctx->empty_cursor)
 		XFreeCursor(ctx->display, ctx->empty_cursor);
@@ -1162,6 +1169,8 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return;
 
+	mty_webview_destroy(&ctx->webview);
+
 	if (ctx->ic)
 		XDestroyIC(ctx->ic);
 
@@ -1423,8 +1432,42 @@ void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
 	return (void *) &ctx->info;
 }
 
+// Webview
 
-// Window Private
+void MTY_WebviewCreate(MTY_App *app, MTY_Window window, const char *html, bool debug)
+{
+	struct window *w = app->windows[window];
+
+	if (!w->webview) {
+		void *handle[2] = { app->display, (void *) w->window };
+		w->webview = mty_webview_create(handle, html, debug, app->event_func, app->opaque);
+	}
+}
+
+void MTY_WebviewDestroy(MTY_App *app, MTY_Window window)
+{
+	mty_webview_destroy(&app->windows[window]->webview);
+}
+
+bool MTY_WebviewExists(MTY_App *app, MTY_Window window)
+{
+	return app->windows[window]->webview != NULL;
+}
+
+void MTY_WebviewShow(MTY_App *app, MTY_Window window, bool show)
+{
+	mty_webview_show(app->windows[window]->webview, show);
+}
+
+bool MTY_WebviewIsVisible(MTY_App *app, MTY_Window window)
+{
+	return mty_webview_is_visible(app->windows[window]->webview);
+}
+
+void MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, const char *message)
+{
+	mty_webview_event(app->windows[window]->webview, name, message);
+}
 
 void mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
 {

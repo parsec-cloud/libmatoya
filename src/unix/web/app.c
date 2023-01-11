@@ -14,6 +14,7 @@
 #include "web.h"
 #include "keymap.h"
 #include "hid/utils.h"
+#include "webview.h"
 
 struct MTY_App {
 	MTY_Hash *hotkey;
@@ -27,6 +28,7 @@ struct MTY_App {
 	MTY_GFX api;
 	bool kb_grab;
 	struct gfx_ctx *gfx_ctx;
+	struct webview *webview;
 };
 
 static void __attribute__((constructor)) app_global_init(void)
@@ -58,6 +60,8 @@ static void window_resize(MTY_App *ctx)
 	evt.type = MTY_EVENT_SIZE;
 
 	ctx->event_func(&evt, ctx->opaque);
+
+	mty_webview_resize(ctx->webview);
 }
 
 static void window_move(MTY_App *ctx)
@@ -308,6 +312,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_HashDestroy(&ctx->deduper, MTY_Free);
+	mty_webview_destroy(&ctx->webview);
 
 	MTY_Free(ctx);
 	*app = NULL;
@@ -592,6 +597,38 @@ void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
 	return NULL;
 }
 
+// Webview
+
+void MTY_WebviewCreate(MTY_App *app, MTY_Window window, const char *html, bool debug)
+{
+	if (!app->webview)
+		app->webview = mty_webview_create(NULL, html, debug, app->event_func, app->opaque);
+}
+
+void MTY_WebviewDestroy(MTY_App *app, MTY_Window window)
+{
+	mty_webview_destroy(&app->webview);
+}
+
+bool MTY_WebviewExists(MTY_App *app, MTY_Window window)
+{
+	return app->webview != NULL;
+}
+
+void MTY_WebviewShow(MTY_App *app, MTY_Window window, bool show)
+{
+	mty_webview_show(app->webview, show);
+}
+
+bool MTY_WebviewIsVisible(MTY_App *app, MTY_Window window)
+{
+	return mty_webview_is_visible(app->webview);
+}
+
+void MTY_WebviewSendEvent(MTY_App *app, MTY_Window window, const char *name, const char *message)
+{
+	mty_webview_event(app->webview, name, message);
+}
 
 // Window Private
 

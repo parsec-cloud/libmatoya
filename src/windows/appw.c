@@ -595,23 +595,6 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Event *evt)
 	}
 }
 
-static bool app_is_hovered(MTY_App *ctx)
-{
-	POINT cursor = {0};
-	if (!GetCursorPos(&cursor))
-		return false;
-
-	HWND hwnd = WindowFromPoint(cursor);
-	if (!hwnd)
-		return false;
-
-	for (int8_t i = 0; i < MTY_WINDOW_MAX; i++)
-		if (ctx->windows[i] && ctx->windows[i]->hwnd == hwnd)
-			return true;
-
-	return false;
-}
-
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	MTY_App *app = ctx->app;
@@ -644,8 +627,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_MOVE:
 			evt.type = MTY_EVENT_MOVE;
-			if (app->relative)
-				app->filter_move = true;
 			break;
 		case WM_SETCURSOR:
 			if (LOWORD(lparam) == HTCLIENT) {
@@ -666,8 +647,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_KILLFOCUS:
 			evt.type = MTY_EVENT_FOCUS;
 			evt.focus = msg == WM_SETFOCUS;
-			if (!evt.focus && app->pen_in_range && !MTY_AppIsActive(app))
-				app->pen_in_range = false;
 			app->state++;
 			break;
 		case WM_QUERYENDSESSION:
@@ -699,17 +678,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_MOUSEMOVE:
 			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
-				evt.motion.x = GET_X_LPARAM(lparam);
-				evt.motion.y = GET_Y_LPARAM(lparam);
-
-				if (evt.motion.x == app->last_x && evt.motion.y == app->last_y)
-					break;
-
 				evt.type = MTY_EVENT_MOTION;
 				evt.motion.relative = false;
 				evt.motion.synth = false;
-				app->last_x = evt.motion.x;
-				app->last_y = evt.motion.y;
+				evt.motion.x = GET_X_LPARAM(lparam);
+				evt.motion.y = GET_Y_LPARAM(lparam);
 			}
 
 			app->filter_move = false;
@@ -765,6 +738,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		}
 		case WM_POINTERLEAVE:
+			app->pen_in_range = false;
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
@@ -776,8 +750,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			POINTER_INPUT_TYPE type = PT_POINTER;
 			if (!GetPointerType(id, &type) || type != PT_PEN)
 				break;
-
-			app->pen_in_range = true;
 
 			POINTER_PEN_INFO ppi = {0};
 			if (!GetPointerPenInfo(id, &ppi))
@@ -907,36 +879,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 		} else {
 			app->buttons &= ~(1 << evt.button.button);
-		}
-	}
-
-	if (evt.type == MTY_EVENT_BUTTON && !app_is_hovered(app))
-		evt.type = MTY_EVENT_NONE;
-
-	if (evt.type == MTY_EVENT_PEN) {
-		app->pen_in_range = (evt.pen.flags & MTY_PEN_FLAG_LEAVE) != MTY_PEN_FLAG_LEAVE;
-
-		if (app->relative && !app_hwnd_active(hwnd)) {
-			evt.type = MTY_EVENT_NONE;
-
-		} else if (!pen_active) {
-			if (evt.pen.flags & MTY_PEN_FLAG_TOUCHING) {
-				evt = (MTY_Event) {
-					.type = MTY_EVENT_BUTTON,
-					.button.button = evt.pen.flags & MTY_PEN_FLAG_BARREL ?
-						MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT,
-					.button.pressed = true,
-					.button.x = evt.pen.x,
-					.button.y = evt.pen.y,
-				};
-
-			} else {
-				evt = (MTY_Event) {
-					.type = MTY_EVENT_MOTION,
-					.motion.x = evt.pen.x,
-					.motion.y = evt.pen.y,
-				};
-			}
 		}
 	}
 

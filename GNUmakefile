@@ -98,6 +98,7 @@ OBJS := $(OBJS) \
 
 DEFS := $(DEFS) \
 	-D_WASI_EMULATED_SIGNAL \
+	-DCLOCK_MONOTONIC_RAW=CLOCK_MONOTONIC \
 	-DMTY_GLUI_CLEAR_ALPHA=0.0f \
 	-DMTY_GL_EXTERNAL \
 	-DMTY_GL_ES
@@ -116,12 +117,9 @@ OBJS := $(OBJS) \
 	src/gfx/vk/vk-ctx.o \
 	src/gfx/vk/vk-ui.o \
 	src/net/async.o \
-	src/net/gzip.o \
-	src/net/http.o \
-	src/net/net.o \
-	src/net/secure.o \
-	src/net/tcp.o \
-	src/net/ws.o \
+	src/net/dns.o \
+	src/net/http-parse.o \
+	src/net/http-proxy.o \
 	src/unix/image.o \
 	src/unix/linux/dialog.o \
 	src/unix/linux/x11/aes-gcm.o \
@@ -132,7 +130,13 @@ OBJS := $(OBJS) \
 	src/unix/linux/x11/request.o \
 	src/unix/linux/x11/system.o \
 	src/unix/linux/x11/tls.o \
-	src/unix/linux/x11/gfx/gl-ctx.o
+	src/unix/linux/x11/gfx/gl-ctx.o \
+	src/unix/net/gzip.o \
+	src/unix/net/http.o \
+	src/unix/net/net.o \
+	src/unix/net/secure.o \
+	src/unix/net/tcp.o \
+	src/unix/net/ws.o
 
 SHADERS := $(SHADERS) \
 	src/gfx/vk/shaders/fs.h \
@@ -167,7 +171,10 @@ ARCH = x86_64
 endif
 
 ifeq ($(TARGET), macosx)
-MIN_VER = 10.11
+MIN_VER = 10.14
+
+#TODO Remove after phase3
+FLAGS := $(FLAGS) -Wno-deprecated-declarations
 
 OBJS := $(OBJS) \
 	src/hid/hid.o \
@@ -189,12 +196,9 @@ endif
 
 OBJS := $(OBJS) \
 	src/net/async.o \
-	src/net/gzip.o \
-	src/net/http.o \
-	src/net/net.o \
-	src/net/secure.o \
-	src/net/tcp.o \
-	src/net/ws.o \
+	src/net/dns.o \
+	src/net/http-parse.o \
+	src/net/http-proxy.o \
 	src/unix/apple/request.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
@@ -204,7 +208,13 @@ OBJS := $(OBJS) \
 	src/unix/apple/$(TARGET)/aes-gcm.o \
 	src/unix/apple/$(TARGET)/app.o \
 	src/unix/apple/$(TARGET)/dialog.o \
-	src/unix/apple/$(TARGET)/system.o
+	src/unix/apple/$(TARGET)/system.o \
+	src/unix/net/gzip.o \
+	src/unix/net/http.o \
+	src/unix/net/net.o \
+	src/unix/net/secure.o \
+	src/unix/net/tcp.o \
+	src/unix/net/ws.o
 
 SHADERS := $(SHADERS) \
 	src/unix/apple/gfx/shaders/metal/quad.h \

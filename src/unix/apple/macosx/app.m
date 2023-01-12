@@ -99,8 +99,6 @@ static void app_apply_relative(App *ctx)
 		int32_t y = 0;
 		CGGetLastMouseDelta(&x, &y);
 	}
-
-	app_show_cursor(ctx, !rel);
 }
 
 static void app_apply_cursor(App *ctx)
@@ -236,7 +234,7 @@ static void app_fix_mouse_buttons(App *ctx)
 
 		if (!self.cont) {
 			// Post a dummy event to spin the event loop
-			NSEvent *dummy = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0)
+			NSEvent *dummy = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSMakePoint(0, 0)
 				modifierFlags:0 timestamp:[[NSDate date] timeIntervalSince1970] windowNumber:0
 				context:nil subtype:0 data1:0 data2:0];
 
@@ -543,7 +541,7 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
 	if (window.app.pen_enabled
-		&& (event.subtype == NSTabletPointEventSubtype)
+		&& (event.subtype == NSEventSubtypeTabletPoint)
 		&& (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
 		window_pen_event(window, event, pressed);
 
@@ -633,7 +631,7 @@ static void window_mouse_motion_event(Window *window, NSEvent *event, bool pen_i
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	bool pen_in_range = event.subtype == NSTabletPointEventSubtype;
+	bool pen_in_range = event.subtype == NSEventSubtypeTabletPoint;
 
 	if (window.app.pen_enabled && pen_in_range) {
 		window_pen_event(window, event, false);
@@ -1684,12 +1682,20 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 		return;
 
 	window_warp_cursor(ctx, x, y);
-	MTY_AppSetRelativeMouse(app, false);
 }
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
 	return MTY_CONTEXT_STATE_NORMAL;
+}
+
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
+{
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return NULL;
+
+	return (__bridge void *) ctx;
 }
 
 
@@ -1715,15 +1721,6 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 		*gfx_ctx = ctx.gfx_ctx;
 
 	return ctx.api;
-}
-
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
-{
-	Window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return (__bridge void *) ctx;
 }
 
 

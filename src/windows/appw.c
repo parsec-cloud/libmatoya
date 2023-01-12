@@ -41,12 +41,12 @@ struct window {
 struct MTY_App {
 	MTY_AppFunc app_func;
 	MTY_EventFunc event_func;
+	MTY_WMsgFunc wmsg_func;
 	void *opaque;
 
 	WNDCLASSEX wc;
 	ATOM class;
 	UINT tb_msg;
-	RECT clip;
 	HICON cursor;
 	HICON custom_cursor;
 	HINSTANCE instance;
@@ -56,8 +56,6 @@ struct MTY_App {
 	bool pen_in_range;
 	bool pen_enabled;
 	bool pen_had_barrel;
-	bool pen_touched_left;
-	bool pen_touched_right;
 	bool touch_active;
 	bool relative;
 	bool kbgrab;
@@ -101,10 +99,6 @@ struct MTY_App {
 		uint32_t len;
 	} tray;
 
-	BOOL (WINAPI *GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
-	BOOL (WINAPI *GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
-	BOOL (WINAPI *PhysicalToLogicalPointForPerMonitorDPI)(HWND hWnd, LPPOINT lpPoint);
-	BOOL (WINAPI *PhysicalToLogicalPoint)(HWND hWnd, LPPOINT lpPoint);
 	BOOL (WINAPI *AdjustWindowRectExForDpi)(LPRECT lpRect, DWORD dwStyle, BOOL bMenu,
 		DWORD dwExStyle, UINT dpi);
 };
@@ -479,10 +473,7 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 static void app_apply_clip(MTY_App *app, bool focus)
 {
 	if (focus) {
-		if (app->relative && app->detach != MTY_DETACH_STATE_FULL && !app->pen_in_range) {
-			ClipCursor(&app->clip);
-
-		} else if (app->mgrab && app->detach == MTY_DETACH_STATE_NONE) {
+		if ((app->relative || app->mgrab) && app->detach == MTY_DETACH_STATE_NONE) {
 			struct window *ctx = app_get_focus_window(app);
 			if (ctx) {
 				RECT r = {0};
@@ -516,7 +507,7 @@ static void app_apply_cursor(MTY_App *app, bool focus)
 
 static void app_apply_mouse_ri(MTY_App *app, bool focus)
 {
-	if (app->relative && !app->pen_in_range) {
+	if (app->relative) {
 		if (focus) {
 			if (app->detach == MTY_DETACH_STATE_FULL) {
 				app_register_raw_input(0x01, 0x02, 0, NULL);
@@ -705,13 +696,20 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 {
 	MTY_App *app = ctx->app;
 
+	LRESULT r = 0;
+	bool creturn = false;
+
+	// Custom window message handler
+	if (app->wmsg_func) {
+		r = app->wmsg_func(app, ctx->window, hwnd, msg, wparam, lparam, &creturn, app->opaque);
+
+		if (creturn)
+			return r;
+	}
+
 	MTY_Event evt = {0};
 	evt.window = ctx->window;
 
-	LRESULT r = 0;
-	HWND focused_hwnd = hwnd;
-	bool double_click = false;
-	bool creturn = false;
 	bool defreturn = false;
 	char drop_name[MTY_PATH_MAX];
 
@@ -843,13 +841,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			evt.scroll.y = 0;
 			break;
 		case WM_POINTERENTER: {
-			if (!app->GetPointerType)
-				break;
-
 			UINT32 id = GET_POINTERID_WPARAM(wparam);
 
 			POINTER_INPUT_TYPE type = PT_POINTER;
-			if (app->GetPointerType(id, &type)) {
+			if (GetPointerType(id, &type)) {
 				app->pen_in_range = type == PT_PEN;
 				app->touch_active = type == PT_TOUCH || type == PT_TOUCHPAD;
 			}
@@ -861,19 +856,19 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
-			if (!app->GetPointerType || !app->GetPointerPenInfo)
+			if (!app->pen_enabled)
 				break;
 
 			UINT32 id = GET_POINTERID_WPARAM(wparam);
 
 			POINTER_INPUT_TYPE type = PT_POINTER;
-			if (!app->GetPointerType(id, &type) || type != PT_PEN)
+			if (!GetPointerType(id, &type) || type != PT_PEN)
 				break;
 
 			app->pen_in_range = true;
 
 			POINTER_PEN_INFO ppi = {0};
-			if (!app->GetPointerPenInfo(id, &ppi))
+			if (!GetPointerPenInfo(id, &ppi))
 				break;
 
 			POINTER_INFO *pi = &ppi.pointerInfo;
@@ -911,14 +906,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			// We must send a last barrel to notify it has been released
 			bool pen_barrel = (ppi.penFlags & PEN_FLAG_BARREL) ? true : false;
 			if (pen_barrel || app->pen_had_barrel)
-				evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
+				evt.pen.flags |= MTY_PEN_FLAG_BARREL;
 			app->pen_had_barrel = pen_barrel;
-
-			if (app->pen_enabled && evt.pen.flags & MTY_PEN_FLAG_TOUCHING)
-				app->pen_type = MTY_PEN_TYPE_GENERIC;
-
-			if (!app->pen_enabled)
-				app_convert_pen_to_mouse(app, &evt, NULL);
 
 			defreturn = true;
 			break;
@@ -1113,22 +1102,11 @@ struct monitor_cb_info {
 	wchar_t screen[MTY_SCREEN_MAX];
 };
 
-static __declspec(thread) HRESULT (WINAPI *_GetDpiForMonitor)(HMONITOR hmonitor,
-	MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
-
 static float monitor_get_scale(HMONITOR mon)
 {
-	if (!_GetDpiForMonitor) {
-		HMODULE shcore = GetModuleHandle(L"shcore.dll");
-		_GetDpiForMonitor = (void *) GetProcAddress(shcore, "GetDpiForMonitor");
-
-		if (!_GetDpiForMonitor)
-			return 1.0f;
-	}
-
 	UINT x = 0;
 	UINT y = 0;
-	HRESULT e = _GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y);
+	HRESULT e = GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y);
 	if (e != S_OK || x == 0)
 		return 1.0f;
 
@@ -1265,11 +1243,8 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 
 	ctx->tb_msg = RegisterWindowMessage(L"TaskbarCreated");
 
+	// Requires Windows 10, version 1607
 	HMODULE user32 = GetModuleHandle(L"user32.dll");
-	ctx->GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
-	ctx->GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
-	ctx->PhysicalToLogicalPoint = (void *) GetProcAddress(user32, "PhysicalToLogicalPoint");
-	ctx->PhysicalToLogicalPointForPerMonitorDPI = (void *) GetProcAddress(user32, "PhysicalToLogicalPointForPerMonitorDPI");
 	ctx->AdjustWindowRectExForDpi = (void *) GetProcAddress(user32, "AdjustWindowRectExForDpi");
 
 	ImmDisableIME(0);
@@ -1556,13 +1531,6 @@ void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 	if (relative && !ctx->relative) {
 		ctx->relative = true;
 		ctx->last_x = ctx->last_y = -1;
-
-		POINT p = {0};
-		GetCursorPos(&p);
-		ctx->clip.left = p.x;
-		ctx->clip.right = p.x + 1;
-		ctx->clip.top = p.y;
-		ctx->clip.bottom = p.y + 1;
 
 	} else if (!relative && ctx->relative) {
 		ctx->relative = false;
@@ -1859,6 +1827,11 @@ MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)
 
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
 {
+}
+
+void MTY_AppSetWMsgFunc(MTY_App *ctx, MTY_WMsgFunc func)
+{
+	ctx->wmsg_func = func;
 }
 
 
@@ -2173,21 +2146,6 @@ float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 	return monitor_get_scale(monitor_from_hwnd(ctx->hwnd));
 }
 
-uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return 60;
-
-	MONITORINFOEX info = monitor_get_info(monitor_from_hwnd(ctx->hwnd));
-	DEVMODE mode = {.dmSize = sizeof(DEVMODE)};
-
-	if (EnumDisplaySettings(info.szDevice, ENUM_CURRENT_SETTINGS, &mode))
-		return mode.dmDisplayFrequency;
-
-	return 60;
-}
-
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
 	struct window *ctx = app_get_window(app, window);
@@ -2281,13 +2239,20 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 	POINT p = {.x = x, .y = y};
 	if (ClientToScreen(ctx->hwnd, &p))
 		SetCursorPos(p.x, p.y);
-
-	MTY_AppSetRelativeMouse(app, false);
 }
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
 	return MTY_CONTEXT_STATE_NORMAL;
+}
+
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return NULL;
+
+	return (void *) ctx->hwnd;
 }
 
 
@@ -2313,15 +2278,6 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 		*gfx_ctx = ctx->gfx_ctx;
 
 	return ctx->api;
-}
-
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return (void *) ctx->hwnd;
 }
 
 

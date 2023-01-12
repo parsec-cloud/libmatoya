@@ -9,7 +9,8 @@
 #include <Foundation/NSURLRequest.h>
 #include <Foundation/Foundation.h>
 
-#include "net/http.h"
+#include "net/http-parse.h"
+#include "net/http-proxy.h"
 
 #define MTY_USER_AGENT @"libmatoya/v" MTY_VERSION_STRING
 
@@ -38,6 +39,9 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 
 	NSURLSessionConfiguration *cfg = [NSURLSessionConfiguration defaultSessionConfiguration];
 	NSMutableURLRequest *req = [NSMutableURLRequest new];
+
+	// Don't cache
+	[req setCachePolicy:NSURLRequestReloadIgnoringLocalCacheData];
 
 	// Timeout
 	[req setTimeoutInterval:timeout / 1000.0];
@@ -104,7 +108,7 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 			*responseSize = [data length];
 
 			if (*responseSize > 0) {
-				*response = MTY_Alloc(*responseSize, 1);
+				*response = MTY_Alloc(*responseSize + 1, 1);
 				[data getBytes:*response length:*responseSize];
 			}
 

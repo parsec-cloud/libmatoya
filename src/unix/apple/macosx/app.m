@@ -16,6 +16,17 @@
 #include "hid/utils.h"
 
 
+// Private global hotkey interface
+
+enum CGSGlobalHotKeyOperatingMode {
+	CGSGlobalHotKeyEnable  = 0,
+	CGSGlobalHotKeyDisable = 1,
+};
+
+int32_t CGSMainConnectionID(void);
+CGError CGSSetGlobalHotKeyOperatingMode(int32_t conn, enum CGSGlobalHotKeyOperatingMode mode);
+
+
 // NSApp
 
 @interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
@@ -97,8 +108,6 @@ static void app_apply_relative(App *ctx)
 		int32_t y = 0;
 		CGGetLastMouseDelta(&x, &y);
 	}
-
-	app_show_cursor(ctx, !rel);
 }
 
 static void app_apply_cursor(App *ctx)
@@ -122,6 +131,7 @@ static void app_apply_keyboard_state(App *ctx)
 		}
 
 	} else if (ctx.kb_mode) {
+		CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyEnable);
 		PopSymbolicHotKeyMode(ctx.kb_mode);
 		CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyEnable);
 		ctx.kb_mode = NULL;
@@ -234,7 +244,7 @@ static void app_fix_mouse_buttons(App *ctx)
 
 		if (!self.cont) {
 			// Post a dummy event to spin the event loop
-			NSEvent *dummy = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0)
+			NSEvent *dummy = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSMakePoint(0, 0)
 				modifierFlags:0 timestamp:[[NSDate date] timeIntervalSince1970] windowNumber:0
 				context:nil subtype:0 data1:0 data2:0];
 
@@ -466,7 +476,7 @@ static Window *window_find_mouse(Window *me, NSPoint *p)
 
 // Pen
 
-static void window_pen_event(Window *window, NSEvent *event)
+static void window_pen_event(Window *window, NSEvent *event, bool pressed)
 {
 	NSPoint p = {0};
 	Window *cur = window_find_mouse(window, &p);
@@ -482,7 +492,7 @@ static void window_pen_event(Window *window, NSEvent *event)
 	evt.pen.x = lrint(p.x * scale);
 	evt.pen.y = lrint(p.y * scale);
 
-	bool touching = event.buttonMask & NSEventButtonMaskPenTip;
+	bool touching = event.buttonMask & NSEventButtonMaskPenTip || pressed;
 
 	// INVERTED must be set while hovering, but ERASER should only be set by
 	// while TOUCHING is also true
@@ -495,12 +505,6 @@ static void window_pen_event(Window *window, NSEvent *event)
 		}
 
 	} else if (touching) {
-		evt.pen.flags |= MTY_PEN_FLAG_TOUCHING;
-	}
-
-	// While BARREL is held, TOUCHING must also be set
-	if (event.buttonMask & NSEventButtonMaskPenLowerSide) {
-		evt.pen.flags |= MTY_PEN_FLAG_BARREL_1;
 		evt.pen.flags |= MTY_PEN_FLAG_TOUCHING;
 	}
 
@@ -546,8 +550,10 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
-	if (window.app.pen_enabled && event.subtype == NSTabletPointEventSubtype) {
-		window_pen_event(window, event);
+	if (window.app.pen_enabled
+		&& (event.subtype == NSEventSubtypeTabletPoint)
+		&& (event.buttonMask & NSEventButtonMaskPenTip || !index)) {
+		window_pen_event(window, event, pressed);
 
 	} else {
 		window_mouse_button_event(window, index, pressed);
@@ -635,10 +641,10 @@ static void window_mouse_motion_event(Window *window, NSEvent *event, bool pen_i
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	bool pen_in_range = event.subtype == NSTabletPointEventSubtype;
+	bool pen_in_range = event.subtype == NSEventSubtypeTabletPoint;
 
 	if (window.app.pen_enabled && pen_in_range) {
-		window_pen_event(window, event);
+		window_pen_event(window, event, false);
 
 	} else {
 		window_mouse_motion_event(window, event, pen_in_range);
@@ -745,23 +751,21 @@ static void window_mod_event(Window *window, NSEvent *event)
 
 	- (BOOL)performKeyEquivalent:(NSEvent *)event
 	{
-		NSUInteger mods = NSEventModifierFlagControl | NSEventModifierFlagCommand;
+		bool cmd = event.modifierFlags & NSEventModifierFlagCommand;
+		bool ctrl = event.modifierFlags & NSEventModifierFlagControl;
 
-		// Allow bypassing some system keys when in immersive
-		bool grabbed = self.app.grab_kb;
-		bool is_command = (event.modifierFlags & NSEventModifierFlagCommand) ? true : false;
-		bool is_command_q = (event.keyCode == kVK_ANSI_Q) && is_command;
-		bool is_command_w = (event.keyCode == kVK_ANSI_W) && is_command;
-		bool is_command_space = (event.keyCode == kVK_Space) && is_command;
+		bool cmd_tab = event.keyCode == kVK_Tab && cmd;
+		bool ctrl_tab = event.keyCode == kVK_Tab && ctrl;
+		bool cmd_q = event.keyCode == kVK_ANSI_Q && cmd;
+		bool cmd_w = event.keyCode == kVK_ANSI_W && cmd;
+		bool cmd_space = event.keyCode == kVK_Space && cmd;
 
-		// macOS swallows Ctrl+Tab and Cmd+Tab, special cases
-		bool is_command_tab = (event.keyCode == kVK_Tab) && (event.modifierFlags & mods);
-
-		bool override_hotkey = grabbed && (is_command_q || is_command_w || is_command_space);
-
-		if (override_hotkey || is_command_tab) {
+		// While keyboard is grabbed, make sure we pass through special OS hotkeys
+		if (self.app.grab_kb && (cmd_tab || ctrl_tab || cmd_q || cmd_w || cmd_space)) {
 			window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
 			window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
+
+			return YES;
 		}
 
 		return override_hotkey ? YES : NO;
@@ -842,7 +846,14 @@ static void window_mod_event(Window *window, NSEvent *event)
 
 	- (void)flagsChanged:(NSEvent *)event
 	{
-		window_mod_event(self, event);
+		// Simulate full button press for the Caps Lock key
+		if (event.keyCode == kVK_CapsLock) {
+			window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
+			window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
+
+		} else {
+			window_mod_event(self, event);
+		}
 	}
 
 	- (void)mouseUp:(NSEvent *)event
@@ -1075,6 +1086,7 @@ void MTY_AppDestroy(MTY_App **app)
 	MTY_AppStayAwake(*app, false);
 
 	if (ctx.kb_mode) {
+		CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyEnable);
 		PopSymbolicHotKeyMode(ctx.kb_mode);
 		CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyEnable);
 		ctx.kb_mode = NULL;
@@ -1382,6 +1394,10 @@ void MTY_AppSetInputMode(MTY_App *ctx, MTY_InputMode mode)
 {
 }
 
+void MTY_AppSetWMsgFunc(MTY_App *ctx, MTY_WMsgFunc func)
+{
+}
+
 
 // Window
 
@@ -1443,8 +1459,9 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	if (frame->type & MTY_WINDOW_MAXIMIZED)
 		[ctx zoom:ctx];
 
-	if (frame->type & MTY_WINDOW_FULLSCREEN)
-		MTY_WindowSetFullscreen(app, window, true);
+	// XXX Forcing fullscreen here does not seem required and causes issues in multi-screen setups
+	// if (frame->type & MTY_WINDOW_FULLSCREEN)
+	// 	MTY_WindowSetFullscreen(app, window, true);
 
 	if (!(frame->type & MTY_WINDOW_HIDDEN))
 		MTY_WindowActivate(app, window, true);
@@ -1550,8 +1567,9 @@ void MTY_WindowSetFrame(MTY_App *app, MTY_Window window, const MTY_Frame *frame)
 	if (frame->type & MTY_WINDOW_MAXIMIZED)
 		[ctx zoom:ctx];
 
-	if (frame->type & MTY_WINDOW_FULLSCREEN)
-		MTY_WindowSetFullscreen(app, window, true);
+	// XXX Forcing fullscreen here does not seem required and causes issues in multi-screen setups
+	// if (frame->type & MTY_WINDOW_FULLSCREEN)
+	// 	MTY_WindowSetFullscreen(app, window, true);
 }
 
 void MTY_WindowSetMinSize(MTY_App *app, MTY_Window window, uint32_t minWidth, uint32_t minHeight)
@@ -1587,25 +1605,6 @@ float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 	// macOS scales the display as though it switches resolutions,
 	// so all we need to report is the high DPI device multiplier
 	return mty_screen_scale(ctx.screen);
-}
-
-uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
-{
-	uint32_t r = 60;
-
-	Window *ctx = app_get_window(app, window);
-
-	if (ctx) {
-		CGDirectDisplayID display = screen_get_display_id(ctx.screen);
-		CGDisplayModeRef mode = CGDisplayCopyDisplayMode(display);
-
-		if (mode) {
-			r = lrint(CGDisplayModeGetRefreshRate(mode));
-			CGDisplayModeRelease(mode);
-		}
-	}
-
-	return r;
 }
 
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
@@ -1684,12 +1683,20 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 		return;
 
 	window_warp_cursor(ctx, x, y);
-	MTY_AppSetRelativeMouse(app, false);
 }
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
 	return MTY_CONTEXT_STATE_NORMAL;
+}
+
+void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
+{
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return NULL;
+
+	return (__bridge void *) ctx;
 }
 
 
@@ -1715,15 +1722,6 @@ MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx
 		*gfx_ctx = ctx.gfx_ctx;
 
 	return ctx.api;
-}
-
-void *mty_window_get_native(MTY_App *app, MTY_Window window)
-{
-	Window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return (__bridge void *) ctx;
 }
 
 

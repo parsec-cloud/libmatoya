@@ -1355,12 +1355,14 @@ MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync);
 MTY_EXPORT MTY_ContextState
 MTY_WindowGetContextState(MTY_App *app, MTY_Window window);
 
-/// @brief Tells you whether the window can show HDR content or not.
+/// @brief Get the OS's native window.
+/// @details This function will return an `HWND` on Windows, an `NSWindow *` on
+///   macOS, and an `ANativeWindow *` on Android.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
-/// @returns Returns true if the window can render HDR content, false otherwise.
-MTY_EXPORT bool
-MTY_WindowIsHDRSupported(MTY_App *app, MTY_Window window);
+//- #support Windows macOS Android
+MTY_EXPORT void *
+MTY_WindowGetNative(MTY_App *app, MTY_Window window);
 
 /// @brief Fill an MTY_Frame taking the current display settings into account.
 /// @details The returned MTY_Frame can be passed directly to MTY_WindowCreate or
@@ -2932,30 +2934,6 @@ MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint16_t *statu
 /// @param index The thread index to clean up. Set to 0 before returning.
 MTY_EXPORT void
 MTY_HttpAsyncClear(uint32_t *index);
-
-/// @brief Listen for incoming WebSocket connections.
-/// @details WebSocket servers currently do not support secure connections.
-/// @param ip Local IP address to bind to.
-/// @param port Local port to bind to.
-/// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
-///   The returned MTY_WebSocket must be destroyed with MTY_WebSocketDestroy.
-MTY_EXPORT MTY_WebSocket *
-MTY_WebSocketListen(const char *ip, uint16_t port);
-
-/// @brief Accept a new WebSocket connection.
-/// @details WebSocket servers currently do not support secure connections.
-/// @param ctx An MTY_WebSocket.
-/// @param origins An array of strings determining the allowed client origins to
-///   accept connections from. May be NULL to ignore this behavior.
-/// @param numOrigins The number of elements in `origins`, or 0 if `origins` is NULL.
-/// @param secureOrigin Only accept origins that begin with `https://`.
-/// @param timeout Time to wait in milliseconds for a new connection before returning
-///   NULL.
-/// @returns On timeout, NULL is returned.\n\n
-///   The returned MTY_WebSocket must be destroyed with MTY_WebSocketDestroy.
-MTY_EXPORT MTY_WebSocket *
-MTY_WebSocketAccept(MTY_WebSocket *ctx, const char * const *origins, uint32_t numOrigins,
-	bool secureOrigin, uint32_t timeout);
 
 /// @brief Connect to a WebSocket endpoint.
 /// @param host Hostname.

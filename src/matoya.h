@@ -372,7 +372,6 @@ typedef enum {
 	MTY_EVENT_BACK         = 19, ///< The mobile back command has been triggered.
 	MTY_EVENT_SIZE         = 20, ///< The size of a window has changed.
 	MTY_EVENT_MOVE         = 21, ///< The window's top left corner has moved.
-	MTY_EVENT_WINTAB       = 22, ///< Creative tablets extended input has occurred.
 	MTY_EVENT_MAKE_32      = INT32_MAX,
 } MTY_EventType;
 
@@ -609,15 +608,12 @@ typedef enum {
 
 /// @brief Pen attributes.
 typedef enum {
-	MTY_PEN_FLAG_LEAVE        = 0x01, ///< Pen has left the drawing surface.
-	MTY_PEN_FLAG_TOUCHING     = 0x02, ///< Pen is touching the drawing surface.
-	MTY_PEN_FLAG_INVERTED     = 0x04, ///< The pen is inverted.
-	MTY_PEN_FLAG_ERASER       = 0x08, ///< The eraser is touching the drawing surface.
-	MTY_PEN_FLAG_BARREL_1     = 0x10, ///< The pen's 1st barrel button is held down.
-	MTY_PEN_FLAG_BARREL_2     = 0x20, ///< The pen's 2nd barrel button is held down.
-	MTY_PEN_FLAG_TIP          = 0x40, ///< One of the physical pen's tips is touching the surface.
-	MTY_PEN_FLAG_DOUBLE_CLICK = 0x80, ///< A double-click has been fired by one of the pen's barrel buttons.
-	MTY_PEN_FLAG_MAKE_32      = INT32_MAX,
+	MTY_PEN_FLAG_LEAVE    = 0x01, ///< Pen has left the drawing surface.
+	MTY_PEN_FLAG_TOUCHING = 0x02, ///< Pen is touching the drawing surface.
+	MTY_PEN_FLAG_INVERTED = 0x04, ///< The pen is inverted.
+	MTY_PEN_FLAG_ERASER   = 0x08, ///< The eraser is touching the drawing surface.
+	MTY_PEN_FLAG_BARREL   = 0x10, ///< The pen's barrel button is held down.
+	MTY_PEN_FLAG_MAKE_32  = INT32_MAX,
 } MTY_PenFlag;
 
 /// @brief Window keyboard/mouse detach states.
@@ -662,14 +658,6 @@ typedef enum {
 	                               ///<   lost any previously loaded textures and state.
 	MTY_CONTEXT_STATE_MAKE_32 = INT32_MAX,
 } MTY_ContextState;
-
-/// @brief Wintab input type.
-typedef enum {
-	MTY_WINTAB_TYPE_KEY     = 0, ///< The Wintab input comes from an ExpressKey button.
-	MTY_WINTAB_TYPE_STRIP   = 1, ///< The Wintab input comes from a TouchStrip manipulation.
-	MTY_WINTAB_TYPE_RING    = 2, ///< The Wintab input comes from a TouchRing manipulation.
-	MTY_WINTAB_TYPE_MAKE_32 = INT32_MAX,
-} MTY_WintabType;
 
 /// @brief Window modes and behaviors.
 typedef enum {
@@ -744,21 +732,11 @@ typedef struct {
 	MTY_PenFlag flags; ///< Pen attributes.
 	uint16_t x;        ///< The horizontal position in the client area of the window.
 	uint16_t y;        ///< The vertical position in the client area of the window.
-	uint16_t z;        ///< The elevation position in the client area of the window.
 	uint16_t pressure; ///< Pressure on the drawing surface between 0 and 1024.
 	uint16_t rotation; ///< Rotation of the pen between 0 and 359.
 	int8_t tiltX;      ///< Horizontal tilt of the pen between -90 and 90.
 	int8_t tiltY;      ///< Vertical tilt of the pen between -90 and 90.
 } MTY_PenEvent;
-
-/// @brief Wintab input event.
-typedef struct {
-	MTY_WintabType type; ///< The Wintab input type.
-	uint16_t position;   ///< The position of the control (when applicable).
-	uint8_t device;      ///< The originating Wintab device.
-	uint8_t control;     ///< The control identifier on the device.
-	uint8_t state;       ///< The state of the control.
-} MTY_WintabEvent;
 
 /// @brief App event encapsulating all event types.
 /// @details First inspect the `type` member to determine what kind of event it is,
@@ -776,7 +754,6 @@ typedef struct MTY_Event {
 		MTY_DropEvent drop;             ///< Valid on MTY_EVENT_DROP.
 		MTY_PenEvent pen;               ///< Valid on MTY_EVENT_PEN.
 		MTY_KeyEvent key;               ///< Valid on MTY_EVENT_KEY.
-		MTY_WintabEvent wintab;         ///< Valid on MTY_EVENT_WINTAB.
 
 		const char *reopenArg; ///< Valid on MTY_EVENT_REOPEN, the argument supplied.
 		uint32_t hotkey;       ///< Valid on MTY_EVENT_HOTKEY, the `id` set via MTY_AppSetHotkey.
@@ -1068,7 +1045,6 @@ MTY_AppGetControllerTouchpad(MTY_App *ctx, uint32_t id, size_t *size);
 
 /// @brief Check if pen events are enabled.
 /// @param ctx The MTY_App.
-/// @return True if pen is enabled, false otherwise.
 //- #support Windows macOS
 MTY_EXPORT bool
 MTY_AppIsPenEnabled(MTY_App *ctx);
@@ -1081,16 +1057,6 @@ MTY_AppIsPenEnabled(MTY_App *ctx);
 //- #support Windows macOS
 MTY_EXPORT void
 MTY_AppEnablePen(MTY_App *ctx, bool enable);
-
-/// @brief Enable or disable extended tablet controls override.
-/// @details When overriden, tablet controls (e.g. ExpressKeys) will be received as
-///   through the MTY_EVENT_WINTAB event, and their configured keystrokes will not
-///   be executed.
-/// @param ctx The MTY_App.
-/// @param enable Set true to override controls, false to revert the override.
-//- #support Windows
-MTY_EXPORT void
-MTY_AppOverrideTabletControls(MTY_App *ctx, bool override);
 
 /// @brief Get the app's current mobile input mode.
 /// @param ctx The MTY_App.

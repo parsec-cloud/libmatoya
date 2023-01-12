@@ -17,7 +17,6 @@
 #include <dbt.h>
 
 #include "xip.h"
-#include "wintab.h"
 #include "hid/hid.h"
 
 #define APP_CLASS_NAME L"MTY_Window"
@@ -61,7 +60,6 @@ struct MTY_App {
 	bool hide_cursor;
 	bool ghk_disabled;
 	bool filter_move;
-	bool filter_relative;
 	uint64_t prev_state;
 	uint64_t state;
 	uint32_t timeout;
@@ -69,7 +67,6 @@ struct MTY_App {
 	int32_t last_y;
 	struct hid *hid;
 	struct xip *xip;
-	struct wintab *wintab;
 	MTY_Button buttons;
 	MTY_DetachState detach;
 	MTY_Hash *hotkey;
@@ -598,97 +595,6 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Event *evt)
 	}
 }
 
-static bool app_adjust_position(MTY_App *ctx, HWND hwnd, int32_t pointer_x, int32_t pointer_y, POINT *position)
-{
-	POINT origin = {0};
-	if (!ClientToScreen(hwnd, &origin))
-		return false;
-
-	RECT size = {0};
-	if (!GetClientRect(hwnd, &size))
-		return false;
-
-	POINT point = {pointer_x, pointer_y};
-	if (ctx->PhysicalToLogicalPointForPerMonitorDPI) {
-		if (!ctx->PhysicalToLogicalPointForPerMonitorDPI(hwnd, &point))
-			return false;
-
-	} else if (ctx->PhysicalToLogicalPoint) {
-		if (!ctx->PhysicalToLogicalPoint(hwnd, &point))
-			return false;
-
-	} else {
-		return false;
-	}
-
-	int32_t x      = (int32_t) (point.x - origin.x);
-	int32_t y      = (int32_t) (point.y - origin.y);
-	int32_t width  = size.right  - size.left;
-	int32_t height = size.bottom - size.top;
-
-	if (x < 0 || x > width || y < 0 || y > height)
-		return false;
-
-	if (position) {
-		position->x = x;
-		position->y = y;
-	}
-
-	return true;
-}
-
-static struct window *app_get_hovered_window(MTY_App *ctx, POINT *position)
-{
-	POINT cursor = {0};
-	if (!GetCursorPos(&cursor))
-		return NULL;
-
-	HWND hwnd = WindowFromPoint(cursor);
-	if (!hwnd)
-		return NULL;
-
-	for (uint8_t i = 0; i < MTY_WINDOW_MAX; i++) {
-		if (!ctx->windows[i] || ctx->windows[i]->hwnd != hwnd)
-			continue;
-
-		if (app_adjust_position(ctx, hwnd, cursor.x, cursor.y, position))
-			return ctx->windows[i];
-	}
-
-	return NULL;
-}
-
-static void app_convert_pen_to_mouse(MTY_App *app, MTY_Event *evt, bool *double_click)
-{
-	MTY_Button button = evt->pen.flags & MTY_PEN_FLAG_BARREL_1 ? MTY_BUTTON_RIGHT : MTY_BUTTON_LEFT;
-	bool *touched = button == MTY_BUTTON_LEFT ? &app->pen_touched_left : &app->pen_touched_right;
-
-	if (!*touched && evt->pen.flags & MTY_PEN_FLAG_TOUCHING) {
-		if (double_click)
-			*double_click = evt->pen.flags & MTY_PEN_FLAG_DOUBLE_CLICK ? true : false;
-
-		evt->type = MTY_EVENT_BUTTON;
-		evt->button.button = button;
-		evt->button.pressed = true;
-
-		*touched = true;
-
-	} else if (*touched && !(evt->pen.flags & MTY_PEN_FLAG_TOUCHING)) {
-		evt->type = MTY_EVENT_BUTTON;
-		evt->button.button = button;
-		evt->button.pressed = false;
-
-		*touched = false;
-
-	} else {
-		evt->type = MTY_EVENT_MOTION;
-		evt->motion.relative = false;
-		evt->motion.synth = false;
-		evt->motion.x = evt->pen.x;
-		evt->motion.y = evt->pen.y;
-	}
-}
-
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	MTY_App *app = ctx->app;
@@ -707,9 +613,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	MTY_Event evt = {0};
 	evt.window = ctx->window;
 
-	HWND focused_hwnd = hwnd;
-	bool double_click = false;
 	bool defreturn = false;
+	bool pen_active = app->pen_enabled && app->pen_in_range;
 	char drop_name[MTY_PATH_MAX];
 
 	switch (msg) {
@@ -722,8 +627,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_MOVE:
 			evt.type = MTY_EVENT_MOVE;
-			if (app->relative)
-				app->filter_move = true;
 			break;
 		case WM_SETCURSOR:
 			if (LOWORD(lparam) == HTCLIENT) {
@@ -744,8 +647,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_KILLFOCUS:
 			evt.type = MTY_EVENT_FOCUS;
 			evt.focus = msg == WM_SETFOCUS;
-			if (!evt.focus && app->pen_in_range && !MTY_AppIsActive(app))
-				app->pen_in_range = false;
 			app->state++;
 			break;
 		case WM_QUERYENDSESSION:
@@ -776,28 +677,19 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
-			if (app && app->wintab)
-				wintab_overlap_context(app->wintab, true);
-
-			if (!app->filter_move && !app->pen_in_range && (!app->relative || app_hwnd_active(hwnd))) {
-				evt.motion.x = GET_X_LPARAM(lparam);
-				evt.motion.y = GET_Y_LPARAM(lparam);
-
-				if (evt.motion.x == app->last_x && evt.motion.y == app->last_y)
-					break;
-
+			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
 				evt.type = MTY_EVENT_MOTION;
 				evt.motion.relative = false;
 				evt.motion.synth = false;
-				app->last_x = evt.motion.x;
-				app->last_y = evt.motion.y;
+				evt.motion.x = GET_X_LPARAM(lparam);
+				evt.motion.y = GET_Y_LPARAM(lparam);
 			}
 
 			app->filter_move = false;
 			break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
-			if (!app->pen_in_range) {
+			if (!pen_active) {
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = MTY_BUTTON_LEFT;
 				evt.button.pressed = msg == WM_LBUTTONDOWN;
@@ -805,7 +697,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_RBUTTONDOWN:
 		case WM_RBUTTONUP:
-			if (!app->pen_in_range) {
+			if (!pen_active) {
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = MTY_BUTTON_RIGHT;
 				evt.button.pressed = msg == WM_RBUTTONDOWN;
@@ -846,8 +738,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		}
 		case WM_POINTERLEAVE:
-			if (!app->wintab)
-				app->pen_in_range = false;
+			app->pen_in_range = false;
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
@@ -859,8 +750,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			POINTER_INPUT_TYPE type = PT_POINTER;
 			if (!GetPointerType(id, &type) || type != PT_PEN)
 				break;
-
-			app->pen_in_range = true;
 
 			POINTER_PEN_INFO ppi = {0};
 			if (!GetPointerPenInfo(id, &ppi))
@@ -972,54 +861,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			if (wparam == DBT_DEVNODES_CHANGED && app->tray.menu_open)
 				EndMenu();
 			break;
-		case WT_PACKET: {
-			if (!app || !app->wintab)
-				break;
-
-			PACKET pkt = {0};
-			wintab_get_packet(app->wintab, wparam, lparam, &pkt);
-
-			POINT position = {0};
-			struct window *focused_window = app_get_hovered_window(app, &position);
-			app->filter_relative = focused_window == NULL;
-			if (!focused_window)
-				break;
-
-			focused_hwnd = focused_window->hwnd;
-
-			pkt.pkX = position.x;
-			pkt.pkY = position.y;
-
-			wintab_on_packet(app->wintab, &evt, &pkt, focused_window->window);
-
-			if (!app->pen_enabled || !app->pen_in_range)
-				app_convert_pen_to_mouse(app, &evt, &double_click);
-
-			break;
-		}
-		case WT_PACKETEXT: {
-			if (!app || !app->wintab)
-				break;
-
-			PACKETEXT pktext = {0};
-			wintab_get_packet(app->wintab, wparam, lparam, &pktext);
-			wintab_on_packetext(app->wintab, &evt, &pktext);
-
-			app->filter_move = true;
-
-			break;
-		}
-		case WT_PROXIMITY:
-			if (!app || !app->wintab)
-				break;
-
-			app->pen_in_range = wintab_on_proximity(app->wintab, &evt, lparam);
-			app_apply_clip(app, MTY_AppIsActive(app));
-			break;
-		case WT_INFOCHANGE:
-			if (app)
-				wintab_on_infochange(&app->wintab, app_get_main_hwnd(app));
-			break;
 	}
 
 	// Tray
@@ -1031,7 +872,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	// Record pressed buttons
 	if (evt.type == MTY_EVENT_BUTTON) {
-		app_set_button_coords(focused_hwnd, &evt);
+		app_set_button_coords(hwnd, &evt);
 
 		if (evt.button.pressed) {
 			app->buttons |= 1 << evt.button.button;
@@ -1041,22 +882,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 	}
 
-	if (evt.type == MTY_EVENT_PEN && evt.pen.flags & MTY_PEN_FLAG_LEAVE)
-		app->filter_relative = true;
-
-	if (evt.type == MTY_EVENT_BUTTON && !app_get_hovered_window(app, NULL))
-		evt.type = MTY_EVENT_NONE;
-
 	// Process the message
 	if (evt.type != MTY_EVENT_NONE) {
 		app->event_func(&evt, app->opaque);
-
-		if (evt.type == MTY_EVENT_BUTTON && double_click) {
-			evt.button.pressed = false;
-			app->event_func(&evt, app->opaque);
-			evt.button.pressed = true;
-			app->event_func(&evt, app->opaque);
-		}
 
 		if (evt.type == MTY_EVENT_DROP)
 			MTY_Free((void *) evt.drop.buf);
@@ -1242,7 +1070,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ImmDisableIME(0);
 
 	ctx->xip = xip_create();
-	ctx->hid = mty_hid_create(app_hid_connect, app_hid_disconnect, NULL, app_hid_report, ctx);
+	ctx->hid = mty_hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, NULL, ctx);
 
 	except:
 
@@ -1258,8 +1086,6 @@ void MTY_AppDestroy(MTY_App **app)
 		return;
 
 	MTY_App *ctx = *app;
-
-	wintab_destroy(&ctx->wintab, true);
 
 	if (ctx->custom_cursor)
 		DestroyIcon(ctx->custom_cursor);
@@ -1515,11 +1341,6 @@ bool MTY_AppGetRelativeMouse(MTY_App *ctx)
 
 void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 {
-	if (ctx->filter_relative && relative) {
-		ctx->filter_relative = false;
-		return;
-	}
-
 	if (relative && !ctx->relative) {
 		ctx->relative = true;
 		ctx->last_x = ctx->last_y = -1;
@@ -1796,15 +1617,6 @@ bool MTY_AppIsPenEnabled(MTY_App *ctx)
 void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 	ctx->pen_enabled = enable;
-
-	if (enable && !ctx->wintab)
-		ctx->wintab = wintab_create(app_get_main_hwnd(ctx), false);
-}
-
-void MTY_AppOverrideTabletControls(MTY_App *ctx, bool override)
-{
-	if (ctx->wintab)
-		wintab_override_controls(ctx->wintab, override);
 }
 
 MTY_InputMode MTY_AppGetInputMode(MTY_App *ctx)

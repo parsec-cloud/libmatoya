@@ -364,7 +364,7 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 {
 	const RAWMOUSE *mouse = &ri->data.mouse;
 
-	if ((mouse->lLastX != 0 || mouse->lLastY != 0) && !app->pen_in_range) {
+	if (mouse->lLastX != 0 || mouse->lLastY != 0) {
 		if (mouse->usFlags & MOUSE_MOVE_ABSOLUTE) {
 			int32_t x = mouse->lLastX;
 			int32_t y = mouse->lLastY;
@@ -501,7 +501,7 @@ static void app_apply_cursor(MTY_App *app, bool focus)
 
 static void app_apply_mouse_ri(MTY_App *app, bool focus)
 {
-	if (app->relative) {
+	if (app->relative && !app->pen_in_range) {
 		if (focus) {
 			if (app->detach == MTY_DETACH_STATE_FULL) {
 				app_register_raw_input(0x01, 0x02, 0, NULL);
@@ -565,7 +565,7 @@ static void app_fix_mouse_buttons(MTY_App *ctx)
 			MTY_Button b = flipped && x == MTY_BUTTON_LEFT ? MTY_BUTTON_RIGHT :
 				flipped && x == MTY_BUTTON_RIGHT ? MTY_BUTTON_LEFT : x;
 
-			if (!ctx->pen_in_range && !app_button_is_pressed(b)) {
+			if (!app_button_is_pressed(b)) {
 				MTY_Event evt = {0};
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = x;

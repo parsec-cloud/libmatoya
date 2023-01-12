@@ -8,6 +8,9 @@
 
 #include <AppKit/AppKit.h>
 #include <mach-o/dyld.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <mach/machine.h>
 
 #include "tlocal.h"
 
@@ -32,6 +35,31 @@ uint32_t MTY_GetPlatform(void)
 uint32_t MTY_GetPlatformNoWeb(void)
 {
 	return MTY_GetPlatform();
+}
+
+uint32_t MTY_GetPlatformArchitecture(void)
+{
+	uint32_t type = 0;
+	size_t size = sizeof(type);
+	if (sysctlbyname("hw.cputype", &type, &size, NULL, 0) != -1) {
+		switch (type) {
+			case CPU_TYPE_X86:
+			case CPU_TYPE_I386:
+				return MTY_ARCH_X86;
+			case CPU_TYPE_X86_64:
+				return MTY_ARCH_X64;
+			case CPU_TYPE_ARM:
+				return MTY_ARCH_X86 | MTY_ARCH_ARM;
+			case CPU_TYPE_ARM64:
+				return MTY_ARCH_X64 | MTY_ARCH_ARM;
+			case CPU_TYPE_POWERPC:
+				return MTY_ARCH_X86 | MTY_ARCH_POWERPC;
+			case CPU_TYPE_POWERPC64:
+				return MTY_ARCH_X64 | MTY_ARCH_POWERPC;
+		}
+	}
+
+	return MTY_ARCH_UNKNOWN;
 }
 
 void MTY_HandleProtocol(const char *uri, void *token)

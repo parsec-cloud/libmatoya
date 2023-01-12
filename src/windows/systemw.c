@@ -105,6 +105,27 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
+uint32_t MTY_GetPlatformArchitecture(void)
+{
+	SYSTEM_INFO info = {0};
+	GetNativeSystemInfo(&info);
+
+	switch (info.wProcessorArchitecture) {
+		case PROCESSOR_ARCHITECTURE_AMD64:
+			return MTY_ARCH_X64;
+		case PROCESSOR_ARCHITECTURE_ARM:
+			return MTY_ARCH_X86 | MTY_ARCH_ARM;
+		case PROCESSOR_ARCHITECTURE_ARM64:
+			return MTY_ARCH_X64 | MTY_ARCH_ARM;
+		case PROCESSOR_ARCHITECTURE_IA64:
+			return MTY_ARCH_X64 | MTY_ARCH_ITANIUM;
+		case PROCESSOR_ARCHITECTURE_INTEL:
+			return MTY_ARCH_X86;
+	}
+
+	return MTY_ARCH_UNKNOWN;
+}
+
 void MTY_HandleProtocol(const char *uri, void *token)
 {
 	VOID *env = NULL;

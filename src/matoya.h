@@ -3157,6 +3157,17 @@ typedef enum {
 	MTY_OS_MAKE_32 = INT32_MAX,
 } MTY_OS;
 
+/// @brief CPU Architecture Flags.
+typedef enum {
+	MTY_ARCH_UNKNOWN = 0x00000000, ///< Unable to detect the architecture.
+	MTY_ARCH_X86     = 0x01000000, ///< 32-Bit CPU.
+	MTY_ARCH_X64     = 0x02000000, ///< 64-Bit CPU.
+	MTY_ARCH_ARM     = 0x04000000, ///< ARM architecture.
+	MTY_ARCH_ITANIUM = 0x08000000, ///< Itanium architecture.
+	MTY_ARCH_POWERPC = 0x10000000, ///< Power PC architecture.
+	MTY_ARCH_MAKE_32 = INT32_MAX,
+} MTY_ARCH;
+
 /// @brief Dynamically load a shared object.
 /// @details This function wraps `dlopen` on Unix and `LoadLibrary` on Windows.
 /// @param path Path to the shared object. This can simply be the name of shared
@@ -3210,6 +3221,9 @@ MTY_GetPlatform(void);
 ///   attempts to check the browser's environment for the actual current OS.
 MTY_EXPORT uint32_t
 MTY_GetPlatformNoWeb(void);
+
+MTY_EXPORT uint32_t
+MTY_GetPlatformArchitecture(void);
 
 /// @brief Turn a platform integer into a readable string.
 /// @param platform Platform integer returned by MTY_GetPlatform or

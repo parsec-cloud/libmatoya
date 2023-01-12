@@ -3,6 +3,7 @@
 
 #include "matoya.h"
 #include "webview.h"
+#include "webview-internal.h"
 
 #ifndef OS_DESKTOP
 typedef UIView NSView;
@@ -18,8 +19,13 @@ struct webview {
 static void mty_webview_handle_event(struct webview *ctx, const char *message)
 {
 	MTY_Event evt = {0};
-	evt.type = MTY_EVENT_WEBVIEW;
-	evt.message = message;
+	
+	mty_webview_intercept_key_event(message, &evt);
+
+	if (!evt.type) {
+		evt.type = MTY_EVENT_WEBVIEW;
+		evt.message = message;
+	}
 
 	ctx->common.event(&evt, ctx->common.opaque);
 }

@@ -3,6 +3,7 @@
 
 #include "matoya.h"
 #include "webview.h"
+#include "webview-internal.h"
 #include "dl/webkit.h"
 
 #define DISPATCH(func, param, should_free) g_idle_add((GSourceFunc) (GCallback) func, mty_webview_create_event(ctx, (void *) (param), should_free))
@@ -71,8 +72,13 @@ static bool mty_webview_enable_dev_tools(struct mty_webview_event *event)
 static void mty_webview_handle_event(struct webview *ctx, const char *message)
 {
 	MTY_Event evt = {0};
-	evt.type = MTY_EVENT_WEBVIEW;
-	evt.message = message;
+
+	mty_webview_intercept_key_event(message, &evt);
+
+	if (!evt.type) {
+		evt.type = MTY_EVENT_WEBVIEW;
+		evt.message = message;
+	}
 
 	ctx->common.event(&evt, ctx->common.opaque);
 }

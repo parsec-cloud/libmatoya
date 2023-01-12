@@ -1,5 +1,6 @@
 #include "matoya.h"
 #include "webview.h"
+#include "webview-internal.h"
 
 #define COBJMACROS
 #include <windows.h>
@@ -192,8 +193,13 @@ static HRESULT STDMETHODCALLTYPE mty_webview_dom_load_completed(ICoreWebView2DOM
 static void mty_webview_handle_event(struct webview *ctx, const char *message)
 {
 	MTY_Event evt = {0};
-	evt.type = MTY_EVENT_WEBVIEW;
-	evt.message = message;
+
+	mty_webview_intercept_key_event(message, &evt);
+
+	if (!evt.type) {
+		evt.type = MTY_EVENT_WEBVIEW;
+		evt.message = message;
+	}
 
 	ctx->common.event(&evt, ctx->common.opaque);
 }
@@ -227,7 +233,7 @@ static HRESULT STDMETHODCALLTYPE mty_webview_resource_requested(ICoreWebView2Web
 	if (strcmp("https://app.local/index.html", MTY_WideToMultiDL(url_w)))
 		return S_OK;
 
-	const wchar_t *headers = 
+	const wchar_t *headers =
 		L"Content-Type: text/html\n"
 		L"Access-Control-Allow-Origin: *\n";
 
@@ -302,7 +308,7 @@ static void *mty_webview_thread_func(void *opaque)
 	// Ensure the thread message loop is initialized before we create the webview
 	MSG msg = {0};
 	PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE); // see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagea#remarks
-	
+
 	CreateCoreWebView2EnvironmentWithOptions(NULL, L"C:\\Windows\\Temp\\webview-data", NULL, &ctx->environment_completed.handler);
 
 	MTY_List *early_msg_q = MTY_ListCreate();
@@ -324,7 +330,7 @@ static void *mty_webview_thread_func(void *opaque)
 				mty_webview_thread_handle_msg(ctx, &msg);
 			}
 
-			TranslateMessage(&msg); // XXX: We MAY not need this, depending on whether webview requires 
+			TranslateMessage(&msg); // XXX: We MAY not need this, depending on whether webview requires
 								// WM_CHAR messages or can handle WK_KEY* messages alone.
 								// Re-visit this later and remove this call if we can.
 			DispatchMessage(&msg);

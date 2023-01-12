@@ -4,4 +4,9 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
-#include "../linux/timestamp.h"
+#pragma once
+
+#include <stddef.h>
+#include <stdbool.h>
+
+bool mty_dns_query(const char *host, bool v6, char *ip, size_t size);

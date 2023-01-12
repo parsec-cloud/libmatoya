@@ -7,7 +7,7 @@
 #include "matoya.h"
 
 #include "jnih.h"
-#include "net/http.h"
+#include "net/http-parse.h"
 
 #define MTY_USER_AGENT "libmatoya/v" MTY_VERSION_STRING
 
@@ -130,7 +130,7 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 	if (jdata) {
 		*responseSize = mty_jni_array_get_size(env, jdata);
 
-		*response = MTY_Alloc(*responseSize, 1);
+		*response = MTY_Alloc(*responseSize + 1, 1);
 		mty_jni_memcpy(env, *response, jdata, *responseSize);
 	}
 

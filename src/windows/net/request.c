@@ -91,7 +91,7 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 
 	connect = WinHttpConnect(session, whost, port, 0);
 	if (!connect) {
-		MTY_LogParams("WinHttpConnect", "Failed with code %u", GetLastError());
+		MTY_LogParams("VERBOSE-MTY", "WinHttpConnect Failed with code %u", GetLastError());
 		r = false;
 		goto except;
 	}
@@ -100,7 +100,7 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 	request = WinHttpOpenRequest(connect, wmethod, wpath, NULL, WINHTTP_NO_REFERER,
 		WINHTTP_DEFAULT_ACCEPT_TYPES, secure ? WINHTTP_FLAG_SECURE : 0);
 	if (!request) {
-		MTY_LogParams("WinHttpOpenRequest", "Failed with code %u", GetLastError());
+		MTY_LogParams("VERBOSE-MTY", "WinHttpOpenRequest Failed with code %u", GetLastError());
 		r = false;
 		goto except;
 	}
@@ -109,14 +109,14 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 	r = WinHttpSendRequest(request, wheaders, pargs.headers ? -1L : 0,
 		(void *) body, (DWORD) bodySize, (DWORD) bodySize, 0);
 	if (!r) {
-		MTY_LogParams("WinHttpSendRequest", "Failed with code %u", GetLastError());
+		MTY_LogParams("VERBOSE-MTY", "WinHttpSendRequest Failed with code %u", GetLastError());
 		goto except;
 	}
 
 	// Read response headers
 	r = WinHttpReceiveResponse(request, NULL);
 	if (!r) {
-		MTY_LogParams("WinHttpReceiveResponse", "Failed with code %u", GetLastError());
+		MTY_LogParams("VERBOSE-MTY", "WinHttpReceiveResponse Failed with code %u", GetLastError());
 		goto except;
 	}
 
@@ -124,8 +124,10 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 	WCHAR wheader[128];
 	DWORD buf_len = 128 * sizeof(WCHAR);
 	r = WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE, NULL, wheader, &buf_len, NULL);
-	if (!r)
+	if (!r) {
+		MTY_LogParams("VERBOSE-MTY", "WinHttpQueryHeaders Failed with code %u", GetLastError());
 		goto except;
+	}
 
 	*status = (uint16_t) _wtoi(wheader);
 
@@ -138,8 +140,10 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 	while (true) {
 		DWORD available = 0;
 		r = WinHttpQueryDataAvailable(request, &available);
-		if (!r)
+		if (!r) {
+			MTY_LogParams("VERBOSE-MTY", "WinHttpQueryDataAvailable Failed with code %u", GetLastError());
 			goto except;
+		}
 
 		if (available == 0)
 			break;
@@ -154,8 +158,10 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 
 		DWORD read = 0;
 		r = WinHttpReadData(request, (uint8_t *) *response + *responseSize, available, &read);
-		if (!r)
+		if (!r) {
+			MTY_LogParams("VERBOSE-MTY", "WinHttpReadData Failed with code %u", GetLastError());
 			goto except;
+		}
 
 		*responseSize += read;
 

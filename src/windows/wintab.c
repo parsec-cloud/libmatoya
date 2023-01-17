@@ -14,6 +14,7 @@ typedef BOOL(API *WTOVERLAP)(HCTX, BOOL);
 
 static struct wt {
 	MTY_SO *instance;
+	bool failure;
 
 	WTINFOA  info;
 	WTOPENA  open;
@@ -87,13 +88,14 @@ static void wintab_override_extension(struct wintab *ctx, uint8_t tablet_i, uint
 
 struct wintab *wintab_create(HWND hwnd, bool override)
 {
+	if (wt.failure)
+		return NULL;
+
 	bool r = false;
 
 	struct wintab *ctx = MTY_Alloc(1, sizeof(struct wintab));
 	if (!ctx)
 		goto except;
-
-	ctx->override = override;
 
 	// Symbols are preserved between runtime destructions, so we only initialize them once
 	if (!wt.instance) {
@@ -143,15 +145,7 @@ struct wintab *wintab_create(HWND hwnd, bool override)
 	if (!ctx->context)
 		goto except;
 
-	// Wintab only supports up to 16 devices working at the same time
-	for (uint8_t i = 0; i < 16; i++) {
-		if (!wt.info(WTI_DDCTXS + i, 0, NULL))
-			break;
-
-		wintab_override_extension(ctx, i, WTX_TOUCHSTRIP);
-		wintab_override_extension(ctx, i, WTX_TOUCHRING);
-		wintab_override_extension(ctx, i, WTX_EXPKEYS2);
-	}
+	wintab_override_controls(ctx, override);
 
 	AXIS ncaps = {0};
 	wt.info(WTI_DEVICES, DVC_NPRESSURE, &ncaps);
@@ -164,18 +158,13 @@ struct wintab *wintab_create(HWND hwnd, bool override)
 	if (!r) {
 		MTY_LogParams("Wacom", "Wintab context failed to initialize");
 		wintab_destroy(&ctx, true);
+		wt.failure = true;
 
 	} else {
 		MTY_LogParams("Wacom", "Wintab context successfully created");
 	}
 
 	return ctx;
-}
-
-void wintab_recreate(struct wintab **ctx, HWND hwnd, bool override)
-{
-	wintab_destroy(ctx, false);
-	*ctx = wintab_create(hwnd, override);
 }
 
 void wintab_destroy(struct wintab **wintab, bool unload_symbols)
@@ -199,18 +188,45 @@ void wintab_destroy(struct wintab **wintab, bool unload_symbols)
 	*wintab = NULL;
 }
 
+void wintab_override_controls(struct wintab *ctx, bool override)
+{
+	if (!ctx)
+		return;
+
+	ctx->override = override;
+
+	// Wintab only supports up to 16 devices working at the same time
+	for (uint8_t i = 0; i < 16; i++) {
+		if (!wt.info(WTI_DDCTXS + i, 0, NULL))
+			break;
+
+		wintab_override_extension(ctx, i, WTX_TOUCHSTRIP);
+		wintab_override_extension(ctx, i, WTX_TOUCHRING);
+		wintab_override_extension(ctx, i, WTX_EXPKEYS2);
+	}
+}
+
 void wintab_overlap_context(struct wintab *ctx, bool overlap)
 {
+	if (!ctx)
+		return;
+
 	wt.overlap(ctx->context, overlap);
 }
 
 void wintab_get_packet(struct wintab *ctx, WPARAM wparam, LPARAM lparam, void *pkt)
 {
+	if (!ctx)
+		return;
+
 	wt.packet((HCTX) lparam, (UINT) wparam, pkt);
 }
 
 void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY_Window window)
 {
+	if (!ctx)
+		return;
+
 	bool double_clicked = false;
 	bool has_double_clicked = ctx->has_double_clicked;
 
@@ -254,9 +270,15 @@ void wintab_on_packet(struct wintab *ctx, MTY_Event *evt, const PACKET *pkt, MTY
 		if (double_click && !double_clicked)
 			ctx->has_double_clicked = double_clicked = pressed;
 
-		// This is a WinInk special behavior, must be skipped if physical status has to be reported
-		if (right_click && (pressed || prev_pressed))
-			evt->pen.flags |= MTY_PEN_FLAG_BARREL_1;
+		if (pressed || prev_pressed) {
+			if (ctx->override) {
+				evt->pen.flags |= i == 0 ? MTY_PEN_FLAG_TIP : (i == 1 ? MTY_PEN_FLAG_BARREL_1 : (i == 2 ? MTY_PEN_FLAG_BARREL_2 : 0));
+
+			// This is a WinInk special behavior, must be skipped if physical status has to be reported
+			} else if (right_click) {
+				evt->pen.flags |= MTY_PEN_FLAG_BARREL_1;
+			}
+		}
 	}
 
 	if (evt->pen.flags & MTY_PEN_FLAG_TOUCHING && evt->pen.flags & MTY_PEN_FLAG_INVERTED)
@@ -289,6 +311,9 @@ static uint16_t wintab_transform_position(DWORD position)
 
 void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pktext)
 {
+	if (!ctx)
+		return;
+
 	evt->type = MTY_EVENT_WINTAB;
 
 	evt->wintab.device = pktext->pkExpKeys.nTablet;
@@ -320,6 +345,9 @@ void wintab_on_packetext(struct wintab *ctx, MTY_Event *evt, const PACKETEXT *pk
 
 bool wintab_on_proximity(struct wintab *ctx, MTY_Event *evt, LPARAM lparam)
 {
+	if (!ctx)
+		return false;
+
 	bool pen_in_range = LOWORD(lparam) != 0;
 
 	if (!pen_in_range && ctx->pen_in_range) {
@@ -335,5 +363,10 @@ bool wintab_on_proximity(struct wintab *ctx, MTY_Event *evt, LPARAM lparam)
 
 void wintab_on_infochange(struct wintab **ctx, HWND hwnd)
 {
-	wintab_recreate(ctx, hwnd, ctx && *ctx && (*ctx)->override);
+	if (!ctx)
+		return;
+
+	bool override = *ctx && (*ctx)->override;
+	wintab_destroy(ctx, false);
+	*ctx = wintab_create(hwnd, override);
 }

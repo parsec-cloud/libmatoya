@@ -129,9 +129,12 @@ void mty_webview_show(struct webview *ctx, bool show)
 	if (!ctx)
 		return;
 
-	ctx->common.hidden = !show;
+	bool hidden = !show;
+	if (ctx->common.hidden != hidden) {
+		ctx->common.hidden = hidden;
 
-	ctx->webview.hidden = ctx->common.hidden ? YES : NO;
+		mty_webview_resize(ctx);
+	}
 }
 
 bool mty_webview_is_visible(struct webview *ctx)

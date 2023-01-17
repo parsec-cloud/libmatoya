@@ -57,9 +57,6 @@ INCLUDES = \
 	-Isrc \
 	-Isrc/unix
 
-DEFS = \
-	# -D_POSIX_C_SOURCE=200112L
-
 FLAGS = \
 	-Wall \
 	-Wextra \
@@ -99,6 +96,7 @@ OBJS := $(OBJS) \
 	src/unix/web/gfx/gl-ctx.o
 
 DEFS := $(DEFS) \
+	-D_POSIX_C_SOURCE=200112L \
 	-D_WASI_EMULATED_SIGNAL \
 	-DCLOCK_MONOTONIC_RAW=CLOCK_MONOTONIC \
 	-DMTY_GLUI_CLEAR_ALPHA=0.0f \
@@ -148,6 +146,7 @@ SHADERS := $(SHADERS) \
 	src/gfx/vk/shaders/vsui.h
 
 DEFS := $(DEFS) \
+	-D_POSIX_C_SOURCE=200112L \
 	-DMTY_VK_XLIB
 
 TARGET = linux

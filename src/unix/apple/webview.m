@@ -75,6 +75,88 @@ struct webview *mty_webview_create(void *handle, const char *html, bool debug, M
 	ScriptMessageHandler *handler = [[ScriptMessageHandler alloc] init:ctx];
 	[controller addScriptMessageHandler:handler name:@"external"];
 
+	// Define content rule lists so as to block access to external content
+	{
+		NSString *rlist_json_str = @"["
+			// Prevent HTTP requests to everything, by default
+			"{"
+				"\"trigger\": {"
+					"\"url-filter\": \".*\""
+				"},"
+				"\"action\": {"
+					"\"type\": \"block\""
+				"}"
+			"},"
+			// Allow requests to the following parsec endpoints
+			"{"
+				"\"trigger\": {"
+					"\"url-filter\": \".*\\\\.parsec\\\\.app\""
+				"},"
+				"\"action\": {"
+					"\"type\": \"ignore-previous-rules\""
+				"}"
+			"},"
+			"{"
+				"\"trigger\": {"
+					"\"url-filter\": \"parsecusercontent\\\\.com\""
+				"},"
+				"\"action\": {"
+					"\"type\": \"ignore-previous-rules\""
+				"}"
+			"},"
+			"{"
+				"\"trigger\": {"
+					"\"url-filter\": \".*\\\\.parsecfalcon\\\\.com\""
+				"},"
+				"\"action\": {"
+					"\"type\": \"ignore-previous-rules\""
+				"}"
+			"},"
+			"{"
+				"\"trigger\": {"
+					"\"url-filter\": \".*\\\\.parsecstaging\\\\.com\""
+				"},"
+				"\"action\": {"
+					"\"type\": \"ignore-previous-rules\""
+				"}"
+			"},"
+			"{"
+				"\"trigger\": {"
+					"\"url-filter\": \".*\\\\.[nyz]arsec\\\\.com\""
+				"},"
+				"\"action\": {"
+					"\"type\": \"ignore-previous-rules\""
+				"}"
+			"},"
+			// Allow the UI HTML to be loaded
+			"{"
+				"\"trigger\": {"
+					"\"url-filter\": \"blob:null/.*\""
+				"},"
+				"\"action\": {"
+					"\"type\": \"ignore-previous-rules\""
+				"}"
+			"},"
+			"{"
+				"\"trigger\": {"
+					"\"url-filter\": \".*\""
+				"},"
+				"\"action\": {"
+					"\"type\": \"make-https\""
+				"}"
+			"}"
+		"]";
+
+		[[WKContentRuleListStore defaultStore] compileContentRuleListForIdentifier:@"webview" encodedContentRuleList:rlist_json_str
+		completionHandler:^(WKContentRuleList *rlist, NSError *error) {
+			if (rlist && !error)
+				[controller addContentRuleList:rlist];
+
+			else
+				NSLog(@"Error compiling content rule list str %@: %@\n", rlist_json_str, error);
+		}];
+	}
+
 	WKUserScript *script = [[WKUserScript alloc]
 		initWithSource:@"window.external = { \
 			invoke: function (s) { window.webkit.messageHandlers.external.postMessage(s); } \

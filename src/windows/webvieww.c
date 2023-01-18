@@ -230,16 +230,43 @@ static HRESULT STDMETHODCALLTYPE mty_webview_resource_requested(ICoreWebView2Web
 	wchar_t *url_w = NULL;
 	ICoreWebView2WebResourceRequest_get_Uri(request, &url_w);
 
-	if (strcmp("https://app.local/index.html", MTY_WideToMultiDL(url_w)))
+	const bool bootstrap = !strcmp("https://app.local/index.html", MTY_WideToMultiDL(url_w));
+
+	bool valid = bootstrap;
+
+	if (!valid) {
+		const char *allowed_hosts[] = {
+			"https://public.parsec.app",
+			"https://parsecusercontent.com",
+			"https://kessel-api.parsec.app",
+			"https://kessel-api.parsecfalcon.com",
+			"https://kessel-api.parsecstaging.com",
+			"https://kessel-api.narsec.com",
+			"https://kessel-api.yarsec.com",
+			"https://kessel-api.zarsec.com",
+		};
+
+		const uint32_t n = _countof(allowed_hosts);
+		for (uint32_t i = 0; !valid && i < n; i++) {
+			const size_t l = strlen(allowed_hosts[i]);
+			valid = !strncmp(MTY_WideToMultiDL(url_w), allowed_hosts[i], l);
+		}
+	}
+
+	if (valid && !bootstrap)
 		return S_OK;
+
+	UINT status_code = valid ? 200 : 401;
+	wchar_t *status_text = valid ? L"OK" : L"Forbidden";
+	const char *response_html = valid ? ctx->common.html : "Fetching resources is disabled";
 
 	const wchar_t *headers =
 		L"Content-Type: text/html\n"
 		L"Access-Control-Allow-Origin: *\n";
 
 	ICoreWebView2WebResourceResponse *response = NULL;
-	IStream *stream = SHCreateMemStream((const BYTE *) ctx->common.html, (UINT) strlen(ctx->common.html));
-	ICoreWebView2Environment_CreateWebResourceResponse(ctx->environment, stream, 200, L"OK", headers, &response);
+	IStream *stream = SHCreateMemStream((const BYTE *) response_html, (UINT) strlen(response_html));
+	ICoreWebView2Environment_CreateWebResourceResponse(ctx->environment, stream, status_code, status_text, headers, &response);
 	ICoreWebView2WebResourceRequestedEventArgs_put_Response(args, response);
 
 	ICoreWebView2WebResourceResponse_Release(response);

@@ -670,11 +670,19 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 		case WM_SETFOCUS:
 		case WM_KILLFOCUS:
-			evt.type = MTY_EVENT_FOCUS;
-			evt.focus = msg == WM_SETFOCUS;
-			if (!evt.focus && app->pen_in_range && !MTY_AppIsActive(app))
-				app->pen_in_range = false;
-			app->state++;
+			// Special case: dummy WM_SETFOCUS message sent when the webview is no longer visible, for the purpose of informing this window to restore keyboard focus
+			if (msg == WM_SETFOCUS && !wparam && !mty_webview_is_visible(ctx->webview)) {
+				// TODO(WEBVIEW) This is a bit of a hack, and we have never need to do it this way until something changed. Circle back to this eventually and figure out what changed and restore to the original behaviour. FYI: the issue is that when the webview is set to be hidden, keyboard focus is not automatically restored to the main app window. It's a bit weird that Webview2 would work this way, and as mentioned already there was a time when it did NOT work this way.
+				SetFocus(hwnd);
+
+			} else {
+				evt.type = MTY_EVENT_FOCUS;
+				evt.focus = msg == WM_SETFOCUS;
+				if (!evt.focus && app->pen_in_range && !MTY_AppIsActive(app))
+					app->pen_in_range = false;
+				app->state++;
+			}
+
 			break;
 		case WM_QUERYENDSESSION:
 		case WM_ENDSESSION:

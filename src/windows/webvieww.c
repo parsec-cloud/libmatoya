@@ -458,9 +458,18 @@ void mty_webview_show(struct webview *ctx, bool show)
 	if (!ctx)
 		return;
 
-	ctx->common.hidden = !show;
+	bool hidden = !show;
+	if (ctx->common.hidden != hidden) {
+		ctx->common.hidden = hidden;
 
-	mty_webview_resize(ctx);
+		mty_webview_resize(ctx);
+
+		// Notify the main window to restore keyboard focus
+		// TODO(WEBVIEW) This is a bit of a hack, and we have never need to do it this way until something changed. Circle back to this eventually and figure out what changed and restore to the original behaviour. FYI: the issue is that when the webview is set to be hidden, keyboard focus is not automatically restored to the main app window. It's a bit weird that Webview2 would work this way, and as mentioned already there was a time when it did NOT work this way.
+		if (ctx->common.hidden)
+			PostMessage(ctx->hwnd, WM_SETFOCUS, 0, 0);
+
+	}
 }
 
 bool mty_webview_is_visible(struct webview *ctx)

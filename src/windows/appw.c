@@ -44,6 +44,7 @@ struct MTY_App {
 	WNDCLASSEX wc;
 	ATOM class;
 	UINT tb_msg;
+	RECT clip;
 	HICON cursor;
 	HICON custom_cursor;
 	HINSTANCE instance;
@@ -467,7 +468,10 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 static void app_apply_clip(MTY_App *app, bool focus)
 {
 	if (focus) {
-		if ((app->relative || app->mgrab) && app->detach == MTY_DETACH_STATE_NONE) {
+		if (app->relative && app->detach != MTY_DETACH_STATE_FULL) {
+			ClipCursor(&app->clip);
+
+		} else if (app->mgrab && app->detach == MTY_DETACH_STATE_NONE) {
 			struct window *ctx = app_get_focus_window(app);
 			if (ctx) {
 				RECT r = {0};
@@ -1345,6 +1349,13 @@ void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 		ctx->relative = true;
 		ctx->last_x = ctx->last_y = -1;
 
+		POINT p = {0};
+		GetCursorPos(&p);
+		ctx->clip.left = p.x;
+		ctx->clip.right = p.x + 1;
+		ctx->clip.top = p.y;
+		ctx->clip.bottom = p.y + 1;
+
 	} else if (!relative && ctx->relative) {
 		ctx->relative = false;
 		ctx->last_x = ctx->last_y = -1;
@@ -2021,6 +2032,8 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 	POINT p = {.x = x, .y = y};
 	if (ClientToScreen(ctx->hwnd, &p))
 		SetCursorPos(p.x, p.y);
+
+	MTY_AppSetRelativeMouse(app, false);
 }
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)

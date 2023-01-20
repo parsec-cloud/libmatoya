@@ -57,8 +57,7 @@ INCLUDES = \
 	-Isrc \
 	-Isrc/unix
 
-DEFS = \
-	-D_POSIX_C_SOURCE=200112L
+DEFS = 
 
 FLAGS = \
 	-Wall \
@@ -146,6 +145,7 @@ SHADERS := $(SHADERS) \
 	src/gfx/vk/shaders/vsui.h
 
 DEFS := $(DEFS) \
+	-D_POSIX_C_SOURCE=200112L \
 	-DMTY_VK_XLIB
 
 TARGET = linux

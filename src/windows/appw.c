@@ -44,6 +44,7 @@ struct MTY_App {
 	WNDCLASSEX wc;
 	ATOM class;
 	UINT tb_msg;
+	RECT clip;
 	HICON cursor;
 	HICON custom_cursor;
 	HINSTANCE instance;
@@ -364,7 +365,7 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 {
 	const RAWMOUSE *mouse = &ri->data.mouse;
 
-	if ((mouse->lLastX != 0 || mouse->lLastY != 0) && !app->pen_in_range) {
+	if (mouse->lLastX != 0 || mouse->lLastY != 0) {
 		if (mouse->usFlags & MOUSE_MOVE_ABSOLUTE) {
 			int32_t x = mouse->lLastX;
 			int32_t y = mouse->lLastY;
@@ -467,7 +468,10 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 static void app_apply_clip(MTY_App *app, bool focus)
 {
 	if (focus) {
-		if ((app->relative || app->mgrab) && app->detach == MTY_DETACH_STATE_NONE) {
+		if (app->relative && app->detach != MTY_DETACH_STATE_FULL) {
+			ClipCursor(&app->clip);
+
+		} else if (app->mgrab && app->detach == MTY_DETACH_STATE_NONE) {
 			struct window *ctx = app_get_focus_window(app);
 			if (ctx) {
 				RECT r = {0};
@@ -501,7 +505,7 @@ static void app_apply_cursor(MTY_App *app, bool focus)
 
 static void app_apply_mouse_ri(MTY_App *app, bool focus)
 {
-	if (app->relative) {
+	if (app->relative && !app->pen_in_range) {
 		if (focus) {
 			if (app->detach == MTY_DETACH_STATE_FULL) {
 				app_register_raw_input(0x01, 0x02, 0, NULL);
@@ -565,7 +569,7 @@ static void app_fix_mouse_buttons(MTY_App *ctx)
 			MTY_Button b = flipped && x == MTY_BUTTON_LEFT ? MTY_BUTTON_RIGHT :
 				flipped && x == MTY_BUTTON_RIGHT ? MTY_BUTTON_LEFT : x;
 
-			if (!ctx->pen_in_range && !app_button_is_pressed(b)) {
+			if (!app_button_is_pressed(b)) {
 				MTY_Event evt = {0};
 				evt.type = MTY_EVENT_BUTTON;
 				evt.button.button = x;
@@ -1345,6 +1349,13 @@ void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 		ctx->relative = true;
 		ctx->last_x = ctx->last_y = -1;
 
+		POINT p = {0};
+		GetCursorPos(&p);
+		ctx->clip.left = p.x;
+		ctx->clip.right = p.x + 1;
+		ctx->clip.top = p.y;
+		ctx->clip.bottom = p.y + 1;
+
 	} else if (!relative && ctx->relative) {
 		ctx->relative = false;
 		ctx->last_x = ctx->last_y = -1;
@@ -2021,6 +2032,8 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 	POINT p = {.x = x, .y = y};
 	if (ClientToScreen(ctx->hwnd, &p))
 		SetCursorPos(p.x, p.y);
+
+	MTY_AppSetRelativeMouse(app, false);
 }
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)

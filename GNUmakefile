@@ -57,6 +57,8 @@ INCLUDES = \
 	-Isrc \
 	-Isrc/unix
 
+DEFS =
+
 FLAGS = \
 	-Wall \
 	-Wextra \

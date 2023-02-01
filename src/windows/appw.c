@@ -845,7 +845,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			}
 
 			RAWINPUTHEADER *header = &ctx->ri->header;
-			if (header->dwType == RIM_TYPEMOUSE) {
+			if (header->dwType == RIM_TYPEMOUSE && app->detach != MTY_DETACH_STATE_FULL) {
 				app_ri_relative_mouse(app, hwnd, ctx->ri, &evt);
 
 			} else if (header->dwType == RIM_TYPEHID) {

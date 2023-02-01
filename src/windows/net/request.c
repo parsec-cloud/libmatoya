@@ -103,6 +103,7 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 
 	connect = WinHttpConnect(session, whost, port, 0);
 	if (!connect) {
+		MTY_LogParams("WinHttpConnect", "Failed with code %u", GetLastError());
 		r = false;
 		goto except;
 	}
@@ -111,6 +112,7 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 	request = WinHttpOpenRequest(connect, wmethod, wpath, NULL, WINHTTP_NO_REFERER,
 		WINHTTP_DEFAULT_ACCEPT_TYPES, secure ? WINHTTP_FLAG_SECURE : 0);
 	if (!request) {
+		MTY_LogParams("WinHttpOpenRequest", "Failed with code %u", GetLastError());
 		r = false;
 		goto except;
 	}
@@ -118,13 +120,17 @@ bool MTY_HttpRequest(const char *host, uint16_t port, bool secure, const char *m
 	// Write headers and body
 	r = WinHttpSendRequest(request, wheaders, pargs.headers ? -1L : 0,
 		(void *) body, (DWORD) bodySize, (DWORD) bodySize, 0);
-	if (!r)
+	if (!r) {
+		MTY_LogParams("WinHttpSendRequest", "Failed with code %u", GetLastError());
 		goto except;
+	}
 
 	// Read response headers
 	r = WinHttpReceiveResponse(request, NULL);
-	if (!r)
+	if (!r) {
+		MTY_LogParams("WinHttpReceiveResponse", "Failed with code %u", GetLastError());
 		goto except;
+	}
 
 	// Status code query
 	WCHAR wheader[128];

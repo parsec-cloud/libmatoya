@@ -184,10 +184,10 @@ static void app_register_raw_input(USHORT usage_page, USHORT usage, DWORD flags,
 static void app_adjust_window_rect(MTY_App *app, float scale, RECT *r)
 {
 	if (app->AdjustWindowRectExForDpi) {
-		app->AdjustWindowRectExForDpi(r, WS_OVERLAPPEDWINDOW, FALSE, 0, lrint(scale * 96));
+		app->AdjustWindowRectExForDpi(r, WS_CAPTION, FALSE, 0, lrint(scale * 96));
 
 	} else {
-		AdjustWindowRect(r, WS_OVERLAPPEDWINDOW, FALSE);
+		AdjustWindowRect(r, WS_CAPTION, FALSE);
 	}
 }
 
@@ -1652,21 +1652,19 @@ static void window_denormalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
 	MONITORINFOEX mi = monitor_get_info(mon);
 	float scale = monitor_get_scale(mon);
 
-	app_adjust_window_rect(app, scale, r);
+	RECT ar = {0};
+	app_adjust_window_rect(app, scale, &ar);
 
-	int32_t w = r->right - r->left;
-	int32_t h = r->bottom - r->top;
-	int32_t px_h = lrint(h * (scale - 1)) / 2;
-	int32_t px_w = lrint(w * (scale - 1)) / 2;
-
-	r->top = r->top - px_h + mi.rcWork.top;
-	r->right = r->right + px_w + mi.rcWork.left;
-	r->bottom = r->bottom + px_h + mi.rcWork.top;
-	r->left = r->left - px_w + mi.rcWork.left;
+	r->top += ar.top + mi.rcWork.top;
+	r->left += ar.left + mi.rcWork.left;
+	r->bottom += ar.bottom + mi.rcWork.top;
+	r->right += ar.right + mi.rcWork.left;
 
 	// Ensure the title bar is visible
-	if (r->top < mi.rcWork.top)
+	if (r->top < mi.rcWork.top) {
+		r->bottom += mi.rcWork.top - r->top;
 		r->top = mi.rcWork.top;
+	}
 }
 
 static void window_normalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
@@ -1677,15 +1675,10 @@ static void window_normalize_rect(MTY_App *app, HMONITOR mon, RECT *r)
 	RECT ar = {0};
 	app_adjust_window_rect(app, scale, &ar);
 
-	int32_t w = r->right - r->left;
-	int32_t h = r->bottom - r->top;
-	int32_t px_h = lrint(h * (1 - (1 / scale))) / 2;
-	int32_t px_w = lrint(w * (1 - (1 / scale))) / 2;
-
-	r->top = r->top + px_h - mi.rcWork.top - ar.top;
-	r->right = r->right - px_w - mi.rcWork.left - ar.right;
-	r->bottom = r->bottom - px_h - mi.rcWork.top - ar.bottom;
-	r->left = r->left + px_w - mi.rcWork.left - ar.left;
+	r->top -= ar.top + mi.rcWork.top;
+	r->left -= ar.left + mi.rcWork.left;
+	r->bottom -= ar.bottom + mi.rcWork.top;
+	r->right -= ar.right + mi.rcWork.left;
 }
 
 static void window_set_placement(MTY_App *app, HMONITOR mon, HWND hwnd, const MTY_Frame *frame)

@@ -483,3 +483,10 @@ bool mty_d3d12_ctx_lock(struct gfx_ctx *gfx_ctx)
 void mty_d3d12_ctx_unlock(void)
 {
 }
+
+bool mty_d3d12_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
+{
+	// XXX: Write this when we implement D3D12 support for HDR
+
+	return false;
+}

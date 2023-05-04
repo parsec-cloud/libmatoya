@@ -7,7 +7,7 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 
 #define COBJMACROS
 #include <d3d11.h>
-#include <dxgi1_5.h>
+#include <dxgi1_6.h>
 
 #define DXGI_FATAL(e) ( \
 	(e) == DXGI_ERROR_DEVICE_REMOVED || \
@@ -16,6 +16,11 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 )
 
 #define D3D11_CTX_WAIT 2000
+#ifndef D3D11_CTX_DEBUG
+	#define D3D11_CTX_DEBUG false
+#endif
+
+#define D3D11_CTX_HDR_REFRESH_MAX_TRIES 60
 
 struct d3d11_ctx {
 	HWND hwnd;
@@ -26,8 +31,19 @@ struct d3d11_ctx {
 	ID3D11DeviceContext *context;
 	ID3D11RenderTargetView *back_buffer;
 	IDXGISwapChain2 *swap_chain2;
+	IDXGISwapChain3 *swap_chain3;
+	IDXGISwapChain4 *swap_chain4;
+	IDXGIFactory1 *factory1;
 	HANDLE waitable;
 	UINT flags;
+	uint32_t hdr_refresh_tries;
+	bool hdr_init;
+	bool hdr_supported;
+	bool hdr; // is the swap chain currently setup for HDR?
+	bool hdr_new; // tracks the new value for `hdr` whenever the surface is refreshed
+	bool composite_ui;
+	MTY_HDRDesc hdr_desc;
+	RECT window_bounds;
 };
 
 static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
@@ -39,8 +55,155 @@ static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t 
 	*height = rect.bottom - rect.top;
 }
 
+static bool d3d11_ctx_refresh_window_bounds(struct d3d11_ctx *ctx)
+{
+	bool changed = false;
+
+	RECT window_bounds_new = {0};
+	GetWindowRect(ctx->hwnd, &window_bounds_new);
+
+	const LONG dt_left = window_bounds_new.left - ctx->window_bounds.left;
+	const LONG dt_top = window_bounds_new.top - ctx->window_bounds.top;
+	const LONG dt_right = window_bounds_new.right - ctx->window_bounds.right;
+	const LONG dt_bottom = window_bounds_new.bottom - ctx->window_bounds.bottom;
+
+	changed = dt_left || dt_top || dt_right || dt_bottom;
+
+	ctx->window_bounds = window_bounds_new;
+
+	return changed;
+}
+
+// Caller must call Release() on the returned pointer when done using it
+static IDXGIOutput *d3d11_ctx_compute_hosting_output(struct d3d11_ctx *ctx)
+{
+	// Courtesy of MSDN https://docs.microsoft.com/en-us/windows/win32/direct3darticles/high-dynamic-range
+
+	// Iterate through the DXGI outputs associated with the DXGI adapter,
+	// and find the output whose bounds have the greatest overlap with the
+	// app window (i.e. the output for which the intersection area is the
+	// greatest).
+
+	// Must create the factory afresh each time, otherwise you'll get a stale value at the end
+	if (ctx->factory1) {
+		IDXGIFactory1_Release(ctx->factory1);
+		ctx->factory1 = NULL;
+	}
+
+	HRESULT e = CreateDXGIFactory1(&IID_IDXGIFactory1, &ctx->factory1);
+	if (e != S_OK) {
+		MTY_Log("'CreateDXGIFactory1' failed with HRESULT 0x%X", e);
+		return NULL;
+	}
+
+	// Get the retangle bounds of the app window
+	const LONG ax1 = ctx->window_bounds.left;
+	const LONG ay1 = ctx->window_bounds.top;
+	const LONG ax2 = ctx->window_bounds.right;
+	const LONG ay2 = ctx->window_bounds.bottom;
+
+	// Go through the outputs of each and every adapter
+	IDXGIOutput *current_output = NULL;
+	IDXGIOutput *best_output = NULL;
+	LONG best_intersect_area = -1;
+	IDXGIAdapter1 *adapter1 = NULL;
+	for (UINT j = 0; IDXGIFactory1_EnumAdapters1(ctx->factory1, j, &adapter1) != DXGI_ERROR_NOT_FOUND; j++) {
+		for (UINT i = 0; IDXGIAdapter1_EnumOutputs(adapter1, i, &current_output) != DXGI_ERROR_NOT_FOUND; i++) {
+			// Get the rectangle bounds of current output
+			DXGI_OUTPUT_DESC desc = {0};
+			e = IDXGIOutput_GetDesc(current_output, &desc);
+			if (e != S_OK) {
+				MTY_Log("'IDXGIOutput_GetDesc' failed with HRESULT 0x%X", e);
+				continue;
+			}
+
+			const RECT output_bounds = desc.DesktopCoordinates;
+			const LONG bx1 = output_bounds.left;
+			const LONG by1 = output_bounds.top;
+			const LONG bx2 = output_bounds.right;
+			const LONG by2 = output_bounds.bottom;
+
+			// Compute the intersection and see if its the best fit
+			// Courtesy of https://github.com/microsoft/DirectX-Graphics-Samples/blob/c79f839da1bb2db77d2306be5e4e664a5d23a36b/Samples/Desktop/D3D12HDR/src/D3D12HDR.cpp#L1046
+			const LONG intersect_area = max(0, min(ax2, bx2) - max(ax1, bx1)) * max(0, min(ay2, by2) - max(ay1, by1));
+			if (intersect_area > best_intersect_area) {
+				if (best_output != NULL)
+					IDXGIOutput_Release(best_output);
+
+				best_output = current_output;
+				best_intersect_area = intersect_area;
+
+			} else {
+				IDXGIOutput_Release(current_output);
+			}
+		}
+
+		IDXGIAdapter1_Release(adapter1);
+	}
+
+	return best_output;
+}
+
+static bool d3d11_ctx_query_hdr_support(struct d3d11_ctx *ctx)
+{
+	bool r = false;
+
+	IDXGIOutput *output = d3d11_ctx_compute_hosting_output(ctx);
+	if (!output) {
+		MTY_Log("Failed to obtain the best display output that is hosting the app.", 0);
+		goto except;
+	}
+
+	// Having determined the output (display) upon which the app is primarily being
+	// rendered, retrieve the HDR capabilities of that display by checking the color space.
+	IDXGIOutput6 *output6 = NULL;
+	HRESULT e = IDXGIOutput_QueryInterface(output, &IID_IDXGIOutput6, &output6);
+	if (e != S_OK) {
+		MTY_Log("'IDXGIOutput_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	DXGI_OUTPUT_DESC1 desc1 = {0};
+	e = IDXGIOutput6_GetDesc1(output6, &desc1);
+	if (e != S_OK) {
+		MTY_Log("'IDXGIOutput6_GetDesc1' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	// This is the canonical check for HDR support according to MSDN and NVIDIA
+	r = desc1.ColorSpace == DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020;
+
+	IDXGIOutput6_Release(output6);
+
+	except:
+
+	if (output)
+		IDXGIOutput_Release(output);
+
+	return r;
+}
+
+static void d3d11_ctx_free_hdr(struct d3d11_ctx *ctx)
+{
+	ctx->hdr_init = false;
+	ctx->hdr_supported = false;
+	ctx->hdr = false;
+	ctx->hdr_new = false;
+
+	if (ctx->swap_chain4)
+		IDXGISwapChain4_Release(ctx->swap_chain4);
+
+	if (ctx->swap_chain3)
+		IDXGISwapChain3_Release(ctx->swap_chain3);
+
+	ctx->swap_chain4 = NULL;
+	ctx->swap_chain3 = NULL;
+}
+
 static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 {
+	d3d11_ctx_free_hdr(ctx);
+
 	if (ctx->back_buffer)
 		ID3D11RenderTargetView_Release(ctx->back_buffer);
 
@@ -49,6 +212,9 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 
 	if (ctx->swap_chain2)
 		IDXGISwapChain2_Release(ctx->swap_chain2);
+
+	if (ctx->factory1)
+		IDXGIFactory1_Release(ctx->factory1);
 
 	if (ctx->context)
 		ID3D11DeviceContext_Release(ctx->context);
@@ -59,8 +225,38 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	ctx->back_buffer = NULL;
 	ctx->waitable = NULL;
 	ctx->swap_chain2 = NULL;
+	ctx->factory1 = NULL;
 	ctx->context = NULL;
 	ctx->device = NULL;
+}
+
+static bool d3d11_ctx_init_hdr(struct d3d11_ctx *ctx)
+{
+	HRESULT e = IDXGISwapChain2_QueryInterface(ctx->swap_chain2, &IID_IDXGISwapChain3, &ctx->swap_chain3);
+	if (e != S_OK) {
+		MTY_Log("'IDXGISwapChain2_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGISwapChain2_QueryInterface(ctx->swap_chain2, &IID_IDXGISwapChain4, &ctx->swap_chain4);
+	if (e != S_OK) {
+		MTY_Log("'IDXGISwapChain2_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	ctx->hdr_init = true;
+	d3d11_ctx_refresh_window_bounds(ctx);
+	ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
+
+	if (ctx->hdr_refresh_tries >= D3D11_CTX_HDR_REFRESH_MAX_TRIES)
+		MTY_Log("HDR for D3D11 will not be used due to making %u failed attempts to update swap chain for HDR", ctx->hdr_refresh_tries);
+
+	except:
+
+	if (e != S_OK)
+		d3d11_ctx_free_hdr(ctx);
+
+	return e == S_OK;
 }
 
 static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
@@ -82,10 +278,20 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	ctx->flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 	sd.Flags = ctx->flags;
 
-	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, NULL,
+	UINT devflags = 0;
+	if (D3D11_CTX_DEBUG)
+		devflags |= D3D11_CREATE_DEVICE_DEBUG;
+
+	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, devflags, NULL,
 		0, D3D11_SDK_VERSION, &ctx->device, NULL, &ctx->context);
 	if (e != S_OK) {
 		MTY_Log("'D3D11CreateDevice' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGIFactory2_QueryInterface(factory2, &IID_IDXGIFactory1, &ctx->factory1);
+	if (e != S_OK) {
+		MTY_Log("'IDXGIFactory2_QueryInterface' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
@@ -161,6 +367,9 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	DWORD we = WaitForSingleObjectEx(ctx->waitable, D3D11_CTX_WAIT, TRUE);
 	if (we != WAIT_OBJECT_0)
 		MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
+
+	// HDR init
+	d3d11_ctx_init_hdr(ctx);
 
 	except:
 
@@ -245,6 +454,7 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 	d3d11_ctx_get_size(ctx, &width, &height);
 
 	if (ctx->width != width || ctx->height != height) {
+		// DXGI_FORMAT_UNKNOWN will resize without changing the existing format
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
 			DXGI_FORMAT_UNKNOWN, ctx->flags);
 
@@ -258,6 +468,59 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 			d3d11_ctx_free(ctx);
 			d3d11_ctx_init(ctx);
 		}
+	}
+
+	if (ctx->hdr != ctx->hdr_new && ctx->hdr_refresh_tries < D3D11_CTX_HDR_REFRESH_MAX_TRIES) {
+		// If in HDR mode, we keep swap chain in HDR10 (rec2020 10-bit RGB + ST2084 PQ);
+		// otherwise in SDR mode, it's the standard BGRA8 sRGB
+		DXGI_FORMAT format = ctx->hdr_new ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_B8G8R8A8_UNORM;
+		DXGI_COLOR_SPACE_TYPE colorspace = ctx->hdr_new ? DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020 : DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709;
+
+		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0, format, ctx->flags);
+		if (e != S_OK) {
+			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
+			goto except;
+		}
+
+		e = IDXGISwapChain3_SetColorSpace1(ctx->swap_chain3, colorspace);
+		if (e != S_OK) {
+			MTY_Log("'IDXGISwapChain3_SetColorSpace1' failed with HRESULT 0x%X", e);
+			goto except;
+		}
+
+		// Success!
+		ctx->hdr = ctx->hdr_new;
+		ctx->hdr_refresh_tries = 0;
+
+		except:
+
+		if (e != S_OK) {
+			ctx->hdr_refresh_tries++;
+
+			d3d11_ctx_free_hdr(ctx);
+			d3d11_ctx_init_hdr(ctx);
+		}
+	}
+
+	if (ctx->hdr) {
+		// Update to the latest known HDR metadata
+		DXGI_HDR_METADATA_HDR10 hdr_desc = {0};
+		hdr_desc.RedPrimary[0] = (UINT16) (ctx->hdr_desc.colorPrimaryRed[0] * 50000); // primaries and white point are normalized to 50000
+		hdr_desc.RedPrimary[1] = (UINT16) (ctx->hdr_desc.colorPrimaryRed[1] * 50000);
+		hdr_desc.GreenPrimary[0] = (UINT16) (ctx->hdr_desc.colorPrimaryGreen[0] * 50000);
+		hdr_desc.GreenPrimary[1] = (UINT16) (ctx->hdr_desc.colorPrimaryGreen[1] * 50000);
+		hdr_desc.BluePrimary[0] = (UINT16) (ctx->hdr_desc.colorPrimaryBlue[0] * 50000);
+		hdr_desc.BluePrimary[1] = (UINT16) (ctx->hdr_desc.colorPrimaryBlue[1] * 50000);
+		hdr_desc.WhitePoint[0] = (UINT16) (ctx->hdr_desc.whitePoint[0] * 50000);
+		hdr_desc.WhitePoint[1] = (UINT16) (ctx->hdr_desc.whitePoint[1] * 50000);
+		hdr_desc.MinMasteringLuminance = (UINT) ctx->hdr_desc.minLuminance * 10000; // MinMasteringLuminance is specified as 1/10000th of a nit
+		hdr_desc.MaxMasteringLuminance = (UINT) ctx->hdr_desc.maxLuminance;
+		hdr_desc.MaxContentLightLevel = (UINT16) ctx->hdr_desc.maxContentLightLevel;
+		hdr_desc.MaxFrameAverageLightLevel = (UINT16) ctx->hdr_desc.maxFrameAverageLightLevel;
+
+		HRESULT e = IDXGISwapChain4_SetHDRMetaData(ctx->swap_chain4, DXGI_HDR_METADATA_TYPE_HDR10, sizeof(hdr_desc), &hdr_desc);
+		if (e != S_OK)
+			MTY_Log("Unable to set HDR metadata: 'IDXGISwapChain4_SetHDRMetaData' failed with HRESULT 0x%X", e);
 	}
 }
 
@@ -307,6 +570,8 @@ void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx)
 		ID3D11RenderTargetView_Release(ctx->back_buffer);
 		ctx->back_buffer = NULL;
 
+		ctx->composite_ui = false;
+
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_Present' failed with HRESULT 0x%X", e);
 			d3d11_ctx_free(ctx);
@@ -328,3 +593,87 @@ bool mty_d3d11_ctx_lock(struct gfx_ctx *gfx_ctx)
 void mty_d3d11_ctx_unlock(void)
 {
 }
+
+bool mty_d3d11_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
+{
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
+	if (!ctx->hdr_init) {
+		ctx->hdr_supported = false;
+
+	} else {
+		const bool adapter_reset = !ctx->factory1 || !IDXGIFactory1_IsCurrent(ctx->factory1);
+		const bool window_moved = d3d11_ctx_refresh_window_bounds(ctx); // includes when moved to different display
+		if (window_moved || adapter_reset)
+			ctx->hdr_supported = d3d11_ctx_query_hdr_support(ctx);
+	}
+
+	return ctx->hdr_supported;
+}
+
+/*
+
+TODO: Following code is left behind from the d3d11-ctx.c.rej file because I need to put some more thought into how to merge it ever since Chris took away draw_quad and draw_ui from the ctx files
+
+@@ -228,6 +437,7 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
+ 	d3d11_ctx_get_size(ctx, &width, &height);
+
+ 	if (ctx->width != width || ctx->height != height) {
++		// DXGI_FORMAT_UNKNOWN will resize without changing the existing format
+ 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
+ 			DXGI_FORMAT_UNKNOWN, D3D11_SWFLAGS);
+
+@@ -275,6 +538,8 @@ void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx)
+ 		ID3D11Texture2D_Release(ctx->back_buffer);
+ 		ctx->back_buffer = NULL;
+
++		ctx->composite_ui = false;
++
+ 		if (DXGI_FATAL(e)) {
+ 			MTY_Log("'IDXGISwapChain2_Present' failed with HRESULT 0x%X", e);
+ 			d3d11_ctx_free(ctx);
+@@ -292,6 +557,11 @@ void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
+ {
+ 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
++	ctx->hdr_new = desc->hdr;
++
++	if (desc->hdrDescSpecified)
++		ctx->hdr_desc = desc->hdrDesc;
++
+ 	mty_d3d11_ctx_get_surface(gfx_ctx);
+
+ 	if (ctx->back_buffer) {
+@@ -301,6 +571,8 @@ void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
+
+ 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
+ 			(MTY_Context *) ctx->context, image, &mutated, (MTY_Surface *) ctx->back_buffer);
++
++		ctx->composite_ui = ctx->hdr;
+ 	}
+ }
+
+@@ -308,11 +580,16 @@ void mty_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
+ {
+ 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
++	MTY_DrawData dd_mutated = *dd;
++	dd_mutated.hdr = ctx->composite_ui;
++
++	ctx->hdr_new = dd_mutated.hdr;
++
+ 	mty_d3d11_ctx_get_surface(gfx_ctx);
+
+ 	if (ctx->back_buffer)
+ 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
+-			(MTY_Context *) ctx->context, dd, (MTY_Surface *) ctx->back_buffer);
++			(MTY_Context *) ctx->context, &dd_mutated, (MTY_Surface *) ctx->back_buffer);
+ }
+
+ bool mty_d3d11_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+@@ -330,3 +607,20 @@ bool mty_d3d11_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+
+ 	return MTY_RendererHasUITexture(ctx->renderer, id);
+ }
+
+*/

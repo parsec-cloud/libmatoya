@@ -142,3 +142,8 @@ bool mty_metal_ctx_lock(struct gfx_ctx *gfx_ctx)
 void mty_metal_ctx_unlock(void)
 {
 }
+
+bool mty_metal_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
+{
+	return false;
+}

@@ -2,6 +2,9 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
+#include "hdr10.hlsl"
+#include "framediff.hlsl"
+
 struct VS_OUTPUT {
 	float4 position : SV_POSITION;
 	float2 texcoord : TEXCOORD;
@@ -17,7 +20,9 @@ cbuffer VS_CONSTANT_BUFFER : register(b0) {
 	uint planes;
 	uint rotation;
 	uint conversion;
-	uint pad1;
+	uint hdr;
+	uint diffmode;
+	float diffbrighten;
 };
 
 SamplerState ss {
@@ -26,8 +31,29 @@ SamplerState ss {
 Texture2D tex0 : register(t0);
 Texture2D tex1 : register(t1);
 Texture2D tex2 : register(t2);
+Texture2D texdiffrgba : register(t3);
+Texture2D texdiffrgb10a2 : register(t4);
 
-inline float4 yuv_to_rgba(uint conversion, float y, float u, float v)
+// Thanks to colour.py module for these constants
+static const float3x3 REC709_TO_XYZ =
+{
+       {0.4124,  0.3576,  0.1805},
+       {0.2126,  0.7152,  0.0722},
+       {0.0193,  0.1192,  0.9505}
+};
+
+// Thanks to colour.py module for these constants
+static const float3x3 REC2020_TO_XYZ =
+{
+       {0.63696,  0.14462,  0.16889},
+       {0.26270,  0.677998, 0.59302},
+       {0.49941,  0.28073,  0.106098}
+};
+
+// Thanks to https://www.mathworks.com/help/images/ref/whitepoint.html
+static const float3 D65_WHITE = {0.95047, 1, 1.08883};
+
+inline float4 yuv_to_rgba(uint conversion, uint hdr, float y, float u, float v)
 {
 	// 10-bit -> 16-bit
 	if (conversion & 0x4) {
@@ -63,8 +89,10 @@ inline float4 yuv_to_rgba(uint conversion, float y, float u, float v)
 		}
 	}
 
-	float kr = 0.2126;
-	float kb = 0.0722;
+	// TODO: Yo......what if we did 10-bit YCgCo for SDR instead of YCbCr????? Would that improve color accuracy????? Let's try it out!!!
+
+	float kr = hdr ? 0.2627 : 0.2126;
+	float kb = hdr ? 0.0593 : 0.0722;
 
 	float r = y + (2.0 - 2.0 * kr) * v;
 	float b = y + (2.0 - 2.0 * kb) * u;
@@ -73,7 +101,7 @@ inline float4 yuv_to_rgba(uint conversion, float y, float u, float v)
 	return float4(r, g, b, 1.0);
 }
 
-inline float4 sample_rgba(uint planes, uint conversion, float2 uv)
+inline float4 sample_rgba(uint planes, uint conversion, uint hdr, float2 uv)
 {
 	float4 pixel0 = tex0.Sample(ss, uv);
 
@@ -83,14 +111,14 @@ inline float4 sample_rgba(uint planes, uint conversion, float2 uv)
 		float u = pixel1.r;
 		float v = pixel1.g;
 
-		return yuv_to_rgba(conversion, y, u, v);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else if (planes == 3) {
 		float y = pixel0.r;
 		float u = tex1.Sample(ss, uv).r;
 		float v = tex2.Sample(ss, uv).r;
 
-		return yuv_to_rgba(conversion, y, u, v);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else if (conversion & 0x8) {
 		// AYUV
@@ -104,7 +132,7 @@ inline float4 sample_rgba(uint planes, uint conversion, float2 uv)
 			u = pixel0.r;
 		}
 
-		return yuv_to_rgba(conversion, y, u, v);
+		return yuv_to_rgba(conversion, hdr, y, u, v);
 
 	} else {
 		return pixel0;
@@ -169,7 +197,55 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 			sharpen(width, height, levels[x], uv);
 
 	// Sample
-	float4 rgba = sample_rgba(planes, conversion, uv);
+	float4 rgba = sample_rgba(planes, conversion, hdr, uv);
+
+	// Compare sample with a diff texture
+	if (diffmode) {
+			float4 rgba_diff = 0;
+
+			if (hdr) {
+				rgba_diff = texdiffrgb10a2.Sample(ss, uv);
+
+			} else {
+				rgba_diff = texdiffrgba.Sample(ss, uv);
+
+				if (conversion & 0x2) // 10-bit SDR
+					// Final output is normed 8-bit but the decoded frame is normed 10-bit, so we re-normalize
+					rgba = round(rgba * 255.0f) / 255.0f;
+			}
+
+			if (diffmode == 1) {
+				rgba = abs(rgba - rgba_diff);
+				rgba *= diffbrighten; // brighten so the diff is stark
+
+			} else if (diffmode == 2) {
+				float3 actual = hdr ? rgba.rgb : rgba.rgb;
+				float3 diff = hdr ? rgba_diff.rgb : rgba_diff.rgb;
+
+				float de = hdr ? deltaE_ITP(actual, diff) : deltaE_2000(
+						actual,
+						diff,
+						hdr ? REC2020_TO_XYZ : REC709_TO_XYZ,
+						D65_WHITE
+				);
+
+				if (de >= 2.0f) { // unacceptable - show as bright red
+					rgba = float4(1, 0, 0, 1);
+
+				} else if (de >= 1.0f) { // mediocre - lerp from red to yellow
+					rgba = float4(1, lerp(1, 0, de - 1.0f), 0, 1);
+
+				} else if (de >= 0.5f) { // satisfactory - lerp from yellow to green
+					rgba = float4(lerp(0, 1, (de - 0.5f) * 2.0f), 1, 0, 1);
+
+				} else { // great/perfect - lerp from green to black
+					rgba = float4(0, lerp(0, 1, de * 2.0f), 0, 1);
+				}
+
+			} else {
+				rgba = rgba_diff;
+			}
+	}
 
 	// Effects
 	for (uint y = 0; y < 2; y++)

@@ -115,3 +115,8 @@ bool mty_gl_ctx_lock(struct gfx_ctx *gfx_ctx)
 void mty_gl_ctx_unlock(void)
 {
 }
+
+bool mty_gl_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
+{
+	return false;
+}

@@ -118,7 +118,8 @@ typedef enum {
 	MTY_COLOR_FORMAT_3PLANES    = 9,  ///< 3 consecutive planes of YUV, 8 bits per channel.
 	MTY_COLOR_FORMAT_2PLANES_16 = 10, ///< 1 plane Y, 1 plane interleaved UV, 16 bits per channel.
 	MTY_COLOR_FORMAT_3PLANES_16 = 11, ///< 3 consecutive planes of YUV, 16 bits per channel.
-	MTY_COLOR_FORMAT_MAX        = 12, ///< Maximum number of color formats.
+	MTY_COLOR_FORMAT_RGBA10     = 12, ///< 10-bit RGB, 2-bit alpha.
+	MTY_COLOR_FORMAT_MAX        = 13, ///< Maximum number of color formats.
 	MTY_COLOR_FORMAT_MAKE_32    = INT32_MAX,
 } MTY_ColorFormat;
 
@@ -153,6 +154,33 @@ typedef enum {
 	MTY_CHROMA_420 = 2, ///< Half width, half height UV.
 	MTY_CHROMA_MAKE_32 = INT32_MAX,
 } MTY_Chroma;
+
+typedef enum {
+	MTY_DIFF_MODE_DISABLED = 0, ///< Diff mode is not enabled.
+	MTY_DIFF_MODE_RGBDIFF  = 1, ///< RGB channels of the quad will be diff'd with that of the comparison frame.
+	MTY_DIFF_MODE_DELTAE   = 2, ///< Delta-E (1976) measure between the quad and the comparison frame.
+	MTY_DIFF_MODE_MAKE_32 = INT32_MAX,
+} MTY_DiffMode;
+
+/// @brief HDR metadata associated with an image being rendered.
+typedef struct {
+	float colorPrimaryRed[2];        ///< xy coordinates for the red primary of the image's color
+	                                 ///<   space according to the CIE 1931 color space chromaticity diagram.
+	float colorPrimaryGreen[2];      ///< xy coordinates for the green primary of the image's
+	                                 ///<   color space according to the CIE 1931 chromaticity diagram.
+	float colorPrimaryBlue[2];       ///< xy coordinates for the blue primary of the image's
+	                                 ///<   color space according to the CIE 1931 chromaticity diagram.
+	float whitePoint[2];             ///< xy coordinates for the white point of the image's
+	                                 ///<   color space according to the CIE 1931 chromaticity diagram.
+	float minLuminance;              ///< Min luminance expected for the colors of the image.
+	float maxLuminance;              ///< Max luminance expected for the colors of the image.
+	float maxContentLightLevel;      ///< MaxCLL. This is the nit value of the brightest possible
+	                                 ///<   pixel that could ever occur in an image.
+	                                 ///<   If unknown, you can set it to max_luminance.
+	float maxFrameAverageLightLevel; ///< MaxFALL. This is the highest nit value that an image's
+	                                 ///<   average luminance is expected to have.
+	                                 ///<   If unknown, you can set it to MaxCLL.
+} MTY_HDRDesc;
 
 /// @brief Alternative MTY_App behaviors.
 typedef enum {
@@ -519,6 +547,15 @@ typedef struct {
 	float scale;            ///< Multiplier applied to the dimensions of the image, producing an
 	                        ///<   minimized or magnified image. This can be set to 0
 	                        ///<   if unnecessary.
+	bool hdr;                 ///< If true, then the image is based on the rec2020 color primaries
+	                          ///<   and the rec2100 non-linear transfer function (ST 2084
+	                          ///<   perceptual quantizer, aka PQ). If false, then the image is
+	                          ///<   based on the rec709/sRGB primaries and transfer function.
+	bool hdrDescSpecified;    ///< Is HDR metadata provided. Only relevant if `hdr` is true.
+	MTY_HDRDesc hdrDesc;      ///< HDR metadata for the image. Only relevant if `hdr` is true.
+	MTY_DiffMode diffMode;    ///< Instead of rendering the quad, show a diff of it with the provided frame.
+	uint8_t diffBrightFactor; ///< Brightens the diff output to make the visual more staggering. Min 1, Max 100.
+	uint8_t *diffImage;       ///< Pixel data for the frame which will be diff'd with the quad.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.
@@ -573,6 +610,7 @@ typedef struct {
 	uint32_t idxTotalLength; ///< Total number of indices in all command lists.
 	uint32_t vtxTotalLength; ///< Total number of vertices in all command lists.
 	bool clear;              ///< Surface should be cleared before drawing.
+	bool hdr;                ///< THe SDR UI will be composited on top of an HDR quad. See `MTY_RenderDesc`.
 } MTY_DrawData;
 
 /// @brief Key event.
@@ -1250,6 +1288,13 @@ MTY_WindowGetContextState(MTY_App *app, MTY_Window window);
 //- #support Windows macOS Android
 MTY_EXPORT void *
 MTY_WindowGetNative(MTY_App *app, MTY_Window window);
+
+/// @brief Tells you whether the window can show HDR content or not.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @returns Returns true if the window can render HDR content, false otherwise.
+MTY_EXPORT bool
+MTY_WindowIsHDRSupported(MTY_App *app, MTY_Window window);
 
 /// @brief Set a WebView overlaying a native window.
 /// @details This will essentially overlay an entire web browser over the native window. To

@@ -717,3 +717,8 @@ bool mty_vk_ctx_lock(struct gfx_ctx *gfx_ctx)
 void mty_vk_ctx_unlock(void)
 {
 }
+
+bool mty_vk_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
+{
+	return false;
+}

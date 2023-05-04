@@ -26,7 +26,8 @@ struct gfx_ctx;
 	MTY_Context *wrap(api, get_context)(struct gfx_ctx *gfx_ctx); \
 	MTY_Surface *wrap(api, get_surface)(struct gfx_ctx *gfx_ctx); \
 	bool wrap(api, lock)(struct gfx_ctx *gfx_ctx); \
-	void wrap(api, unlock)(void);
+	void wrap(api, unlock)(void); \
+	bool wrap(api, hdr_supported)(struct gfx_ctx *gfx_ctx);
 
 #define GFX_CTX_PROTOTYPES(api) \
 	GFX_CTX_DECLARE_API(api, GFX_CTX_PROTO)
@@ -42,4 +43,5 @@ struct gfx_ctx;
 		mty##api##ctx_get_surface, \
 		mty##api##ctx_lock, \
 		mty##api##ctx_unlock, \
+		mty##api##ctx_hdr_supported, \
 	},

@@ -23,7 +23,7 @@ struct gfx_uniforms {
 	uint32_t planes;
 	uint32_t rotation;
 	uint32_t conversion;
-	uint32_t pad1;
+	uint32_t hdr;
 };
 
 struct gfx;

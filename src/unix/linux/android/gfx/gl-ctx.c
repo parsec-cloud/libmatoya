@@ -201,3 +201,8 @@ void mty_gl_ctx_unlock(void)
 {
 	mty_gfx_unlock();
 }
+
+bool mty_gl_ctx_hdr_supported(struct gfx_ctx *gfx_ctx)
+{
+	return false;
+}

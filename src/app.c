@@ -55,6 +55,9 @@ GFX_CTX_DECLARE_TABLE()
 #define gfx_ctx_unlock(cmn) \
 	GFX_CTX_API[(cmn)->api].unlock()
 
+#define gfx_ctx_hdr_supported(cmn) \
+	GFX_CTX_API[(cmn)->api].hdr_supported((cmn)->gfx_ctx)
+
 static void gfx_set_device(struct window_common *cmn, MTY_Device *device)
 {
 	if (cmn->device != device) {
@@ -120,9 +123,10 @@ void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, cons
 
 	MTY_Device *device = gfx_ctx_get_device(cmn);
 
-	if (gfx_begin(cmn, desc->layer, device))
+	if (gfx_begin(cmn, desc->layer, device)) {
 		GFX_API[cmn->api].render(cmn->gfx[mutated.layer], device, gfx_ctx_get_context(cmn),
 			image, &mutated, surface);
+	}
 
 	gfx_ctx_unlock(cmn);
 }
@@ -244,6 +248,15 @@ void MTY_WindowPresent(MTY_App *app, MTY_Window window)
 		mty_webview_render(cmn->webview);
 
 	gfx_ctx_present(cmn);
+}
+
+bool MTY_WindowIsHDRSupported(MTY_App *app, MTY_Window window)
+{
+	struct window_common *cmn = mty_window_get_common(app, window);
+	if (!cmn || cmn->api == MTY_GFX_NONE)
+		return false;
+
+	return gfx_ctx_hdr_supported(cmn);
 }
 
 MTY_GFX MTY_WindowGetGFX(MTY_App *app, MTY_Window window)

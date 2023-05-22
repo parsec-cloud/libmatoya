@@ -103,7 +103,8 @@ typedef enum {
 	MTY_COLOR_FORMAT_3PLANES    = 9,  ///< 3 consecutive planes of YUV, 8 bits per channel.
 	MTY_COLOR_FORMAT_2PLANES_16 = 10, ///< 1 plane Y, 1 plane interleaved UV, 16 bits per channel.
 	MTY_COLOR_FORMAT_3PLANES_16 = 11, ///< 3 consecutive planes of YUV, 16 bits per channel.
-	MTY_COLOR_FORMAT_MAX        = 12, ///< Maximum number of color formats.
+	MTY_COLOR_FORMAT_I420		= 12,
+	MTY_COLOR_FORMAT_MAX        = 13, ///< Maximum number of color formats.
 	MTY_COLOR_FORMAT_MAKE_32    = INT32_MAX,
 } MTY_ColorFormat;
 

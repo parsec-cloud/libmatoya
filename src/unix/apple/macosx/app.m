@@ -849,7 +849,19 @@ static BOOL window_performKeyEquivalent(NSWindow *self, SEL _cmd, NSEvent *event
 {
 	struct window *ctx = OBJC_CTX();
 
-	return ctx->app->grab_kb;
+	bool cmd = event.modifierFlags & NSEventModifierFlagCommand;
+
+	bool cmd_q = event.keyCode == kVK_ANSI_Q && cmd;
+	bool cmd_w = event.keyCode == kVK_ANSI_W && cmd;
+
+	if (ctx->app->grab_kb && (cmd_q || cmd_w)) {
+		window_keyboard_event(ctx, event.keyCode, event.modifierFlags, true, true);
+		window_keyboard_event(ctx, event.keyCode, event.modifierFlags, false, true);
+
+		return YES;
+	}
+
+	return NO;
 }
 
 static BOOL window_windowShouldClose(NSWindow *self, SEL _cmd, NSWindow *sender)

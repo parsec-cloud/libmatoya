@@ -26,6 +26,7 @@ static const struct {
 	[MTY_COLOR_FORMAT_Y410]       = {1, 4, 1, 1},
 	[MTY_COLOR_FORMAT_Y416]       = {1, 8, 1, 1},
 	[MTY_COLOR_FORMAT_I420]		  = {3, 1, 1, 0},
+	[MTY_COLOR_FORMAT_NV12]		  = {2, 1, 1, 0},
 	[MTY_COLOR_FORMAT_2PLANES]    = {2, 1, 1, 0},
 	[MTY_COLOR_FORMAT_3PLANES]    = {3, 1, 1, 0},
 	[MTY_COLOR_FORMAT_2PLANES_16] = {2, 2, 1, 1},

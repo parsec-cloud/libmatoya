@@ -42,10 +42,10 @@ MTY_Queue *MTY_QueueCreate(uint32_t len, size_t bufSize)
 	ctx->pop_sync = MTY_WaitableCreate();
 	ctx->push_mutex = MTY_MutexCreate();
 
-	ctx->slots = MTY_Alloc(ctx->len, sizeof(struct queue_slot));
+	ctx->slots = MTY_Alloc(ctx->len, sizeof(struct queue_slot) + ctx->buf_size);
 
 	for (uint32_t x = 0; x < ctx->len; x++)
-		ctx->slots[x].data = MTY_Alloc(ctx->buf_size, 1);
+		ctx->slots[x].data = (uint8_t*)(ctx->slots + ctx->buf_size) + ctx->buf_size * x;
 
 	return ctx;
 }
@@ -56,9 +56,6 @@ void MTY_QueueDestroy(MTY_Queue **queue)
 		return;
 
 	MTY_Queue *ctx = *queue;
-
-	for (uint32_t x = 0; x < ctx->len; x++)
-		MTY_Free(ctx->slots[x].data);
 
 	MTY_Free(ctx->slots);
 

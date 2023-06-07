@@ -45,7 +45,7 @@ MTY_Queue *MTY_QueueCreate(uint32_t len, size_t bufSize)
 	ctx->slots = MTY_Alloc(ctx->len, sizeof(struct queue_slot) + ctx->buf_size);
 
 	for (uint32_t x = 0; x < ctx->len; x++)
-		ctx->slots[x].data = (uint8_t*)(ctx->slots + ctx->buf_size) + ctx->buf_size * x;
+		ctx->slots[x].data = (uint8_t*)(ctx->slots + ctx->buf_size) + (ctx->buf_size * x);
 
 	return ctx;
 }

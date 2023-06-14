@@ -6,7 +6,8 @@ BIN = \
 CFLAGS =\
 	/I..\src \
 	/MT \
-	/O2 \
+	/DEBUG \
+	/Zi \
 	/W4 \
 	/wd4201 \
 	/wd4100 \

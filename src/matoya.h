@@ -2939,6 +2939,43 @@ MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx);
 typedef struct MTY_Hash MTY_Hash;
 typedef struct MTY_Queue MTY_Queue;
 typedef struct MTY_List MTY_List;
+typedef struct MTY_Vector MTY_Vector;
+
+#define MTY_VECTOR_BOUNDS_CHECK
+
+MTY_EXPORT void *
+MTY_VectorCreate(uint32_t length, uint16_t elementSizeInBytes);
+
+MTY_EXPORT void
+MTY_VectorDestroy(void *pointer);
+
+MTY_EXPORT bool
+MTY_VectorBoundsCheck(void *pointer, uint32_t index, char* file, int line);
+
+MTY_EXPORT bool
+MTY_VectorSpaceCheck(void* pointer, uint32_t space, char* file, int line);
+
+MTY_EXPORT void *
+MTY_VectorReserve(void* pointer, uint32_t capacity);
+
+MTY_EXPORT void *
+MTY_VectorResize(void *pointer, uint32_t length, uint16_t elementSizeInBytes);
+
+MTY_EXPORT uint32_t
+MTY_VectorGetLength(void *pointer);
+
+MTY_EXPORT uint32_t
+MTY_VectorGetCapacity(void* pointer);
+
+#ifdef MTY_VECTOR_BOUNDS_CHECK
+#define MTY_VectorSet(pointer, index, value) ( MTY_VectorBoundsCheck(pointer,index,__FILE__,__LINE__), pointer[index] = value )
+#define MTY_VectorGet(pointer, index       ) ( MTY_VectorBoundsCheck(pointer,index,__FILE__,__LINE__), pointer[index]         )
+#define MTY_VectorAdd(pointer, value       ) ( MTY_VectorSpaceCheck(pointer,1,__FILE__,__LINE__), pointer[((uint32_t*)pointer)[-1]++] = value )
+#else
+#define MTY_VectorSet(pointer, index, value) ( pointer[index] = value )
+#define MTY_VectorGet(pointer, index       ) ( pointer[index]         )
+#define MTY_VectorAdd(pointer, value       ) ( pointer[((uint32_t*)pointer)[-1]++] = value )
+#endif
 
 /// @brief Function that frees resources you allocated within a data structure.
 /// @param ptr Pointer set via MTY_HashSet et al.
@@ -3489,6 +3526,13 @@ MTY_RevertTimerResolution(uint32_t res);
 MTY_EXPORT uint32_t
 MTY_GetVersion(void);
 
+/// @brief Push a new thread-local memory allocation pool onto the stack of pools.
+MTY_EXPORT void
+MTY_TempMemoryBegin(uint8_t *pointer, uint16_t bytes);
+
+/// @brief Pop a thread-local memory allocation pool from the stack of pools.
+MTY_EXPORT void
+MTY_TempMemoryEnd();
 
 #ifdef __cplusplus
 }

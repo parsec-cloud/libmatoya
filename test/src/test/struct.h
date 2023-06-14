@@ -19,8 +19,21 @@ static void* struct_thread(void* opaque)
 };
 */
 
+static bool yo = false;
+
 static bool struct_main(void)
 {
+	int *integers = MTY_VectorCreate(0, sizeof(int));
+	integers = MTY_VectorReserve(integers, 1000);
+	for (int i = 0; i < 100; ++i)
+		MTY_VectorAdd(integers, i);
+	test_cmp("MTY_VectorGetLength", MTY_VectorGetLength(integers) == 100);
+	for(int i = 0; i < 100; ++i)
+		test_cmp("MTY_VectorGet", MTY_VectorGet(integers, i) == i);
+	MTY_VectorDestroy(integers);
+//	if(yo == false)
+//		exit(0);
+
 	char stringkey[] = "I'm a test string key!";
 	void* intvalue = (void *) (uintptr_t) 0xDEADBEEF;
 

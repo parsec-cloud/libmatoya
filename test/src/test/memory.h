@@ -7,7 +7,7 @@
 static bool test_specific_printf(const char *function, char *buffer, const char *compare)
 {
 	int32_t cmp_val = strcmp(buffer, compare);
-	free(buffer);
+	MTY_Free(buffer);
 	test_cmp_(function, cmp_val == 0, compare, ": %s");
 	return true;
 }

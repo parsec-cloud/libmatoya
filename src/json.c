@@ -347,10 +347,17 @@ MTY_JSON *MTY_JSONParse(const char *input)
 	char *key = NULL;
 
 	uint32_t p = 0;
+	uint32_t line = 1, column = 1;
 
 	for (; p < len; p++) {
 		char c = input[p];
 
+		if(c == '\n') {
+			++line;
+			column = 1;
+		} else {
+			++column;
+		}
 		switch (JSON_CHARS[(uint8_t) c]) {
 			case 1: {
 				MTY_JSON *j = c == '{' ? MTY_JSONObjCreate() : MTY_JSONArrayCreate(0);
@@ -428,7 +435,7 @@ MTY_JSON *MTY_JSONParse(const char *input)
 	except:
 
 	if (key || nest != 0 || p != len) {
-		MTY_Log("Parse error at position %u", p);
+		MTY_Log("Parse error at line %d column %d", line, column);
 		MTY_JSONDestroy(&root);
 	}
 

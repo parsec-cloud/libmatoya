@@ -11,6 +11,9 @@
 #include <wchar.h>
 
 #include "tlocal.h"
+#ifdef _WIN32
+#include <intrin.h>
+#endif
 
 static volatile void *(*MEMORY_MEMSET)(void *s, int c, size_t n) = (void *) memset;
 
@@ -21,19 +24,54 @@ void MTY_SecureZero(void *mem, size_t size)
 		MEMORY_MEMSET(mem, 0, size);
 }
 
+typedef struct AllocationHeader {
+	uint32_t capacity; 
+	uint32_t padding;
+	uint32_t elementSizeInBytes;
+	uint32_t length;
+} AllocationHeader;
+
+static int integerLogTwo(uint32_t v)
+{
+	unsigned long result = 0;
+#ifdef _WIN32
+	_BitScanReverse(&result, v);
+#else
+	if (v & 0xFFFF0000) { v >>= 16; result |= 16; }
+	if (v & 0x0000FF00) { v >>= 8; result |= 8; }
+	if (v & 0x000000F0) { v >>= 4; result |= 4; }
+	if (v & 0x0000000C) { v >>= 2; result |= 2; }
+	if (v & 0x00000002) { v >>= 1; result |= 1; }
+#endif
+	return result;
+}
+
+static int roundUpToPowerOfTwo(uint32_t v)
+{
+	return 1 << (integerLogTwo(MTY_MAX(1, v) - 1) + 1);
+}
+
 void *MTY_Alloc(size_t len, size_t size)
 {
-	void *mem = calloc(len, size);
+	const int capacity = roundUpToPowerOfTwo((uint32_t)len);
+	AllocationHeader *header = calloc(sizeof(AllocationHeader) + capacity * size, 1);
+	header->capacity = capacity;
+	header->padding = 0;
+	header->elementSizeInBytes = size;
+	header->length = len;
 
-	if (!mem)
+	if (!header)
 		MTY_LogFatal("'calloc' failed with errno %d", errno);
 
-	return mem;
+	return header + 1;
 }
 
 void MTY_Free(void *mem)
 {
-	free(mem);
+	if (mem == NULL)
+		return;
+	AllocationHeader *header = (AllocationHeader*)mem - 1;
+	free(header);
 }
 
 void MTY_SecureFree(void *mem, size_t size)
@@ -44,14 +82,24 @@ void MTY_SecureFree(void *mem, size_t size)
 
 void *MTY_Realloc(void *mem, size_t len, size_t size)
 {
-	size_t total = size * len;
-
-	void *new_mem = realloc(mem, total);
-
-	if (!new_mem && total > 0)
+	if(mem == NULL)
+		return MTY_Alloc(len, size);
+	AllocationHeader *header = (AllocationHeader*)mem - 1;	
+	const size_t capacity = roundUpToPowerOfTwo((uint32_t)len);
+	const size_t newBytes = capacity * size;
+	const size_t oldBytes = header->capacity * header->elementSizeInBytes;
+	const bool tooBig   = newBytes >  oldBytes;
+	const bool tooSmall = newBytes <= oldBytes / 2;
+	if(tooBig || tooSmall)
+		header = realloc(header, newBytes);
+	if (!header && newBytes > 0)
 		MTY_LogFatal("'realloc' failed with errno %d", errno);
-
-	return new_mem;
+	if(header == NULL)
+		return NULL;
+	header->capacity = capacity;
+	header->elementSizeInBytes = size;
+	header->length = len;
+	return header + 1;
 }
 
 void *MTY_Dup(const void *mem, size_t size)

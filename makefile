@@ -40,6 +40,7 @@ OBJS = \
 	src\system.obj \
 	src\thread.obj \
 	src\tlocal.obj \
+	src\vector.obj \
 	src\version.obj \
 	src\gfx\vk\vk.obj \
 	src\gfx\vk\vk-ctx.obj \

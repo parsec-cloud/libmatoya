@@ -254,7 +254,12 @@ static bool validate_djb2()
 	test_cmp_("CRC32 2", crc == 0x34cc38de, "The quick brown fox jumps over the lazy dog", ": \"%s\"");
 	crc = MTY_DJB2("");
 	test_cmp_("CRC32 3", crc == 0x00001505, "", ": \"%s\"");
-
+	crc = MTY_DJB2_MACRO9(1,2,3,4,5,6,7,8,9);
+	test_cmp_("CRC32 4", crc == MTY_DJB2("123456789"), "123456789", ": \"%s\"");
+	crc = MTY_DJB2_MACRO7(a,b,c,d,e,f,g);
+	test_cmp_("CRC32 5", crc == MTY_DJB2("abcdefg"), "abcdefg", ": \"%s\"");
+	crc = MTY_DJB2_MACRO5(f,o,o,j,a);
+	test_cmp_("CRC32 6", crc == MTY_DJB2("fooja"), "fooja", ": \"%s\"");
 	return true;
 
 }

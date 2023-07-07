@@ -3489,6 +3489,63 @@ MTY_RevertTimerResolution(uint32_t res);
 MTY_EXPORT uint32_t
 MTY_GetVersion(void);
 
+#define MTY_DJB2_CHAR0 '0'
+#define MTY_DJB2_CHAR1 '1'
+#define MTY_DJB2_CHAR2 '2'
+#define MTY_DJB2_CHAR3 '3'
+#define MTY_DJB2_CHAR4 '4'
+#define MTY_DJB2_CHAR5 '5'
+#define MTY_DJB2_CHAR6 '6'
+#define MTY_DJB2_CHAR7 '7'
+#define MTY_DJB2_CHAR8 '8'
+#define MTY_DJB2_CHAR9 '9'
+#define MTY_DJB2_CHARa 'a'
+#define MTY_DJB2_CHARb 'b'
+#define MTY_DJB2_CHARc 'c'
+#define MTY_DJB2_CHARd 'd'
+#define MTY_DJB2_CHARe 'e'
+#define MTY_DJB2_CHARf 'f'
+#define MTY_DJB2_CHARg 'g'
+#define MTY_DJB2_CHARh 'h'
+#define MTY_DJB2_CHARi 'i'
+#define MTY_DJB2_CHARj 'j'
+#define MTY_DJB2_CHARk 'k'
+#define MTY_DJB2_CHARl 'l'
+#define MTY_DJB2_CHARm 'm'
+#define MTY_DJB2_CHARn 'n'
+#define MTY_DJB2_CHARo 'o'
+#define MTY_DJB2_CHARp 'p'
+#define MTY_DJB2_CHARq 'q'
+#define MTY_DJB2_CHARr 'r'
+#define MTY_DJB2_CHARs 's'
+#define MTY_DJB2_CHARt 't'
+#define MTY_DJB2_CHARu 'u'
+#define MTY_DJB2_CHARv 'v'
+#define MTY_DJB2_CHARw 'w'
+#define MTY_DJB2_CHARx 'x'
+#define MTY_DJB2_CHARy 'y'
+#define MTY_DJB2_CHARz 'z'
+#define MTY_DJB2_CHAR_ '_'
+#define MTY_DJB2_MACRO(hash,c) (uint32_t)((hash * 33) + MTY_DJB2_CHAR##c)
+#define MTY_DJB2_MACRO1(a)                                         MTY_DJB2_MACRO(5381,a)
+#define MTY_DJB2_MACRO2(a,b)                                       MTY_DJB2_MACRO(MTY_DJB2_MACRO1(a),b)
+#define MTY_DJB2_MACRO3(a,b,c)                                     MTY_DJB2_MACRO(MTY_DJB2_MACRO2(a,b),c)
+#define MTY_DJB2_MACRO4(a,b,c,d)                                   MTY_DJB2_MACRO(MTY_DJB2_MACRO3(a,b,c),d)
+#define MTY_DJB2_MACRO5(a,b,c,d,e)                                 MTY_DJB2_MACRO(MTY_DJB2_MACRO4(a,b,c,d),e)
+#define MTY_DJB2_MACRO6(a,b,c,d,e,f)                               MTY_DJB2_MACRO(MTY_DJB2_MACRO5(a,b,c,d,e),f)
+#define MTY_DJB2_MACRO7(a,b,c,d,e,f,g)                             MTY_DJB2_MACRO(MTY_DJB2_MACRO6(a,b,c,d,e,f),g)
+#define MTY_DJB2_MACRO8(a,b,c,d,e,f,g,h)                           MTY_DJB2_MACRO(MTY_DJB2_MACRO7(a,b,c,d,e,f,g),h)
+#define MTY_DJB2_MACRO9(a,b,c,d,e,f,g,h,i)                         MTY_DJB2_MACRO(MTY_DJB2_MACRO8(a,b,c,d,e,f,g,h),i)
+#define MTY_DJB2_MACRO10(a,b,c,d,e,f,g,h,i,j)                      MTY_DJB2_MACRO(MTY_DJB2_MACRO9(a,b,c,d,e,f,g,h,i),j)
+#define MTY_DJB2_MACRO11(a,b,c,d,e,f,g,h,i,j,k)                    MTY_DJB2_MACRO(MTY_DJB2_MACRO9(a,b,c,d,e,f,g,h,i,j),k)
+#define MTY_DJB2_MACRO12(a,b,c,d,e,f,g,h,i,j,k,l)                  MTY_DJB2_MACRO(MTY_DJB2_MACRO1(a,b,c,d,e,f,g,h,i,j,k),l)
+#define MTY_DJB2_MACRO13(a,b,c,d,e,f,g,h,i,j,k,l,m)                MTY_DJB2_MACRO(MTY_DJB2_MACRO2(a,b,c,d,e,f,g,h,i,j,k,l),m)
+#define MTY_DJB2_MACRO14(a,b,c,d,e,f,g,h,i,j,k,l,m,n)              MTY_DJB2_MACRO(MTY_DJB2_MACRO3(a,b,c,d,e,f,g,h,i,j,k,l,m),n)
+#define MTY_DJB2_MACRO15(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o)            MTY_DJB2_MACRO(MTY_DJB2_MACRO4(a,b,c,d,e,f,g,h,i,j,k,l,m,n),o)
+#define MTY_DJB2_MACRO16(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p)          MTY_DJB2_MACRO(MTY_DJB2_MACRO5(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o),p)
+#define MTY_DJB2_MACRO17(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q)        MTY_DJB2_MACRO(MTY_DJB2_MACRO6(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p),q)
+#define MTY_DJB2_MACRO18(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r)      MTY_DJB2_MACRO(MTY_DJB2_MACRO7(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q),r)
+#define MTY_DJB2_MACRO19(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s)    MTY_DJB2_MACRO(MTY_DJB2_MACRO8(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r),s)
 
 #ifdef __cplusplus
 }

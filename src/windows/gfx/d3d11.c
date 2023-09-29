@@ -301,6 +301,87 @@ static bool d3d11_refresh_resource(struct gfx *gfx, MTY_Device *_device, MTY_Con
 	return r;
 }
 
+static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_Context *context, MTY_ColorFormat fmt,
+	uint8_t plane, const uint8_t *image, uint32_t full_w, uint32_t w, uint32_t h, uint8_t bpp)
+{
+
+	struct d3d11 *ctx = (struct d3d11 *) gfx;
+	bool r = true;
+	struct d3d11_res *res = &ctx->staging[0];
+	DXGI_FORMAT format = FMT_PLANES[fmt][0];
+	ID3D11Texture2D *texture = NULL;
+
+	ID3D11Device *device = (ID3D11Device *) _device;
+	HANDLE shared_handle = NULL;
+	memcpy(&shared_handle, image, sizeof(HANDLE));
+	MTY_Log("Shared resource %p", shared_handle);
+
+
+	HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle, &IID_IDXGIResource, &res->resource);
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_OpenSharedResource' failed with HRESULT 0x%X", e);
+		r = false;
+		goto except;
+	}
+
+	e = IDXGIResource_QueryInterface(res->resource, &IID_ID3D11Texture2D, &texture);
+	if (e != S_OK) {
+		MTY_Log("'IDXGIResource_QueryInterface' failed with HRESULT 0x%X", e);
+		r = false;
+		goto except;
+	}
+	D3D11_TEXTURE2D_DESC desc = {0};
+	ID3D11Texture2D_GetDesc(texture, &desc);
+	ID3D11Texture2D_Release(texture);
+
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {0};
+	srvd.Format = desc.Format;
+	srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvd.Texture2D.MipLevels = 1;
+
+	e = ID3D11Device_CreateShaderResourceView(device, res->resource, &srvd, &res->srv);
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateShaderResourceView' failed with HRESULT 0x%X", e);
+		r = false;
+		goto except;
+	}
+
+	res->width = desc.Width;
+	res->height = desc.Height;
+	res->format = format;
+
+	return true;
+
+	except:
+	if (texture)
+		ID3D11Texture2D_Release(texture);
+
+	d3d11_destroy_resource(res);
+
+	return r;
+}
+
+bool mty_d3d11_valid_hardware_frame(MTY_Device *device, MTY_Context *context, const void *shared_resource)
+{
+	ID3D11Device *d3d_device = (ID3D11Device *) device;
+	HANDLE shared_handle =  NULL;
+	memcpy(&shared_handle, shared_resource, sizeof(HANDLE));
+	bool r = true;
+
+	IDXGIResource *resource = NULL;
+
+	HRESULT e = ID3D11Device_OpenSharedResource(d3d_device, shared_handle, &IID_IDXGIResource, &resource);
+	if (e != S_OK) {
+		r = false;
+	}
+
+	if (resource)
+		IDXGIResource_Release(resource);
+
+	return r;
+}
+
 bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	const void *image, const MTY_RenderDesc *desc, MTY_Surface *dest)
 {
@@ -317,8 +398,14 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Refresh textures and load texture data
 	// If format == MTY_COLOR_FORMAT_UNKNOWN, texture refreshing/loading is skipped and the previous frame is rendered
-	if (!fmt_reload_textures(gfx, device, context, image, desc, d3d11_refresh_resource))
-		return false;
+
+	if (desc->hardware) {
+		if (!fmt_reload_textures(gfx, device, context, image, desc, d3d11_map_shared_resource))
+			return false;
+	} else {
+		if (!fmt_reload_textures(gfx, device, context, image, desc, d3d11_refresh_resource))
+			return false;
+	}
 
 	// Viewport
 	D3D11_VIEWPORT vp = {0};

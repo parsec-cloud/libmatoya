@@ -1108,7 +1108,7 @@ const MTY_WASI_SNAPSHOT_PREVIEW1_API = {
 
 	// Misc
 	clock_time_get: function (id, precision, retptr0) {
-		mty_set_uint64(retptr0, Math.round(performance.now() * 1000.0 * 1000.0));
+		mty_set_uint64(retptr0, Math.round((performance.timeOrigin + performance.now()) * 1000.0 * 1000.0));
 		return __WASI_ERRNO_SUCCESS;
 	},
 	poll_oneoff: function (_in, out, nsubscriptions, retptr0) {

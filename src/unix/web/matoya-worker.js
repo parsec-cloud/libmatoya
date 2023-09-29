@@ -147,7 +147,7 @@ const MTY_GL_API = {
 	},
 	glTexImage2D: function (target, level, internalformat, width, height, border, format, type, data) {
 		MTY.gl.texImage2D(target, level, internalformat, width, height, border, format, type,
-			new Uint8Array(MTY_MEMORY.buffer, data));
+			data ? new Uint8Array(MTY_MEMORY.buffer, data) : null);
 	},
 	glTexSubImage2D: function (target, level, xoffset, yoffset, width, height, format, type, pixels) {
 		MTY.gl.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type,

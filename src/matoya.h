@@ -1588,13 +1588,11 @@ MTY_GetRandomUInt(uint32_t minVal, uint32_t maxVal);
 ///   The returned MTY_AESGCM context must be destroyed with MTY_AESGCMDestroy.
 /// @param key The secret key to use for encryption. This buffer must be 16 bytes,
 ///   the size necessary for AES-128.
-//- #support Windows macOS Android Linux
 MTY_EXPORT MTY_AESGCM *
 MTY_AESGCMCreate(const void *key);
 
 /// @brief Destroy an MTY_AESGCM context.
 /// @param aesgcm Passed by reference and set to NULL after being destroyed.
-//- #support Windows macOS Android Linux
 MTY_EXPORT void
 MTY_AESGCMDestroy(MTY_AESGCM **aesgcm);
 
@@ -1609,7 +1607,6 @@ MTY_AESGCMDestroy(MTY_AESGCM **aesgcm);
 /// @param cipherText Output buffer for the encrypted data, always the same size
 ///   as `plainText`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-//- #support Windows macOS Android Linux
 MTY_EXPORT bool
 MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, size_t size,
 	void *tag, void *cipherText);
@@ -1624,7 +1621,6 @@ MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, siz
 /// @param plainText Output buffer for the decrypted data, always the same size
 ///   as `cipherText`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
-//- #support Windows macOS Android Linux
 MTY_EXPORT bool
 MTY_AESGCMDecrypt(MTY_AESGCM *ctx, const void *nonce, const void *cipherText,
 	size_t size, const void *tag, void *plainText);

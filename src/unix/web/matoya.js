@@ -27,6 +27,7 @@ if (typeof importScripts == 'function') {
 		synthesizeEsc: true,
 		relative: false,
 		gps: [false, false, false, false],
+		crypto: [0],
 	};
 }
 
@@ -1074,6 +1075,49 @@ async function mty_thread_message(ev) {
 		case 'async-copy':
 			msg.sab8.set(this.tmp);
 			delete this.tmp;
+
+			mty_signal(msg.sync);
+			break;
+		case 'crypto-create':
+			try {
+				const key = await crypto.subtle.importKey('raw', msg.key, {name: 'AES-GCM'}, false, ['encrypt', 'decrypt']);
+
+				msg.sab[0] = 0;
+				msg.sab[1] = MTY.crypto.push(key) - 1;
+			} catch {
+				msg.sab[0] = 1;
+			}
+
+			mty_signal(msg.sync);
+			break;
+		case 'crypto-destroy':
+			delete MTY.crypto[msg.ctx];
+
+			mty_signal(msg.sync);
+			break;
+		case 'crypto-encrypt':
+			try {
+				const encrypt_params = {name: 'AES-GCM', iv: msg.iv, tagLength: 16 * 8};
+				const encrypted = await crypto.subtle.encrypt(encrypt_params, MTY.crypto[msg.ctx], msg.data);
+				msg.sab8.set(new Uint8Array(encrypted));
+
+				msg.sab[0] = 0;
+			} catch {
+				msg.sab[0] = 1;
+			}
+
+			mty_signal(msg.sync);
+			break;
+		case 'crypto-decrypt':
+			try {
+				const decrypt_params = {name: 'AES-GCM', iv: msg.iv, tagLength: 16 * 8};
+				const decrypted = await crypto.subtle.decrypt(decrypt_params, MTY.crypto[msg.ctx], msg.data);
+				msg.sab8.set(new Uint8Array(decrypted));
+
+				msg.sab[0] = 0;
+			} catch {
+				msg.sab[0] = 1;
+			}
 
 			mty_signal(msg.sync);
 			break;

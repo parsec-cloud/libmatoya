@@ -652,6 +652,87 @@ const MTY_CRYPTO_API = {
 			console.error("'base64Size' is too small");
 		}
 	},
+	MTY_AESGCMCreate: function (ckey) {
+		const key = mty_dup(ckey, 16);
+
+		postMessage({
+			type: 'crypto-create',
+			key: key,
+			sync: MTY.sync,
+			sab: MTY.sab,
+		}, [key.buffer]);
+
+		mty_wait(MTY.sync);
+
+		const error = MTY.sab[0];
+		if (error)
+			return null;
+
+		return MTY.sab[1];
+	},
+	MTY_AESGCMDestroy: function (ctx) {
+		postMessage({
+			type: 'crypto-destroy',
+			ctx: mty_get_uint32(ctx),
+			sync: MTY.sync,
+			sab: MTY.sab,
+		});
+
+		mty_wait(MTY.sync);
+
+		mty_set_uint32(ctx, 0);
+	},
+	MTY_AESGCMEncrypt: function (ctx, nonce, plainText, size, tag, cipherText) {
+		const iv = mty_dup(nonce, 12);
+		const data = mty_dup(plainText, size);
+		const sab8 = new Uint8Array(new SharedArrayBuffer(size + 16));
+
+		postMessage({
+			type: 'crypto-encrypt',
+			ctx: ctx,
+			iv: iv,
+			data: data,
+			sab8: sab8,
+			sync: MTY.sync,
+			sab: MTY.sab,
+		}, [iv.buffer, data.buffer]);
+
+		mty_wait(MTY.sync);
+
+		const error = MTY.sab[0];
+		if (error)
+			return false;
+
+		mty_memcpy(cipherText, new Uint8Array(sab8.buffer, 0, size));
+		mty_memcpy(tag, new Uint8Array(sab8.buffer, size, 16));
+
+		return true;
+	},
+	MTY_AESGCMDecrypt: function (ctx, nonce, cipherText, size, tag, plainText) {
+		const iv = mty_dup(nonce, 12);
+		const data = new Uint8Array([...mty_dup(cipherText, size), ...mty_dup(tag, 16)]);
+		const sab8 = new Uint8Array(new SharedArrayBuffer(size));
+
+		postMessage({
+			type: 'crypto-decrypt',
+			ctx: ctx,
+			iv: iv,
+			data: data,
+			sab8: sab8,
+			sync: MTY.sync,
+			sab: MTY.sab,
+		}, [iv.buffer, data.buffer]);
+
+		mty_wait(MTY.sync);
+
+		const error = MTY.sab[0];
+		if (error)
+			return false;
+
+		mty_memcpy(plainText, sab8);
+
+		return true;
+	}
 };
 
 

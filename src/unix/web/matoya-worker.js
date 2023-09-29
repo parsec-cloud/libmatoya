@@ -637,6 +637,13 @@ const MTY_IMAGE_API = {
 // Crypto
 
 const MTY_CRYPTO_API = {
+	MTY_CertCreate: function() {
+		return null;
+	},
+	MTY_CertDestroy: function(cert) {
+	},
+	MTY_CertGetFingerprint: function (ctx, fingerprint, size) {
+	},
 	MTY_CryptoHash: function (algo, input, inputSize, key, keySize, output, outputSize) {
 	},
 	MTY_GetRandomBytes: function (buf, size) {

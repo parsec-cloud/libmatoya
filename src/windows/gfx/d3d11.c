@@ -307,57 +307,63 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 
 	struct d3d11 *ctx = (struct d3d11 *) gfx;
 	bool r = true;
-	struct d3d11_res *res = &ctx->staging[0];
-	DXGI_FORMAT format = FMT_PLANES[fmt][0];
-	ID3D11Texture2D *texture = NULL;
 
-	ID3D11Device *device = (ID3D11Device *) _device;
-	HANDLE shared_handle = NULL;
-	memcpy(&shared_handle, image, sizeof(HANDLE));
-	MTY_Log("Shared resource %p", shared_handle);
+	HANDLE shared_handle[3] = {NULL, NULL, NULL};
+	memcpy(&shared_handle[0], image, sizeof(HANDLE));
+	memcpy(&shared_handle[1], image + sizeof(HANDLE), sizeof(HANDLE));
+	memcpy(&shared_handle[2], image + (sizeof(HANDLE) * 2), sizeof(HANDLE));
 
+	for (uint32_t x = 0; x < 3 ; x++) {
+		if (!shared_handle[x])
+			continue;
+		struct d3d11_res *res = &ctx->staging[x];
+		DXGI_FORMAT format = FMT_PLANES[fmt][x];
+		ID3D11Texture2D *texture = NULL;
 
-	HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle, &IID_IDXGIResource, &res->resource);
-	if (e != S_OK) {
-		MTY_Log("'ID3D11Device_OpenSharedResource' failed with HRESULT 0x%X", e);
-		r = false;
-		goto except;
+		ID3D11Device *device = (ID3D11Device *) _device;
+
+		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &res->resource);
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Device_OpenSharedResource' failed with HRESULT 0x%X", e);
+			r = false;
+			goto except;
+		}
+
+		e = IDXGIResource_QueryInterface(res->resource, &IID_ID3D11Texture2D, &texture);
+		if (e != S_OK) {
+			MTY_Log("'IDXGIResource_QueryInterface' failed with HRESULT 0x%X", e);
+			r = false;
+			goto except;
+		}
+		D3D11_TEXTURE2D_DESC desc = {0};
+		ID3D11Texture2D_GetDesc(texture, &desc);
+		ID3D11Texture2D_Release(texture);
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {0};
+		srvd.Format = desc.Format;
+		srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		srvd.Texture2D.MipLevels = 1;
+
+		e = ID3D11Device_CreateShaderResourceView(device, res->resource, &srvd, &res->srv);
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Device_CreateShaderResourceView' failed with HRESULT 0x%X", e);
+			r = false;
+			goto except;
+		}
+
+		res->width = desc.Width;
+		res->height = desc.Height;
+		res->format = format;
+		if (texture)
+			ID3D11Texture2D_Release(texture);
 	}
-
-	e = IDXGIResource_QueryInterface(res->resource, &IID_ID3D11Texture2D, &texture);
-	if (e != S_OK) {
-		MTY_Log("'IDXGIResource_QueryInterface' failed with HRESULT 0x%X", e);
-		r = false;
-		goto except;
-	}
-	D3D11_TEXTURE2D_DESC desc = {0};
-	ID3D11Texture2D_GetDesc(texture, &desc);
-	ID3D11Texture2D_Release(texture);
-
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {0};
-	srvd.Format = desc.Format;
-	srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	srvd.Texture2D.MipLevels = 1;
-
-	e = ID3D11Device_CreateShaderResourceView(device, res->resource, &srvd, &res->srv);
-	if (e != S_OK) {
-		MTY_Log("'ID3D11Device_CreateShaderResourceView' failed with HRESULT 0x%X", e);
-		r = false;
-		goto except;
-	}
-
-	res->width = desc.Width;
-	res->height = desc.Height;
-	res->format = format;
 
 	return true;
 
 	except:
-	if (texture)
-		ID3D11Texture2D_Release(texture);
 
-	d3d11_destroy_resource(res);
+
+	// d3d11_destroy_resource(res);
 
 	return r;
 }

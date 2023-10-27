@@ -322,6 +322,15 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 
 		ID3D11Device *device = (ID3D11Device *) _device;
 
+		if (res->srv)
+			ID3D11ShaderResourceView_Release(res->srv);
+
+		if (res->resource)
+			ID3D11Resource_Release(res->resource);
+
+		res->srv = NULL;
+		res->resource = NULL;
+
 		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &res->resource);
 		if (e != S_OK) {
 			MTY_Log("'ID3D11Device_OpenSharedResource' failed with HRESULT 0x%X", e);
@@ -337,10 +346,10 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		}
 		D3D11_TEXTURE2D_DESC desc = {0};
 		ID3D11Texture2D_GetDesc(texture, &desc);
-		ID3D11Texture2D_Release(texture);
+		//ID3D11Texture2D_Release(texture);
 
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {0};
-		srvd.Format = desc.Format;
+		srvd.Format = format;
 		srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		srvd.Texture2D.MipLevels = 1;
 

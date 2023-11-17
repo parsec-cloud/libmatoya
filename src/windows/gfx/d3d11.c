@@ -331,38 +331,50 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		res->srv = NULL;
 		res->resource = NULL;
 
-		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &res->resource);
+		ID3D11Resource *resx = NULL;
+
+		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &resx);
 		if (e != S_OK) {
 			MTY_Log("'ID3D11Device_OpenSharedResource' failed with HRESULT 0x%X", e);
 			r = false;
 			goto except;
 		}
 
-		e = IDXGIResource_QueryInterface(res->resource, &IID_ID3D11Texture2D, &texture);
+		e = IDXGIResource_QueryInterface(resx, &IID_ID3D11Texture2D, &texture);
 		if (e != S_OK) {
 			MTY_Log("'IDXGIResource_QueryInterface' failed with HRESULT 0x%X", e);
 			r = false;
 			goto except;
 		}
+
+		if (resx)
+			IDXGIResource_Release(resx);
+
+		e = ID3D11Texture2D_QueryInterface(texture, &IID_ID3D11Resource, &res->resource);
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Texture2D_QueryInterface' failed with HRESULT 0x%X", e);
+			r = false;
+			goto except;
+		}
 		D3D11_TEXTURE2D_DESC desc = {0};
 		ID3D11Texture2D_GetDesc(texture, &desc);
-		//ID3D11Texture2D_Release(texture);
 
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {0};
-		srvd.Format = format;
+		srvd.Format = desc.Format;
 		srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		srvd.Texture2D.MipLevels = 1;
 
 		e = ID3D11Device_CreateShaderResourceView(device, res->resource, &srvd, &res->srv);
 		if (e != S_OK) {
-			MTY_Log("'ID3D11Device_CreateShaderResourceView' failed with HRESULT 0x%X", e);
+			MTY_Log("'ID3D11Device_CreateShaderResourceView' failed for index %d with HRESULT 0x%X", x, e);
 			r = false;
 			goto except;
 		}
 
 		res->width = desc.Width;
 		res->height = desc.Height;
-		res->format = format;
+		res->format = desc.Format;
+
 		if (texture)
 			ID3D11Texture2D_Release(texture);
 	}
@@ -372,7 +384,7 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 	except:
 
 
-	// d3d11_destroy_resource(res);
+	//d3d11_destroy_resource(res);
 
 	return r;
 }

@@ -26,6 +26,7 @@ struct d3d11_res {
 	ID3D11ShaderResourceView *srv;
 	uint32_t width;
 	uint32_t height;
+	bool was_hardware;
 };
 
 struct d3d11 {
@@ -238,7 +239,7 @@ static bool d3d11_refresh_resource(struct gfx *gfx, MTY_Device *_device, MTY_Con
 	ID3D11Texture2D *texture = NULL;
 
 	// Resize
-	if (!res->resource || w != res->width || h != res->height || format != res->format) {
+	if (!res->resource || w != res->width || h != res->height || format != res->format || res->was_hardware) {
 		ID3D11Device *device = (ID3D11Device *) _device;
 
 		d3d11_destroy_resource(res);
@@ -317,7 +318,6 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		if (!shared_handle[x])
 			continue;
 		struct d3d11_res *res = &ctx->staging[x];
-		DXGI_FORMAT format = FMT_PLANES[fmt][x];
 		ID3D11Texture2D *texture = NULL;
 
 		ID3D11Device *device = (ID3D11Device *) _device;
@@ -374,6 +374,7 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		res->width = desc.Width;
 		res->height = desc.Height;
 		res->format = desc.Format;
+		res->was_hardware = true;
 
 		if (texture)
 			ID3D11Texture2D_Release(texture);
@@ -383,8 +384,10 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 
 	except:
 
-
-	//d3d11_destroy_resource(res);
+	for (uint32_t x = 0; x < 3 ; x++) {
+		struct d3d11_res *res = &ctx->staging[x];
+		d3d11_destroy_resource(res);
+	}
 
 	return r;
 }

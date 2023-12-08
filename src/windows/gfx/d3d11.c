@@ -429,8 +429,6 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	// Refresh textures and load texture data
 	// If format == MTY_COLOR_FORMAT_UNKNOWN, texture refreshing/loading is skipped and the previous frame is rendered
 
-	MTY_Log("MTY Hardware Frame: %s", desc->hardware ? "true" : "false");
-
 	if (desc->hardware) {
 		if (!fmt_reload_textures(gfx, device, context, image, desc, d3d11_map_shared_resource))
 			return false;

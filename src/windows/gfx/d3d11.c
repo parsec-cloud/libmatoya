@@ -314,11 +314,13 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 	memcpy(&shared_handle[1], image + sizeof(HANDLE), sizeof(HANDLE));
 	memcpy(&shared_handle[2], image + (sizeof(HANDLE) * 2), sizeof(HANDLE));
 
+	ID3D11Resource *res_d3d = NULL;
+	ID3D11Texture2D *texture = NULL;
+
 	for (uint32_t x = 0; x < 3 ; x++) {
 		if (!shared_handle[x])
 			continue;
 		struct d3d11_res *res = &ctx->staging[x];
-		ID3D11Texture2D *texture = NULL;
 
 		ID3D11Device *device = (ID3D11Device *) _device;
 
@@ -331,24 +333,25 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		res->srv = NULL;
 		res->resource = NULL;
 
-		ID3D11Resource *resx = NULL;
 
-		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &resx);
+		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &res_d3d);
 		if (e != S_OK) {
 			MTY_Log("'ID3D11Device_OpenSharedResource' failed with HRESULT 0x%X", e);
 			r = false;
 			goto except;
 		}
 
-		e = IDXGIResource_QueryInterface(resx, &IID_ID3D11Texture2D, &texture);
+		e = IDXGIResource_QueryInterface(res_d3d, &IID_ID3D11Texture2D, &texture);
 		if (e != S_OK) {
 			MTY_Log("'IDXGIResource_QueryInterface' failed with HRESULT 0x%X", e);
 			r = false;
 			goto except;
 		}
 
-		if (resx)
-			IDXGIResource_Release(resx);
+		if (res_d3d) {
+			IDXGIResource_Release(res_d3d);
+			res_d3d = NULL;
+		}
 
 		e = ID3D11Texture2D_QueryInterface(texture, &IID_ID3D11Resource, &res->resource);
 		if (e != S_OK) {
@@ -376,13 +379,23 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		res->format = desc.Format;
 		res->was_hardware = true;
 
-		if (texture)
+		if (texture) {
 			ID3D11Texture2D_Release(texture);
+			texture = NULL;
+		}
 	}
 
 	return true;
 
 	except:
+
+	if (texture)
+		ID3D11Texture2D_Release(texture);
+
+	if (res_d3d) {
+		IDXGIResource_Release(res_d3d);
+		res_d3d = NULL;
+	}
 
 	for (uint32_t x = 0; x < 3 ; x++) {
 		struct d3d11_res *res = &ctx->staging[x];

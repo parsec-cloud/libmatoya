@@ -306,6 +306,10 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 	uint8_t plane, const uint8_t *image, uint32_t full_w, uint32_t w, uint32_t h, uint8_t bpp)
 {
 
+	// We do all textures at once so we dont want to deal with any later planes.
+	if (plane > 0)
+		return true;
+
 	struct d3d11 *ctx = (struct d3d11 *) gfx;
 	bool r = true;
 
@@ -332,7 +336,6 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 
 		res->srv = NULL;
 		res->resource = NULL;
-
 
 		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &res_d3d);
 		if (e != S_OK) {

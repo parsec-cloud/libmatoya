@@ -339,6 +339,7 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 
 		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &res_d3d);
 		if (e != S_OK) {
+			MTY_Log("Failure for index %d shared pointer %p", x, shared_handle[x]);
 			MTY_Log("'ID3D11Device_OpenSharedResource' failed with HRESULT 0x%X", e);
 			r = false;
 			goto except;

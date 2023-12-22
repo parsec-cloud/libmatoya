@@ -20,6 +20,21 @@
 #define APP_CLASS_NAME L"MTY_Window"
 #define APP_RI_MAX     (32 * 1024)
 
+#define WINDOW_MAX_TOUCH_INPUTS 10
+
+#define WINDOW_MAX_GESTURE_MTY_EVENTS 10
+
+enum window_touch_support
+{
+	WINDOW_TOUCH_UNSUPPORTED     = 0x00000000,
+	WINDOW_TOUCH_SUPPORTED       = 0x00000001,
+	WINDOW_TOUCH_MULTI_INPUT     = 0x00000002,
+	WINDOW_TOUCH_TOUCH_INTERNAL  = 0x00000004,
+	WINDOW_TOUCH_TOUCH_EXTERNAL  = 0x00000008,
+	WINDOW_TOUCH_PEN_INTERNAL    = 0x000000010,
+	WINDOW_TOUCH_PEN_EXTERNAL    = 0x000000020,
+};
+
 struct window {
 	struct window_common cmn;
 	MTY_App *app;
@@ -30,6 +45,14 @@ struct window {
 	uint32_t min_width;
 	uint32_t min_height;
 	RAWINPUT *ri;
+
+	// XXX: Future work: handle touch inputs and forward them directly to the parsec host
+	int32_t touch_support;
+	TOUCHINPUT touch_inputs[WINDOW_MAX_TOUCH_INPUTS];
+
+	GESTUREINFO gesture_prev;
+	size_t gesture_mty_events_output_count;
+	MTY_Event gesture_mty_events_output[WINDOW_MAX_GESTURE_MTY_EVENTS];
 };
 
 struct MTY_App {
@@ -577,6 +600,142 @@ static void app_fix_mouse_buttons(MTY_App *ctx)
 	}
 }
 
+static void translate_gesture_pan(const POINT *cur, const POINT *prev, int32_t scale, bool reverse_x, bool reverse_y, MTY_Event *evt)
+{
+	POINT dt_pos = { cur->x - prev->x, cur->y - prev->y };
+
+	evt[0].type = MTY_EVENT_SCROLL;
+	evt[0].scroll.x = scale * (reverse_x ? -1 : 1) * dt_pos.x;
+	evt[0].scroll.y = scale * (reverse_y ? -1 : 1) * dt_pos.y;
+	evt[0].scroll.pixels = true;
+}
+
+static bool translate_gesture_to_mty_event(HWND hwnd, const GESTUREINFO *gi, const GESTUREINFO *gi_prev, MTY_Event *evt, size_t *evt_count)
+{
+	bool handled = true;
+
+	uint64_t args = (uint64_t) gi->ullArguments;
+	uint32_t args32_lo = args & (uint64_t) 0xffffffff;
+	// uint32_t args32_hi = ((uint32_t) (args >> 32)) & 0xffffffff;
+
+	uint64_t args_prev = (uint64_t) gi_prev->ullArguments;
+	uint32_t args32_lo_prev = args_prev & (uint64_t) 0xffffffff;
+	// uint32_t args32_hi_prev = ((uint32_t) (args_prev >> 32)) & 0xffffffff;
+
+	const bool begin = gi->dwFlags & GF_BEGIN;
+	const bool inertia = gi->dwFlags & GF_INERTIA;
+	const bool end = gi->dwFlags & GF_END;
+
+	POINT ptTransformed = { gi->ptsLocation.x, gi->ptsLocation.y };
+	ScreenToClient(hwnd, &ptTransformed);
+
+	POINT ptTransformed_prev = { gi_prev->ptsLocation.x, gi_prev->ptsLocation.y };
+	ScreenToClient(hwnd, &ptTransformed_prev);
+
+	// XXX: SHOULD BE CONFIGURED
+	const int32_t pan_scale = 3;
+
+	char *gid_str = NULL;
+	const char *args_str = NULL;
+
+	// XXX: Handle reverse scroll direction setting from user for panning
+
+	switch (gi->dwID) {
+		case GID_PAN: {
+			gid_str = "pan";
+			args_str = MTY_SprintfDL("%u ", args32_lo);
+
+			if (!begin) {
+				*evt_count = 1;
+
+				translate_gesture_pan(&ptTransformed, &ptTransformed_prev, pan_scale, true, false, evt);
+			}
+
+			break;
+		}
+		case GID_ZOOM: {
+			gid_str = "zom";
+			args_str = MTY_SprintfDL("%u ", args32_lo);
+
+			size_t i = 0;
+
+			if (begin) {
+				MTY_Event *evt_ctrl = evt + i++;
+
+				evt_ctrl->type = MTY_EVENT_KEY;
+				evt_ctrl->key.key = MTY_KEY_LCTRL;
+				evt_ctrl->key.mod = MTY_MOD_LCTRL;
+				evt_ctrl->key.pressed = true;
+
+			} else {
+				MTY_Event *evt_scroll = evt + i++;
+
+				int32_t dt_dist = (int32_t) args32_lo - (int32_t) args32_lo_prev;
+				evt_scroll->type = MTY_EVENT_SCROLL;
+				evt_scroll->scroll.x = 0;
+				evt_scroll->scroll.y = dt_dist;
+				evt_scroll->scroll.pixels = true;
+
+				if (end) {
+					MTY_Event *evt_button = evt + i++;
+
+					evt_button->type = MTY_EVENT_BUTTON;
+					evt_button->button.button = MTY_BUTTON_LEFT;
+					evt_button->button.x = ptTransformed.x;
+					evt_button->button.y = ptTransformed.y;
+					evt_button->button.pressed = true;
+
+					MTY_Event *evt_ctrl = evt + i++;
+
+					evt_ctrl->type = MTY_EVENT_KEY;
+					evt_ctrl->key.key = MTY_KEY_LCTRL;
+					evt_ctrl->key.mod = 0;
+					evt_ctrl->key.pressed = false;
+				}
+			}
+
+			*evt_count = i;
+
+			break;
+		}
+		case GID_TWOFINGERTAP: {
+			gid_str = "2tp";
+			args_str = MTY_SprintfDL("%lu ", args32_lo);
+
+			*evt_count = 2;
+
+			evt[0].type = MTY_EVENT_BUTTON;
+			evt[0].button.button = MTY_BUTTON_RIGHT;
+			evt[0].button.x = ptTransformed.x;
+			evt[0].button.y = ptTransformed.y;
+			evt[0].button.pressed = true;
+
+			evt[1] = evt[0];
+			evt[1].button.pressed = false;
+
+			break;
+		}
+		default:
+			handled = false;
+			break;
+	}
+
+	if (handled)
+		printf("----Gesture: [%u][%u] %c %s %sc(%d, %d) s(%d, %d)\n",
+			gi->dwInstanceID,
+			gi->dwSequenceID,
+			begin ? 'B' : inertia ? 'I' : end ? 'E' : '.',
+			gid_str,
+			args_str,
+			ptTransformed.x,
+			ptTransformed.y,
+			gi->ptsLocation.x,
+			gi->ptsLocation.y
+		);
+
+	return handled;
+}
+
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	MTY_App *app = ctx->app;
@@ -771,6 +930,78 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			defreturn = true;
 			break;
+
+		case WM_GESTURE: {
+			bool handled = false;
+
+			HGESTUREINFO hgi = (HGESTUREINFO) lparam;
+
+			GESTUREINFO gi = { .cbSize = sizeof(GESTUREINFO) };
+			if (GetGestureInfo(hgi, &gi)) {
+				if (ctx->hwnd == gi.hwndTarget) {
+					if (gi.dwID != GID_BEGIN && gi.dwID != GID_END) {
+							memset(ctx->gesture_mty_events_output, 0, sizeof(ctx->gesture_mty_events_output));
+
+							handled = translate_gesture_to_mty_event(ctx->hwnd, &gi, &ctx->gesture_prev, ctx->gesture_mty_events_output, &ctx->gesture_mty_events_output_count);
+
+							ctx->gesture_prev = gi;
+					}
+				}
+			}
+
+			if (handled) {
+				r = TRUE;
+				CloseGestureInfoHandle(hgi);
+			}
+
+			break;
+		}
+		case WM_TOUCH: {
+			bool handled = false;
+
+			HTOUCHINPUT hti = (HTOUCHINPUT) lparam;
+			UINT touch_inputs_count = MTY_MIN(LOWORD(wparam), WINDOW_MAX_TOUCH_INPUTS);
+
+			memset(ctx->touch_inputs, 0, sizeof(ctx->touch_inputs));
+
+			if (GetTouchInputInfo(hti, touch_inputs_count, ctx->touch_inputs, sizeof(TOUCHINPUT))) {
+				// Process touch inputs
+				printf("\n----Touch inputs:");
+
+				for (UINT i = 0; i < touch_inputs_count; i++) {
+					const PTOUCHINPUT ti = ctx->touch_inputs + i;
+
+					if (ti->dwFlags & TOUCHEVENTF_PEN)
+						continue;
+
+					handled = true;
+
+					// Mandatory fields
+					printf("\n\t%c%u) [%u] (%ld, %ld)", ti->dwFlags & TOUCHEVENTF_PRIMARY ? '*' : 0x20, i, ti->dwID, ti->x, ti->y);
+
+					// Flag fields
+					printf(" %s nocoalesce: %d palm: %d pen: %d",
+						ti->dwFlags & TOUCHEVENTF_MOVE ? "+" : ti->dwFlags & TOUCHEVENTF_UP ? "^" : ti->dwFlags & TOUCHEVENTF_DOWN ? "v" : "_",
+						ti->dwFlags & TOUCHEVENTF_NOCOALESCE,
+						ti->dwFlags & TOUCHEVENTF_PALM,
+						ti->dwFlags & TOUCHEVENTF_PEN
+					);
+
+					// Optional fields
+					if (ti->dwMask & TOUCHINPUTMASKF_CONTACTAREA)
+						printf(" c(%u, %u)", ti->cxContact, ti->cyContact);
+					if (ti->dwMask & TOUCHINPUTMASKF_TIMEFROMSYSTEM)
+						printf(" t %u", ti->dwTime);
+					printf("\n");
+				}
+			}
+
+			if (handled) {
+				r = TRUE;
+				CloseTouchInputHandle(hti);
+			}
+			break;
+		}
 		case WM_HOTKEY:
 			if (!app->ghk_disabled) {
 				evt.type = MTY_EVENT_HOTKEY;
@@ -869,6 +1100,16 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		if (!defreturn)
 			return creturn ? r : 0;
 	}
+
+	// Process the gesture events, if any
+	for (size_t i = 0; i < ctx->gesture_mty_events_output_count; i++) {
+		MTY_Event *ev = ctx->gesture_mty_events_output + i;
+
+		ev->window = ctx->window;
+
+		app->event_func(ev, app->opaque);
+	}
+	memset(ctx->gesture_mty_events_output, 0, sizeof(ctx->gesture_mty_events_output));
 
 	return creturn ? r : DefWindowProc(hwnd, msg, wparam, lparam);
 }
@@ -1726,6 +1967,55 @@ static void window_set_placement(MTY_App *app, HMONITOR mon, HWND hwnd, const MT
 	SetWindowPlacement(hwnd, &p);
 }
 
+static void window_query_touch_capabilities(struct window *ctx)
+{
+	int32_t r = GetSystemMetrics(SM_DIGITIZER);
+
+	if (!r) {
+		ctx->touch_support = WINDOW_TOUCH_UNSUPPORTED;
+
+		printf("\nTouch Input is NOT supported on this device.\n\n");
+		return;
+	}
+
+	bool touch_internal = r & NID_INTEGRATED_TOUCH;
+	bool touch_external = r & NID_EXTERNAL_TOUCH;
+	bool pen_internal  = r & NID_INTEGRATED_PEN;
+	bool pen_external = r & NID_EXTERNAL_PEN;
+	bool multi = r & NID_MULTI_INPUT;
+	bool ready = r & NID_READY;
+
+	int32_t support = ready ? WINDOW_TOUCH_SUPPORTED : WINDOW_TOUCH_UNSUPPORTED;
+
+	if (ready) {
+		support |= touch_internal ? WINDOW_TOUCH_TOUCH_INTERNAL : 0;
+		support |= touch_external ? WINDOW_TOUCH_TOUCH_EXTERNAL : 0;
+		support |= pen_internal ? WINDOW_TOUCH_PEN_INTERNAL : 0;
+		support |= pen_external ? WINDOW_TOUCH_PEN_EXTERNAL : 0;
+		support |= multi ? WINDOW_TOUCH_MULTI_INPUT : 0;
+	}
+
+	ctx->touch_support = support;
+
+	printf(
+		"\nTouch Input support = 0x%X"
+			"\n\tIntegrated Touch: %u"
+			"\n\t  External Touch: %u"
+			"\n\t  Integrated Pen: %u"
+			"\n\t    External Pen: %u"
+			"\n\t     Multi-Input: %u"
+			"\n\t           Ready: %u"
+			"\n",
+		ctx->touch_support,
+		touch_internal,
+		touch_external,
+		pen_internal,
+		pen_external,
+		multi,
+		ready
+	);
+}
+
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *frame, MTY_Window index)
 {
 	MTY_Window window = -1;
@@ -1796,6 +2086,8 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 		SetForegroundWindow(ctx->hwnd);
 
 	DragAcceptFiles(ctx->hwnd, TRUE);
+
+	window_query_touch_capabilities(ctx);
 
 	if (window == 0) {
 		AddClipboardFormatListener(ctx->hwnd);

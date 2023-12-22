@@ -48,6 +48,10 @@ test: clean clear
 	$(CC) $(CFLAGS) -o $(BIN) src/$@.c $(LIBS)
 	@./mty
 
+3-touch: clean clear
+	$(CC) $(CFLAGS) -o $(BIN) src/$@.c $(LIBS)
+	@./mty
+
 clean:
 	@rm -f $(BIN)
 	@rm -rf test_dir

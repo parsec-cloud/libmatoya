@@ -53,6 +53,10 @@ test: clean clear
 	cl $(CFLAGS) /Fe:$(BIN) src\$@.c $(LIBS)
 	@mty
 
+3-touch: clean clear
+	cl $(CFLAGS) /Fe:$(BIN) src\$@.c $(LIBS)
+	@mty
+
 clean:
 	@-del /q $(BIN) 2>nul
 	@-del /q *.obj 2>nul

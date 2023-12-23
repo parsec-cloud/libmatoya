@@ -202,8 +202,10 @@ bool mty_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	// Begin render pass
 	MTLRenderPassDescriptor *rpd = [MTLRenderPassDescriptor new];
 	rpd.colorAttachments[0].texture = _dest;
-	rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
-	rpd.colorAttachments[0].loadAction = desc->layer == 0 ? MTLLoadActionClear : MTLLoadActionLoad;
+	if (desc->clear) {
+		rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
+		rpd.colorAttachments[0].loadAction = desc->layer == 0 ? MTLLoadActionClear : MTLLoadActionLoad;
+	}
 	rpd.colorAttachments[0].storeAction = MTLStoreActionStore;
 
 	id<MTLCommandBuffer> cb = [cq commandBuffer];
@@ -214,7 +216,7 @@ bool mty_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	float vpx, vpy, vpw, vph;
-	mty_viewport(desc, &vpx, &vpy, &vpw, &vph);
+	mty_viewport(desc, &vpx, &vpy, &vpw, &vph, false);
 
 	MTLViewport vp = {
 		.originX = vpx,

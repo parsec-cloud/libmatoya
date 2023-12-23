@@ -23,6 +23,7 @@ OBJS = \
 	src/app.o \
 	src/async.o \
 	src/crypto.o \
+	src/cursor.o \
 	src/dtls.o \
 	src/file.o \
 	src/hash.o \
@@ -38,6 +39,7 @@ OBJS = \
 	src/thread.o \
 	src/tlocal.o \
 	src/version.o \
+	src/zoom.o \
 	src/hid/utils.o \
 	src/unix/file.o \
 	src/unix/memory.o \

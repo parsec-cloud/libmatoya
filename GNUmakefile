@@ -123,6 +123,8 @@ ifdef STEAM
 WEBVIEW_OBJ = src/swebview.o
 else
 WEBVIEW_OBJ = src/unix/linux/x11/webview.o
+INCLUDES := $(INCLUDES) \
+	$(shell pkg-config --cflags --libs x11 gtk+-3.0 webkit2gtk-4.0)
 endif
 
 OBJS := $(OBJS) \

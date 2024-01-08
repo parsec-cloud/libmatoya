@@ -378,7 +378,8 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 			goto except;
 		}
 
-		res->width = desc.Width;
+		bool use_half_width = (desc.Format == DXGI_FORMAT_R16G16_UNORM || desc.Format == DXGI_FORMAT_R8G8_UNORM);
+		res->width = use_half_width ? (desc.Width / 2) : desc.Width;
 		res->height = desc.Height;
 		res->format = desc.Format;
 		res->was_hardware = true;

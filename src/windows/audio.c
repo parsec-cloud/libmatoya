@@ -234,13 +234,14 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 
 	// We must query extended data for greater than two channels
 	if (ctx->channels > 2) {
-		// TODO: Ideally, we always use audio_get_extended_format2, but splitting for now so as not to break PS5 stuff
-		if (ctx->channels_mask) {
-			e = audio_get_extended_format2(ctx->client, &pwfx);
+		// TODO: Ensure PS5 haptics works fine with this change. If yes just use this. Otherwise, bring back the commented out branch below
+		e = audio_get_extended_format2(ctx->client, &pwfx);
+		// if (ctx->channels_mask) {
+		// 	e = audio_get_extended_format2(ctx->client, &pwfx);
 
-		} else {
-			e = audio_get_extended_format(device, &pwfx);
-		}
+		// } else {
+		// 	e = audio_get_extended_format(device, &pwfx);
+		// }
 
 		if (e != S_OK)
 			goto except;

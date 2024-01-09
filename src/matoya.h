@@ -1442,6 +1442,11 @@ typedef struct MTY_Resampler MTY_Resampler;
 ///   before audio begins getting dropped. The queue will flush to zero, then begin
 ///   building back towards `minBuffer` again before playback resumes.
 /// @param channels Number of audio channels.
+/// @param channelsMask Bitmask defining the configuration of channels.
+///   Follows standard surround sound speaker ids (see
+///   https://en.wikipedia.org/wiki/Surround_sound#Standard_speaker_channels).
+///   If set to 0, then the implementation is free to assume whatever default that it desires.
+///   For `channels` > 2, specify this value correctly in order to yield accurate audio playback.
 /// @param deviceID Specify a specific audio device for playback, or NULL for the default
 ///   device. Windows only.
 /// @param fallback If `deviceID` is not NULL, set to true to fallback to the default device, or
@@ -1450,7 +1455,7 @@ typedef struct MTY_Resampler MTY_Resampler;
 ///   The returned MTY_Audio context must be destroyed with MTY_AudioDestroy.
 MTY_EXPORT MTY_Audio *
 MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	const char *deviceID, bool fallback);
+	uint32_t channelsMask, const char *deviceID, bool fallback);
 
 /// @brief Destroy an MTY_Audio context.
 /// @param audio Passed by reference and set to NULL after being destroyed.

@@ -29,7 +29,9 @@ struct MTY_Audio {
 	uint32_t sample_rate;
 	uint32_t min_buffer;
 	uint32_t max_buffer;
+	uint32_t channels_mask;
 	uint8_t channels;
+	WORD bytes_per_sample;
 	WCHAR *device_id;
 	UINT32 buffer_size;
 	IMMDeviceEnumerator *enumerator;
@@ -173,6 +175,26 @@ static HRESULT audio_get_extended_format(IMMDevice *device, WAVEFORMATEXTENSIBLE
 	return e;
 }
 
+static HRESULT audio_get_extended_format2(IAudioClient *client, WAVEFORMATEXTENSIBLE *pwfx)
+{
+	WAVEFORMATEXTENSIBLE *ptfx = NULL;
+
+	HRESULT e = IAudioClient_GetMixFormat(client, (WAVEFORMATEX **) &ptfx);
+	if (e != S_OK || !ptfx) {
+		MTY_Log("IAudioClient_GetMixFormat failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	*pwfx = *ptfx;
+
+	except:
+
+	if (ptfx)
+		CoTaskMemFree(ptfx);
+
+	return e;
+}
+
 static HRESULT audio_device_create(MTY_Audio *ctx)
 {
 	HRESULT e = S_OK;
@@ -212,19 +234,28 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 
 	// We must query extended data for greater than two channels
 	if (ctx->channels > 2) {
-		e = audio_get_extended_format(device, &pwfx);
+		// TODO: Ideally, we always use audio_get_extended_format2, but splitting for now so as not to break PS5 stuff
+		if (ctx->channels_mask) {
+			e = audio_get_extended_format2(ctx->client, &pwfx);
+
+		} else {
+			e = audio_get_extended_format(device, &pwfx);
+		}
+
 		if (e != S_OK)
 			goto except;
 	}
 
 	e = IAudioClient_Initialize(ctx->client, AUDCLNT_SHAREMODE_SHARED,
 		AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
-		AUDIO_BUFFER_SIZE, 0, &pwfx.Format, NULL);
+		AUDIO_BUFFER_SIZE, 0, (const WAVEFORMATEX *) &pwfx, NULL);
 
 	if (e != S_OK) {
 		MTY_Log("'IAudioClient_Initialize' failed with HRESULT 0x%X", e);
 		goto except;
 	}
+
+	ctx->bytes_per_sample = pwfx.Format.wBitsPerSample / 8;
 
 	e = IAudioClient_GetBufferSize(ctx->client, &ctx->buffer_size);
 	if (e != S_OK) {
@@ -250,10 +281,11 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 }
 
 MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	const char *deviceID, bool fallback)
+	uint32_t channelsMask, const char *deviceID, bool fallback)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 	ctx->sample_rate = sampleRate;
+	ctx->channels_mask = channelsMask;
 	ctx->channels = channels;
 	ctx->fallback = fallback;
 
@@ -420,7 +452,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		HRESULT e = IAudioRenderClient_GetBuffer(ctx->render, count, &buffer);
 
 		if (e == S_OK) {
-			memcpy(buffer, frames, count * ctx->channels * AUDIO_SAMPLE_SIZE);
+			memcpy(buffer, frames, count * ctx->channels * ctx->bytes_per_sample);
 			IAudioRenderClient_ReleaseBuffer(ctx->render, count, 0);
 		}
 

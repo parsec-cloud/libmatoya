@@ -200,7 +200,7 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	HRESULT e = S_OK;
 	IMMDevice *device = NULL;
 
-	if (ctx->device_id) {
+	if (ctx->device_id && ctx->device_id[0]) {
 		e = IMMDeviceEnumerator_GetDevice(ctx->enumerator, ctx->device_id, &device);
 
 		if (e != S_OK && !ctx->fallback) {

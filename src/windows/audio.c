@@ -14,23 +14,26 @@ DEFINE_GUID(IID_IMMDeviceEnumerator,   0xA95664D2, 0x9614, 0x4F35, 0xA7, 0x46, 0
 DEFINE_GUID(IID_IAudioClient,          0x1CB9AD4C, 0xDBFA, 0x4C32, 0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2);
 DEFINE_GUID(IID_IAudioRenderClient,    0xF294ACFC, 0x3146, 0x4483, 0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60, 0xE2);
 DEFINE_GUID(IID_IMMNotificationClient, 0x7991EEC9, 0x7E89, 0x4D85, 0x83, 0x90, 0x6C, 0x70, 0x3C, 0xEC, 0x60, 0xC0);
+DEFINE_GUID(OWN_KSDATAFORMAT_SUBTYPE_PCM, 0x00000001, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
+DEFINE_GUID(OWN_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, 0x00000003, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
 
 #define COBJMACROS
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 
-#define AUDIO_SAMPLE_SIZE sizeof(int16_t)
+#define AUDIO_SAMPLE_SIZE(fmt) ((fmt) == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t))
 #define AUDIO_BUFFER_SIZE ((1 * 1000 * 1000 * 1000) / 100) // 1 second
 
 struct MTY_Audio {
 	bool playing;
 	bool notification_init;
 	bool fallback;
+	MTY_AudioSampleFormat sample_format;
 	uint32_t sample_rate;
 	uint32_t min_buffer;
 	uint32_t max_buffer;
 	uint32_t channels_mask;
-	uint8_t channels;
+	uint32_t channels;
 	WORD bytes_per_sample;
 	WCHAR *device_id;
 	UINT32 buffer_size;
@@ -223,28 +226,33 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 		goto except;
 	}
 
+	WORD sample_size = AUDIO_SAMPLE_SIZE(ctx->sample_format);
+
 	WAVEFORMATEXTENSIBLE pwfx = {
 		.Format.wFormatTag = WAVE_FORMAT_PCM,
-		.Format.nChannels = ctx->channels,
+		.Format.nChannels = (WORD) ctx->channels,
 		.Format.nSamplesPerSec = ctx->sample_rate,
-		.Format.wBitsPerSample = AUDIO_SAMPLE_SIZE * 8,
-		.Format.nBlockAlign = ctx->channels * AUDIO_SAMPLE_SIZE,
-		.Format.nAvgBytesPerSec = ctx->sample_rate * ctx->channels * AUDIO_SAMPLE_SIZE,
+		.Format.wBitsPerSample = sample_size * 8,
+		.Format.nBlockAlign = (WORD) ctx->channels * sample_size,
+		.Format.nAvgBytesPerSec = ctx->sample_rate * ctx->channels * sample_size,
 	};
 
-	// We must query extended data for greater than two channels
-	if (ctx->channels > 2) {
-		// TODO: Ensure PS5 haptics works fine with this change. If yes just use this. Otherwise, bring back the commented out branch below
-		e = audio_get_extended_format2(ctx->client, &pwfx);
-		// if (ctx->channels_mask) {
-		// 	e = audio_get_extended_format2(ctx->client, &pwfx);
+	// TODO: This is a bit of a hacky thing to make PS5 haptics work...clean it up!
+	if (ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_UNKNOWN) {
+		// We must query extended data for greater than two channels
+		if (ctx->channels > 2) {
+			e = audio_get_extended_format(device, &pwfx);
+			if (e != S_OK)
+				goto except;
+		}
 
-		// } else {
-		// 	e = audio_get_extended_format(device, &pwfx);
-		// }
+	} else if (ctx->channels > 2 || (ctx->channels_mask && ctx->channels_mask != KSAUDIO_SPEAKER_STEREO) || ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT) {
+		pwfx.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+		pwfx.Format.cbSize = 22;
 
-		if (e != S_OK)
-			goto except;
+		pwfx.Samples.wValidBitsPerSample = pwfx.Format.wBitsPerSample;
+		pwfx.dwChannelMask = ctx->channels_mask;
+		pwfx.SubFormat = ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? OWN_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT : OWN_KSDATAFORMAT_SUBTYPE_PCM;
 	}
 
 	e = IAudioClient_Initialize(ctx->client, AUDCLNT_SHAREMODE_SHARED,
@@ -281,16 +289,17 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	return e;
 }
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	uint32_t channelsMask, const char *deviceID, bool fallback)
+MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
+	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->sample_rate = sampleRate;
-	ctx->channels_mask = channelsMask;
-	ctx->channels = channels;
+	ctx->sample_format = format->sampleFormat;
+	ctx->sample_rate = format->sampleRate;
+	ctx->channels_mask = format->channelsMask;
+	ctx->channels = format->channels;
 	ctx->fallback = fallback;
 
-	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
+	uint32_t frames_per_ms = lrint((float) format->sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * frames_per_ms;
 	ctx->max_buffer = maxBuffer * frames_per_ms;
 

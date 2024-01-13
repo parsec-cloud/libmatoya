@@ -60,18 +60,16 @@ static aaudio_data_callback_result_t audio_callback(AAudioStream *stream, void *
 	return AAUDIO_CALLBACK_RESULT_CONTINUE;
 }
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	uint32_t channelsMask, const char *deviceID, bool fallback)
+MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
+	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
-	channelsMask;
-
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->channels = channels;
-	ctx->sample_rate = sampleRate;
+	ctx->channels = format->channels;
+	ctx->sample_rate = format->sampleRate;
 	ctx->mutex = MTY_MutexCreate();
 	ctx->buffer = MTY_Alloc(AUDIO_BUF_SIZE(ctx), 1);
 
-	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
+	uint32_t frames_per_ms = lrint((float) format->sample_rate / 1000.0f);
 	ctx->min_buffer = minBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE;
 	ctx->max_buffer = maxBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE;
 

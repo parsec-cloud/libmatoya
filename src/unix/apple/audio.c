@@ -31,27 +31,26 @@ static void audio_queue_callback(void *opaque, AudioQueueRef q, AudioQueueBuffer
 	buf->mAudioDataByteSize = 0;
 }
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	uint32_t channelsMask, const char *deviceID, bool fallback)
+MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format_in, uint32_t minBuffer, uint32_t maxBuffer,
+	const char *deviceID, bool fallback)
 {
-	channelsMask; // XXX: To be implemented
-
 	// TODO Should this use the current run loop rather than internal threading?
 
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->sample_rate = sampleRate;
-	ctx->channels = channels;
+	ctx->sample_rate = format_in->sampleRate;
+	ctx->channels = format_in->channels;
 
-	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
+	uint32_t frames_per_ms = lrint((float) format_in->sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * frames_per_ms;
 	ctx->max_buffer = maxBuffer * frames_per_ms;
 
+	// TODO: Need to handle all the supported possibles of MTY_AudioFormat, such as 32-bit float data, more than 2 channels, etc.
 	AudioStreamBasicDescription format = {0};
-	format.mSampleRate = sampleRate;
+	format.mSampleRate = format_in->sampleRate;
 	format.mFormatID = kAudioFormatLinearPCM;
 	format.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
 	format.mFramesPerPacket = 1;
-	format.mChannelsPerFrame = channels;
+	format.mChannelsPerFrame = format_in->channels;
 	format.mBitsPerChannel = AUDIO_SAMPLE_SIZE * 8;
 	format.mBytesPerPacket = AUDIO_SAMPLE_SIZE * format.mChannelsPerFrame;
 	format.mBytesPerFrame = format.mBytesPerPacket;

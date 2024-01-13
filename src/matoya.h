@@ -1427,26 +1427,41 @@ MTY_WaitPtr(int32_t *sync);
 
 //- #module Audio
 //- #mbrief Simple audio playback and resampling.
-//- #mdetails This is a very minimal interface that assumes 2-channel, 16-bit signed PCM
+//- #mdetails This is a very minimal interface that supports multi-channel PCM audio
 //-   submitted by pushing to a queue. This module also includes a straightforward
-//-   resampler.
+//-   resampler for 2-channel, 16-bit signed PCM audio.
 
 typedef struct MTY_Audio MTY_Audio;
 typedef struct MTY_Resampler MTY_Resampler;
 
+/// @brief Audio sample formats. Currently only PCM formats.
+typedef enum {
+	MTY_AUDIO_SAMPLE_FORMAT_UNKNOWN = 0, ///< Unknown sample format.
+	MTY_AUDIO_SAMPLE_FORMAT_FLOAT   = 1, ///< 32-bit floating point.
+	MTY_AUDIO_SAMPLE_FORMAT_INT16   = 2, ///< 16-bit signed integer.
+} MTY_AudioSampleFormat;
+
+/// @brief Format description for an audio device.
+typedef struct {
+	MTY_AudioSampleFormat sampleFormat; ///< Format of audio samples.
+	uint32_t sampleRate;                ///< Number of audio samples per second. Usually set to 48000.
+	uint32_t channels;                  ///< Number of audio channels.
+	uint32_t channelsMask;              ///< Opaque bitmask that defines which channels are present in the audio data.
+	                                    ///< Follows standard surround sound speaker ids (see
+	                                    ///<   https://en.wikipedia.org/wiki/Surround_sound#Standard_speaker_channels).
+	                                    ///<   For `channels` > 2, specify this value correctly in order
+	                                    ///<   to yield accurate audio playback.
+} MTY_AudioFormat;
+
 /// @brief Create an MTY_Audio context for playback.
-/// @param sampleRate Audio sample rate in KHz.
+/// @param format Format that the audio device will attempt to initialize. If the
+///   provided format is supported, the function will fail and return NULL.
+///   This parameter is a required argument and MUST NOT be NULL.
 /// @param minBuffer The minimum amount of audio in milliseconds that must be queued
 ///   before playback begins.
 /// @param maxBuffer The maximum amount of audio in milliseconds that can be queued
 ///   before audio begins getting dropped. The queue will flush to zero, then begin
 ///   building back towards `minBuffer` again before playback resumes.
-/// @param channels Number of audio channels.
-/// @param channelsMask Bitmask defining the configuration of channels.
-///   Follows standard surround sound speaker ids (see
-///   https://en.wikipedia.org/wiki/Surround_sound#Standard_speaker_channels).
-///   If set to 0, then the implementation is free to assume whatever default that it desires.
-///   For `channels` > 2, specify this value correctly in order to yield accurate audio playback.
 /// @param deviceID Specify a specific audio device for playback, or NULL for the default
 ///   device. Windows only.
 /// @param fallback If `deviceID` is not NULL, set to true to fallback to the default device, or
@@ -1454,8 +1469,7 @@ typedef struct MTY_Resampler MTY_Resampler;
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_Audio context must be destroyed with MTY_AudioDestroy.
 MTY_EXPORT MTY_Audio *
-MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	uint32_t channelsMask, const char *deviceID, bool fallback);
+MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer, uint32_t maxBuffer, const char *deviceID, bool fallback);
 
 /// @brief Destroy an MTY_Audio context.
 /// @param audio Passed by reference and set to NULL after being destroyed.
@@ -1477,11 +1491,12 @@ MTY_AudioGetQueued(MTY_Audio *ctx);
 
 /// @brief Queue 16-bit signed PCM audio for playback.
 /// @param ctx An MTY_Audio context.
-/// @param frames Buffer containing 16-bit signed PCM audio frames. The number of audio channels
-///   is specified during MTY_AudioCreate. In the case of 2-channel PCM, one audio frame is two
-///   samples, each sample being one channel.
+/// @param frames Buffer containing PCM audio frames as per the format (channels, sample rate, etc)
+///   that was specified during MTY_AudioCreate. A frame is an interleaving of 1 sample per channel.
+///   For example, in the case of 2-channel/stereo audio, one audio frame is two samples, each
+///   sample being one channel.
 /// @param count The number of frames contained in `frames`. The number of frames would
-///   be the size of `frames` in bytes divided by 2 * `channels` specified during MTY_AudioCreate.
+///   be the size of `frames` in bytes divided by sample size * `channels` specified during MTY_AudioCreate.
 MTY_EXPORT void
 MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count);
 

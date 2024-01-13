@@ -26,19 +26,17 @@ struct MTY_Audio {
 	size_t pos;
 };
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	uint32_t channelsMask, const char *deviceID, bool fallback)
+MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
+	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
-	channelsMask;
-
 	if (!libasound_global_init())
 		return NULL;
 
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->sample_rate = sampleRate;
-	ctx->channels = channels;
+	ctx->sample_rate = format->sampleRate;
+	ctx->channels = format->channels;
 
-	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
+	uint32_t frames_per_ms = lrint((float) format->sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * frames_per_ms;
 	ctx->max_buffer = maxBuffer * frames_per_ms;
 
@@ -57,8 +55,8 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 
 	snd_pcm_hw_params_set_access(ctx->pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
 	snd_pcm_hw_params_set_format(ctx->pcm, params, SND_PCM_FORMAT_S16);
-	snd_pcm_hw_params_set_channels(ctx->pcm, params, channels);
-	snd_pcm_hw_params_set_rate(ctx->pcm, params, sampleRate, 0);
+	snd_pcm_hw_params_set_channels(ctx->pcm, params, format->channels);
+	snd_pcm_hw_params_set_rate(ctx->pcm, params, format->sampleRate, 0);
 	snd_pcm_hw_params(ctx->pcm, params);
 	snd_pcm_nonblock(ctx->pcm, 1);
 

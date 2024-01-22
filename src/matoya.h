@@ -1436,7 +1436,6 @@ typedef struct MTY_Resampler MTY_Resampler;
 
 /// @brief Audio sample formats. Currently only PCM formats.
 typedef enum {
-	MTY_AUDIO_SAMPLE_FORMAT_UNKNOWN = 0, ///< Unknown sample format.
 	MTY_AUDIO_SAMPLE_FORMAT_FLOAT   = 1, ///< 32-bit floating point.
 	MTY_AUDIO_SAMPLE_FORMAT_INT16   = 2, ///< 16-bit signed integer.
 } MTY_AudioSampleFormat;

@@ -237,22 +237,20 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 		.Format.nAvgBytesPerSec = ctx->sample_rate * ctx->channels * sample_size,
 	};
 
-	// TODO: This is a bit of a hacky thing to make PS5 haptics work...clean it up!
-	if (ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_UNKNOWN) {
-		// We must query extended data for greater than two channels
-		if (ctx->channels > 2) {
+	if (ctx->channels > 2) {
+		if (!ctx->channels_mask) {
 			e = audio_get_extended_format(device, &pwfx);
 			if (e != S_OK)
 				goto except;
+
+		} else {
+			pwfx.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+			pwfx.Format.cbSize = 22;
+
+			pwfx.Samples.wValidBitsPerSample = pwfx.Format.wBitsPerSample;
+			pwfx.dwChannelMask = ctx->channels_mask;
+			pwfx.SubFormat = ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? OWN_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT : OWN_KSDATAFORMAT_SUBTYPE_PCM;
 		}
-
-	} else if (ctx->channels > 2 || (ctx->channels_mask && ctx->channels_mask != KSAUDIO_SPEAKER_STEREO) || ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT) {
-		pwfx.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-		pwfx.Format.cbSize = 22;
-
-		pwfx.Samples.wValidBitsPerSample = pwfx.Format.wBitsPerSample;
-		pwfx.dwChannelMask = ctx->channels_mask;
-		pwfx.SubFormat = ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? OWN_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT : OWN_KSDATAFORMAT_SUBTYPE_PCM;
 	}
 
 	e = IAudioClient_Initialize(ctx->client, AUDCLNT_SHAREMODE_SHARED,

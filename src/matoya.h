@@ -856,12 +856,25 @@ MTY_AppSetPNGCursor(MTY_App *ctx, const void *image, size_t size, uint32_t hotX,
 
 /// @brief Use a cursor predefined by the OS.
 /// @details The cursor set via this function will take precedence over any set with
-///   MTY_AppSetPNGCursor.
+///   MTY_AppSetPNGCursor or MTY_AppSetRGBACursor.
 /// @param ctx The MTY_App.
 /// @param cursor The predefined cursor. Set MTY_CURSOR_NONE to revert the effects
 ///   of this function.
 MTY_EXPORT void
 MTY_AppSetCursor(MTY_App *ctx, MTY_Cursor cursor);
+
+/// @brief Set the cursor magnification scale for new cursors.
+/// @details On platforms that support cursor magnification, this tells
+///   libmatoya that whenever new cursors are set with MTY_AppSetRGBACursor or
+///   MTY_AppSetPNGCursor, the provided cursor bitmaps are assumed to be
+///   the specified width and height, rather than the pixel size of the buffer
+///   passed to the function.
+/// @param ctx The MTY_App.
+/// @param width The width that the cursor should be displayed at, in pixels
+/// @param height The height that the cursor should be displayed at, in pixels
+//- #support macOS
+MTY_EXPORT void
+MTY_AppSetCursorSize(MTY_App *ctx, uint32_t width, uint32_t height);
 
 /// @brief Show or hide the cursor.
 /// @param ctx The MTY_App.
@@ -1225,6 +1238,16 @@ MTY_WindowGetGFX(MTY_App *app, MTY_Window window);
 MTY_EXPORT bool
 MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync);
 
+/// @brief Set the number of vertical blanks to wait until presentation occurs.
+/// @details This function only works with MTY_GFX_D3D11 and MTY_GFX_D3D12.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param interval The number of vertical blanks after calling MTY_WindowPresent that
+///   presentation will occur, multiplied by 100.
+//- #support Windows
+MTY_EXPORT void
+MTY_WindowSetSyncInterval(MTY_App *app, MTY_Window window, uint32_t interval);
+
 /// @brief Get a list of available graphics APIs on the current OS.
 /// @param apis Array to receive the list of available graphics APIs. This buffer
 ///   should be MTY_GFX_MAX elements.
@@ -1486,6 +1509,32 @@ MTY_EXPORT void
 MTY_ResamplerReset(MTY_Resampler *ctx);
 
 
+//- #module Compression
+//- #mbrief Basic compression.
+//- #mdetails These functions are platform specific and any data compressed with
+//-   these functions should only be decompressed on the same platform.
+
+/// @brief Compress data with a balanced algorithm.
+/// @param input Uncompressed input buffer.
+/// @param inputSize Size in bytes of `input`.
+/// @param outputSize Set to the size in bytes of the returned compressed buffer.
+/// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
+///   The returned buffer must be destroyed with MTY_Free.
+MTY_EXPORT void *
+MTY_Compress(const void *input, size_t inputSize, size_t *outputSize);
+
+/// @brief Decompress data compressed with MTY_Compress.
+/// @details This function should only be called on the same platform that originally
+///   called MTY_Compress.
+/// @param input Compressed input buffer.
+/// @param inputSize Size in bytes of `input`.
+/// @param outputSize Set to the size in bytes of the returned decompressed buffer.
+/// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
+///   The returned buffer must be destroyed with MTY_Free.
+MTY_EXPORT void *
+MTY_Decompress(const void *input, size_t inputSize, size_t *outputSize);
+
+
 //- #module Crypto
 //- #mbrief Common cryptography tasks.
 
@@ -1700,7 +1749,7 @@ typedef struct {
 /// @brief Read the entire contents of a file.
 /// @details This function reads the file in binary mode.
 /// @param path Path to the file.
-/// @param size Set to the size in bytes of the returned buffer.
+/// @param size Set to the size in bytes of the returned buffer. May be NULL.
 /// @returns The buffer always has its final byte set to 0, allowing you to treat
 ///   it like a string. This extra byte is not counted in the returned `size`.\n\n
 ///   On failure, NULL is returned. Call MTY_GetLog for details.\n\n
@@ -1763,6 +1812,14 @@ MTY_Mkdir(const char *path);
 /// @returns This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_JoinPath(const char *path0, const char *path1);
+
+/// @brief Resolves a relative path into a full absolute path.
+/// @details This function expands all symbolic links and resolves references to
+///   `..` and `.`. It also removes extra delimiters.
+/// @param path The relative path.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
+MTY_EXPORT const char *
+MTY_ResolvePath(const char *path);
 
 /// @brief Copy a file.
 /// @param src Path to the source file.

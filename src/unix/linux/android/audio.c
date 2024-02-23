@@ -10,16 +10,17 @@
 
 #include <aaudio/AAudio.h>
 
-#define AUDIO_SAMPLE_SIZE sizeof(int16_t)
+#define AUDIO_SAMPLE_SIZE(fmt) ((fmt) == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t))
 
 #define AUDIO_BUF_SIZE(ctx) \
-	((ctx)->sample_rate * (ctx)->channels * AUDIO_SAMPLE_SIZE)
+	((ctx)->sample_rate * (ctx)->channels * AUDIO_SAMPLE_SIZE((ctx)->sample_format))
 
 struct MTY_Audio {
 	AAudioStreamBuilder *builder;
 	AAudioStream *stream;
 
 	MTY_Mutex *mutex;
+	MTY_AudioSampleFormat sample_format;
 	uint32_t sample_rate;
 	uint32_t min_buffer;
 	uint32_t max_buffer;
@@ -43,7 +44,7 @@ static aaudio_data_callback_result_t audio_callback(AAudioStream *stream, void *
 
 	MTY_MutexLock(ctx->mutex);
 
-	size_t want_size = numFrames * ctx->channels * AUDIO_SAMPLE_SIZE;
+	size_t want_size = numFrames * ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format);
 
 	if (ctx->playing && ctx->size >= want_size) {
 		memcpy(audioData, ctx->buffer, want_size);
@@ -65,13 +66,14 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 	ctx->channels = format->channels;
+	ctx->sample_format = format->sampleFormat;
 	ctx->sample_rate = format->sampleRate;
 	ctx->mutex = MTY_MutexCreate();
 	ctx->buffer = MTY_Alloc(AUDIO_BUF_SIZE(ctx), 1);
 
 	uint32_t frames_per_ms = lrint((float) format->sample_rate / 1000.0f);
-	ctx->min_buffer = minBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE;
-	ctx->max_buffer = maxBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE;
+	ctx->min_buffer = minBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE(format->sampleFormat);
+	ctx->max_buffer = maxBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE(format->sampleFormat);
 
 	return ctx;
 }
@@ -116,7 +118,7 @@ void MTY_AudioReset(MTY_Audio *ctx)
 
 uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 {
-	return (ctx->size / (ctx->channels * AUDIO_SAMPLE_SIZE)) / ctx->sample_rate * 1000;
+	return (ctx->size / (ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format))) / ctx->sample_rate * 1000;
 }
 
 static void audio_start(MTY_Audio *ctx)
@@ -126,7 +128,7 @@ static void audio_start(MTY_Audio *ctx)
 		AAudioStreamBuilder_setDeviceId(ctx->builder, AAUDIO_UNSPECIFIED);
 		AAudioStreamBuilder_setSampleRate(ctx->builder, ctx->sample_rate);
 		AAudioStreamBuilder_setChannelCount(ctx->builder, ctx->channels);
-		AAudioStreamBuilder_setFormat(ctx->builder, AAUDIO_FORMAT_PCM_I16);
+		AAudioStreamBuilder_setFormat(ctx->builder, ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? AAUDIO_FORMAT_PCM_FLOAT : AAUDIO_FORMAT_PCM_I16);
 		AAudioStreamBuilder_setPerformanceMode(ctx->builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
 		AAudioStreamBuilder_setErrorCallback(ctx->builder, audio_error, ctx);
 		AAudioStreamBuilder_setDataCallback(ctx->builder, audio_callback, ctx);
@@ -140,7 +142,7 @@ static void audio_start(MTY_Audio *ctx)
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t data_size = count * ctx->channels * AUDIO_SAMPLE_SIZE;
+	size_t data_size = count * ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format);
 
 	audio_start(ctx);
 

@@ -9,15 +9,16 @@
 
 #include "dl/libasound.h"
 
-#define AUDIO_SAMPLE_SIZE sizeof(int16_t)
+#define AUDIO_SAMPLE_SIZE(fmt) ((fmt) == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t))
 
 #define AUDIO_BUF_SIZE(ctx) \
-	((ctx)->sample_rate * (ctx)->channels * AUDIO_SAMPLE_SIZE)
+	((ctx)->sample_rate * (ctx)->channels * AUDIO_SAMPLE_SIZE((ctx)->sample_format))
 
 struct MTY_Audio {
 	snd_pcm_t *pcm;
 
 	bool playing;
+	MTY_AudioSampleFormat sample_format;
 	uint32_t sample_rate;
 	uint32_t min_buffer;
 	uint32_t max_buffer;
@@ -33,6 +34,7 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
 		return NULL;
 
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
+	ctx->sample_format = format->sampleFormat;
 	ctx->sample_rate = format->sampleRate;
 	ctx->channels = format->channels;
 
@@ -54,7 +56,7 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
 	snd_pcm_hw_params_any(ctx->pcm, params);
 
 	snd_pcm_hw_params_set_access(ctx->pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-	snd_pcm_hw_params_set_format(ctx->pcm, params, SND_PCM_FORMAT_S16);
+	snd_pcm_hw_params_set_format(ctx->pcm, params, format->sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? SND_PCM_FORMAT_FLOAT : SND_PCM_FORMAT_S16);
 	snd_pcm_hw_params_set_channels(ctx->pcm, params, format->channels);
 	snd_pcm_hw_params_set_rate(ctx->pcm, params, format->sampleRate, 0);
 	snd_pcm_hw_params(ctx->pcm, params);
@@ -87,7 +89,7 @@ void MTY_AudioDestroy(MTY_Audio **audio)
 
 static uint32_t audio_get_queued_frames(MTY_Audio *ctx)
 {
-	uint32_t queued = ctx->pos / (ctx->channels * AUDIO_SAMPLE_SIZE);
+	uint32_t queued = ctx->pos / (ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format));
 
 	if (ctx->playing) {
 		snd_pcm_status_t *status = NULL;
@@ -126,7 +128,7 @@ uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t size = count * ctx->channels * AUDIO_SAMPLE_SIZE;
+	size_t size = count * ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format);
 
 	uint32_t queued = audio_get_queued_frames(ctx);
 
@@ -135,7 +137,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		MTY_AudioReset(ctx);
 
 	if (ctx->pos + size <= AUDIO_BUF_SIZE(ctx)) {
-		memcpy(ctx->buf + ctx->pos, frames, count * ctx->channels * AUDIO_SAMPLE_SIZE);
+		memcpy(ctx->buf + ctx->pos, frames, count * ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format));
 		ctx->pos += size;
 	}
 
@@ -144,7 +146,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		audio_play(ctx);
 
 	if (ctx->playing) {
-		int32_t e = snd_pcm_writei(ctx->pcm, ctx->buf, ctx->pos / (ctx->channels * AUDIO_SAMPLE_SIZE));
+		int32_t e = snd_pcm_writei(ctx->pcm, ctx->buf, ctx->pos / (ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format)));
 
 		if (e >= 0) {
 			ctx->pos = 0;

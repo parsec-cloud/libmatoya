@@ -120,6 +120,14 @@ ifeq ($(UNAME_S), Linux)
 
 TARGET = linux
 
+ifndef ARCH
+ARCH = x86_64
+endif
+
+ifeq ($(ARCH), arm64)
+CC=aarch64-linux-gnu-gcc
+endif
+
 ifdef STEAM
 WEBVIEW_OBJ = src/swebview.o
 else

@@ -495,6 +495,15 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1mouse_1motion(JNIEnv *e
 	app_push_event(&CTX, &evt);
 }
 
+JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1mouse_1hover(JNIEnv *env, jobject obj,
+	jboolean hover)
+{
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_HOVER;
+	evt.hover = hover;
+	app_push_event(&CTX, &evt);
+}
+
 JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1generic_1scroll(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {

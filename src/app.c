@@ -559,6 +559,10 @@ void MTY_PrintEvent(const MTY_Event *evt)
 			"x: %d, y: %d, relative: %u, synth: %u",
 			evt->motion.x, evt->motion.y, evt->motion.relative, evt->motion.synth);
 
+		PEVENT(MTY_EVENT_HOVER, evt,
+			"hover: %u",
+			evt->hover);
+
 		PEVENT(MTY_EVENT_BUTTON, evt,
 			"x: %d, y: %d, button: %u, pressed: %u",
 			evt->button.x, evt->button.y, evt->button.button, evt->button.pressed);

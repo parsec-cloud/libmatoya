@@ -72,6 +72,7 @@ public class Matoya extends SurfaceView implements
 	native void app_scroll(float absX, float absY, float x, float y, int fingers);
 	native void app_check_scroller(boolean check);
 	native void app_mouse_motion(boolean relative, float x, float y);
+	native void app_mouse_hover(boolean hover);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_generic_scroll(float x, float y);
 	native void app_button(int deviceId, boolean pressed, int code);
@@ -346,6 +347,12 @@ public class Matoya extends SurfaceView implements
 			switch (event.getActionMasked()) {
 				case MotionEvent.ACTION_HOVER_MOVE:
 					app_mouse_motion(false, event.getX(0), event.getY(0));
+					return true;
+				case MotionEvent.ACTION_HOVER_ENTER:
+					app_mouse_hover(true);
+					return true;
+				case MotionEvent.ACTION_HOVER_EXIT:
+					app_mouse_hover(false);
 					return true;
 				case MotionEvent.ACTION_SCROLL:
 					app_generic_scroll(event.getAxisValue(MotionEvent.AXIS_HSCROLL), event.getAxisValue(MotionEvent.AXIS_VSCROLL));

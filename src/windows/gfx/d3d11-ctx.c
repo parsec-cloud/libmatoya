@@ -20,6 +20,8 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 
 #define D3D11_CTX_WAIT 2000
 
+#define D3D11_CTX_ERROR(ctx, e1, e2) ((ctx)->error_handler(e1, e2, (ctx)->error_handler_opaque))
+
 struct d3d11_ctx {
 	HWND hwnd;
 	struct sync sync;
@@ -33,6 +35,9 @@ struct d3d11_ctx {
 	IDXGISwapChain2 *swap_chain2;
 	HANDLE waitable;
 	UINT flags;
+
+	gfx_error_handler_func error_handler;
+	void *error_handler_opaque;
 };
 
 static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
@@ -193,6 +198,13 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	return e == S_OK;
 }
 
+int32_t mty_d3d11_error_handler_default(int32_t e1, int32_t e2, void *opaque)
+{
+	e1; e2; opaque;
+
+	return 0;
+}
+
 struct gfx_ctx *mty_d3d11_ctx_create(void *native_window, bool vsync)
 {
 	struct d3d11_ctx *ctx = MTY_Alloc(1, sizeof(struct d3d11_ctx));
@@ -202,6 +214,8 @@ struct gfx_ctx *mty_d3d11_ctx_create(void *native_window, bool vsync)
 		sync_set_interval(&ctx->sync, 100);
 
 	d3d11_ctx_get_size(ctx, &ctx->width, &ctx->height);
+
+	mty_d3d11_ctx_set_error_handler((struct gfx_ctx *) ctx, mty_d3d11_error_handler_default, NULL);
 
 	if (!d3d11_ctx_init(ctx))
 		mty_d3d11_ctx_destroy((struct gfx_ctx **) &ctx);
@@ -264,7 +278,12 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
 			d3d11_ctx_free(ctx);
-			d3d11_ctx_init(ctx);
+
+			int32_t retry = D3D11_CTX_ERROR(ctx, -1, e);
+			if (retry >= 0) {
+				MTY_Sleep((uint32_t) retry);
+				d3d11_ctx_init(ctx);
+			}
 		}
 	}
 }
@@ -288,8 +307,10 @@ MTY_Surface *mty_d3d11_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 		}
 
 		e = ID3D11Device_CreateRenderTargetView(ctx->device, resource, NULL, &ctx->back_buffer);
-		if (e != S_OK)
+		if (e != S_OK) {
 			MTY_Log("'ID3D11Device_CreateRenderTargetView' failed with HRESULT 0x%X", e);
+			goto except;
+		}
 	}
 
 	except:
@@ -336,7 +357,12 @@ void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx)
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_Present' failed with HRESULT 0x%X", e);
 			d3d11_ctx_free(ctx);
-			d3d11_ctx_init(ctx);
+
+			int32_t retry = D3D11_CTX_ERROR(ctx, -1, e);
+			if (retry >= 0) {
+				MTY_Sleep((uint32_t) retry);
+				d3d11_ctx_init(ctx);
+			}
 
 		} else {
 			DWORD we = WaitForSingleObjectEx(ctx->waitable, D3D11_CTX_WAIT, TRUE);
@@ -353,4 +379,12 @@ bool mty_d3d11_ctx_lock(struct gfx_ctx *gfx_ctx)
 
 void mty_d3d11_ctx_unlock(void)
 {
+}
+
+void mty_d3d11_ctx_set_error_handler(struct gfx_ctx *gfx_ctx, gfx_error_handler_func func, void *opaque)
+{
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
+	ctx->error_handler = func;
+	ctx->error_handler_opaque = opaque;
 }

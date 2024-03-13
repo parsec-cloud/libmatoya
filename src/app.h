@@ -22,6 +22,13 @@ struct window_common {
 	struct gfx *gfx[APP_GFX_LAYERS];
 	struct gfx_ui *gfx_ui;
 	struct gfx_ctx *gfx_ctx;
+
+	struct window_error_handling {
+		MTY_App *app;
+		MTY_Window window; // TODO THis is SOO ugly, refactor
+		MTY_WindowErrorFunc handler;
+		void *opaque;
+	} error_handling;
 };
 
 // App

@@ -292,6 +292,7 @@ MTY_Surface *mty_d3d11_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
+	HRESULT e = S_OK;
 	ID3D11Resource *resource = NULL;
 
 	if (!ctx->swap_chain2)
@@ -300,7 +301,7 @@ MTY_Surface *mty_d3d11_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 	if (!ctx->back_buffer) {
 		d3d11_ctx_refresh(ctx);
 
-		HRESULT e = IDXGISwapChain2_GetBuffer(ctx->swap_chain2, 0, &IID_ID3D11Resource, &resource);
+		e = IDXGISwapChain2_GetBuffer(ctx->swap_chain2, 0, &IID_ID3D11Resource, &resource);
 		if (e != S_OK) {
 			MTY_Log("'IDXGISwapChain2_GetBuffer' failed with HRESULT 0x%X", e);
 			goto except;
@@ -317,6 +318,13 @@ MTY_Surface *mty_d3d11_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 
 	if (resource)
 		ID3D11Resource_Release(resource);
+
+	if (e != S_OK) {
+		int32_t retry = D3D11_CTX_ERROR(ctx, -1, e);
+		if (retry >= 0) {
+			MTY_Sleep((uint32_t) retry);
+		}
+	}
 
 	return (MTY_Surface *) ctx->back_buffer;
 }

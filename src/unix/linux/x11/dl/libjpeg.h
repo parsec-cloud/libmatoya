@@ -247,8 +247,11 @@ static bool libjpeg_global_init(void)
 
 		LIBJPEG_SO = MTY_SOLoad("libjpeg.so.8");
 		if (!LIBJPEG_SO) {
-			r = false;
-			goto except;
+			LIBJPEG_SO = MTY_SOLoad("libjpeg.so");
+			if (!LIBJPEG_SO) {
+				r = false;
+				goto except;
+			}
 		}
 
 		LOAD_SYM(LIBJPEG_SO, jpeg_std_error);

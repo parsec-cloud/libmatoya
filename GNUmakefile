@@ -1,6 +1,9 @@
 UNAME_S = $(shell uname -s)
-ARCH = $(shell uname -m)
 NAME = libmatoya
+ifndef ARCH
+	ARCH = $(shell uname -m)
+endif
+
 
 .SUFFIXES: .vert .frag .fragvk .vertvk
 
@@ -124,8 +127,11 @@ ifndef ARCH
 ARCH = x86_64
 endif
 
+# Use arch-specific compiler
 ifeq ($(ARCH), arm64)
 CC=aarch64-linux-gnu-gcc
+else
+CC=x86_64-linux-gnu-gcc
 endif
 
 ifdef STEAM

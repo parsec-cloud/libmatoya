@@ -136,7 +136,7 @@ ARCH = x86_64
 endif
 
 # Use arch-specific compiler
-ifeq ($(ARCH), aarch64))
+ifeq ($(ARCH), aarch64)
 CC=aarch64-linux-gnu-gcc
 else
 CC=x86_64-linux-gnu-gcc

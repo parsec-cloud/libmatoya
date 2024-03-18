@@ -13,12 +13,12 @@ endif
 .frag.h:
 	@hexdump -ve '1/1 "0x%.2x,"' $< | (echo 'static const GLchar FRAG[]={' && cat && echo '0x00};') > $@
 
-ifeq ($(ARCH), $(filter $(ARCH),aarch64 arm64))
+ifeq ($(ARCH), aarch64)
 .vertvk.h:
-	@deps/bin/glslangValidator-arm64 -S vert -V --vn VERT $< -o $@
+	@deps/bin/glslangValidator-aarch64 -S vert -V --vn VERT $< -o $@
 
 .fragvk.h:
-	@deps/bin/glslangValidator-arm64 -S frag -V --vn FRAG $< -o $@
+	@deps/bin/glslangValidator-aarch64 -S frag -V --vn FRAG $< -o $@
 else
 .vertvk.h:
 	@deps/bin/glslangValidator -S vert -V --vn VERT $< -o $@
@@ -136,7 +136,7 @@ ARCH = x86_64
 endif
 
 # Use arch-specific compiler
-ifeq ($(ARCH), $(filter $(ARCH),aarch64 arm64))
+ifeq ($(ARCH), aarch64))
 CC=aarch64-linux-gnu-gcc
 else
 CC=x86_64-linux-gnu-gcc

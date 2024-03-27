@@ -725,3 +725,8 @@ void mty_vk_ctx_set_error_handler(struct gfx_ctx *gfx_ctx, gfx_error_handler_fun
 {
 	gfx_ctx; func; opaque;
 }
+
+int32_t mty_vk_ctx_get_error(struct gfx_ctx *gfx_ctx)
+{
+	return 0;
+}

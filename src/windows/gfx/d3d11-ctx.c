@@ -38,6 +38,7 @@ struct d3d11_ctx {
 
 	gfx_error_handler_func error_handler;
 	void *error_handler_opaque;
+	int32_t last_error;
 };
 
 static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
@@ -192,8 +193,12 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	if (device2)
 		IDXGIDevice2_Release(device2);
 
-	if (e != S_OK)
+	if (e != S_OK) {
+		D3D11_CTX_ERROR(ctx, -1, e);
 		d3d11_ctx_free(ctx);
+	}
+
+	ctx->last_error = e;
 
 	return e == S_OK;
 }
@@ -277,14 +282,13 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
-			d3d11_ctx_free(ctx);
+			D3D11_CTX_ERROR(ctx, -1, e);
 
-			int32_t retry = D3D11_CTX_ERROR(ctx, -1, e);
-			if (retry >= 0) {
-				MTY_Sleep((uint32_t) retry);
-				d3d11_ctx_init(ctx);
-			}
+			d3d11_ctx_free(ctx);
+			d3d11_ctx_init(ctx);
 		}
+
+		ctx->last_error = e;
 	}
 }
 
@@ -319,12 +323,10 @@ MTY_Surface *mty_d3d11_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 	if (resource)
 		ID3D11Resource_Release(resource);
 
-	if (e != S_OK) {
-		int32_t retry = D3D11_CTX_ERROR(ctx, -1, e);
-		if (retry >= 0) {
-			MTY_Sleep((uint32_t) retry);
-		}
-	}
+	if (e != S_OK)
+		D3D11_CTX_ERROR(ctx, -1, e);
+
+	ctx->last_error = e;
 
 	return (MTY_Surface *) ctx->back_buffer;
 }
@@ -364,19 +366,20 @@ void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx)
 
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_Present' failed with HRESULT 0x%X", e);
-			d3d11_ctx_free(ctx);
+			D3D11_CTX_ERROR(ctx, -1, e);
 
-			int32_t retry = D3D11_CTX_ERROR(ctx, -1, e);
-			if (retry >= 0) {
-				MTY_Sleep((uint32_t) retry);
-				d3d11_ctx_init(ctx);
-			}
+			d3d11_ctx_free(ctx);
+			d3d11_ctx_init(ctx);
 
 		} else {
 			DWORD we = WaitForSingleObjectEx(ctx->waitable, D3D11_CTX_WAIT, TRUE);
-			if (we != WAIT_OBJECT_0)
+			if (we != WAIT_OBJECT_0) {
 				MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
+				D3D11_CTX_ERROR(ctx, -1, (int32_t) we);
+			}
 		}
+
+		ctx->last_error = e;
 	}
 }
 
@@ -395,4 +398,10 @@ void mty_d3d11_ctx_set_error_handler(struct gfx_ctx *gfx_ctx, gfx_error_handler_
 
 	ctx->error_handler = func;
 	ctx->error_handler_opaque = opaque;
+}
+
+int32_t mty_d3d11_ctx_get_error(struct gfx_ctx *gfx_ctx)
+{
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+	return ctx->last_error;
 }

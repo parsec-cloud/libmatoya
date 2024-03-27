@@ -310,6 +310,18 @@ void MTY_WindowSetErrorHandler(MTY_App *app, MTY_Window window, MTY_WindowErrorF
 	GFX_CTX_API[cmn->api].set_error_handler(cmn->gfx_ctx, gfx_error_handler, cmn);
 }
 
+int32_t MTY_WindowGetError(MTY_App *app, MTY_Window window)
+{
+	struct window_common *cmn = mty_window_get_common(app, window);
+	if (!cmn || cmn->api == MTY_GFX_NONE)
+		return 0;
+
+	int32_t e = cmn->gfx_ctx ? GFX_CTX_API[cmn->api].get_error(cmn->gfx_ctx) : 0;
+	if (!e && cmn->gfx_ui)
+		e = GFX_UI_API[cmn->api].get_error(cmn->gfx_ui);
+	return e;
+}
+
 void MTY_WindowSetSyncInterval(MTY_App *app, MTY_Window window, uint32_t interval)
 {
 	struct window_common *cmn = mty_window_get_common(app, window);

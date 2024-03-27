@@ -513,3 +513,8 @@ void mty_d3d12_ctx_set_error_handler(struct gfx_ctx *gfx_ctx, gfx_error_handler_
 {
 	gfx_ctx; func; opaque;
 }
+
+int32_t mty_d3d12_ctx_get_error(struct gfx_ctx *gfx_ctx)
+{
+	return 0;
+}

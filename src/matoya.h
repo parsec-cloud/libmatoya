@@ -1064,6 +1064,9 @@ MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *frame, MTY_Wi
 MTY_EXPORT void
 MTY_WindowDestroy(MTY_App *app, MTY_Window window);
 
+MTY_EXPORT int32_t
+MTY_WindowGetError(MTY_App *app, MTY_Window window);
+
 MTY_EXPORT void
 MTY_WindowSetErrorHandler(MTY_App *app, MTY_Window window, MTY_WindowErrorFunc func, void *opaque);
 

@@ -20,6 +20,13 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 	MTY_AESGCM *ctx = MTY_Alloc(1, sizeof(MTY_AESGCM));
 	bool r = true;
 
+	size_t key_len = strlen(key);
+	if (key_len != 16 && key_len != 32) {
+		MTY_Log("invalid key length %zu", key_len);
+		r = false;
+		goto except;
+	}
+
 	NTSTATUS e = BCryptOpenAlgorithmProvider(&ctx->ahandle, BCRYPT_AES_ALGORITHM, NULL, 0);
 	if (e != STATUS_SUCCESS) {
 		MTY_Log("'BCryptOpenAlgorithmProvider' failed with error 0x%X", e);
@@ -35,7 +42,7 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 		goto except;
 	}
 
-	e = BCryptGenerateSymmetricKey(ctx->ahandle, &ctx->khandle, NULL, 0, (UCHAR *) key, 16, 0);
+	e = BCryptGenerateSymmetricKey(ctx->ahandle, &ctx->khandle, NULL, 0, (UCHAR *) key, (ULONG) key_len, 0);
 	if (e != STATUS_SUCCESS) {
 		MTY_Log("'BCryptGenerateSymmetricKey' failed with error 0x%X", e);
 		r = false;

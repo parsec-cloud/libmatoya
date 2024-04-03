@@ -40,8 +40,9 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 	ctx->gcm = mty_jni_static_obj(env, "javax/crypto/Cipher", "getInstance", "(Ljava/lang/String;)Ljavax/crypto/Cipher;", jalg);
 	mty_jni_retain(env, &ctx->gcm);
 
-	// 128 bit AES key
-	jbyteArray jkey = mty_jni_dup(env, key, 16);
+	// 128/256 bit AES key
+	size_t key_len = strlen(key);
+	jbyteArray jkey = mty_jni_dup(env, key, key_len);
 	jstring jalg_key = mty_jni_strdup(env, "AES");
 	ctx->key = mty_jni_new(env, "javax/crypto/spec/SecretKeySpec", "([BLjava/lang/String;)V", jkey, jalg_key);
 	mty_jni_retain(env, &ctx->key);

@@ -19,7 +19,26 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 	MTY_AESGCM *ctx = MTY_Alloc(1, sizeof(MTY_AESGCM));
 	bool r = true;
 
-	const EVP_CIPHER *cipher = EVP_aes_128_gcm();
+	size_t key_len = strlen(key);
+	const EVP_CIPHER *cipher = NULL;
+	switch (key_len) {
+		case 16:
+			cipher = EVP_aes_128_gcm();
+			break;
+		case 32:
+			cipher = EVP_aes_256_gcm();
+			break;
+		default:
+			MTY_Log("invalid key length %zu", key_len);
+			r = false;
+			goto except;
+	}
+
+	if (!cipher) {
+		MTY_Log("'EVP_aes_x_gcm' failed");
+		r = false;
+		goto except;
+	}
 
 	ctx->enc = EVP_CIPHER_CTX_new();
 	if (!ctx->enc) {

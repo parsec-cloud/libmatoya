@@ -29,8 +29,7 @@ struct gfx_ui;
 	void *wrap(api, create_texture)(struct gfx_ui *gfx_ui, MTY_Device *device, \
 		const void *rgba, uint32_t width, uint32_t height); \
 	void wrap(api, destroy_texture)(struct gfx_ui *gfx_ui, void **texture, \
-		MTY_Device *device); \
-	int32_t wrap(api, get_error)(struct gfx_ui *gfx_ui);
+		MTY_Device *device);
 
 #define GFX_UI_PROTOTYPES(api) \
 	GFX_UI_DECLARE_API(api, GFX_UI_PROTO)
@@ -42,5 +41,4 @@ struct gfx_ui;
 		mty##api##ui_render, \
 		mty##api##ui_create_texture, \
 		mty##api##ui_destroy_texture, \
-		mty##api##ui_get_error, \
 	},

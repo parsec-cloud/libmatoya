@@ -720,13 +720,3 @@ bool mty_vk_ctx_lock(struct gfx_ctx *gfx_ctx)
 void mty_vk_ctx_unlock(void)
 {
 }
-
-void mty_vk_ctx_set_error_handler(struct gfx_ctx *gfx_ctx, gfx_error_handler_func func, void *opaque)
-{
-	gfx_ctx; func; opaque;
-}
-
-int32_t mty_vk_ctx_get_error(struct gfx_ctx *gfx_ctx)
-{
-	return 0;
-}

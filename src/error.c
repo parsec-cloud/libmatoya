@@ -38,8 +38,6 @@ void error_local_push_error(MTY_Error error)
 	if (!Q)
 		return;
 
-	// TODO: Maybe don't push onto queue when error is 0?
-
 	MTY_Error *buf = MTY_QueueGetInputBuffer(Q);
 	if (buf) {
 		*buf = error;

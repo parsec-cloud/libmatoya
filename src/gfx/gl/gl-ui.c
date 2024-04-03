@@ -290,8 +290,3 @@ void mty_gl_ui_destroy(struct gfx_ui **gfx_ui, MTY_Device *device)
 	MTY_Free(ctx);
 	*gfx_ui = NULL;
 }
-
-int32_t mty_gl_ui_get_error(struct gfx_ui *gfx_ui)
-{
-	return 0;
-}

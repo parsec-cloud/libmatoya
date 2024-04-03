@@ -508,13 +508,3 @@ bool mty_d3d12_ctx_lock(struct gfx_ctx *gfx_ctx)
 void mty_d3d12_ctx_unlock(void)
 {
 }
-
-void mty_d3d12_ctx_set_error_handler(struct gfx_ctx *gfx_ctx, gfx_error_handler_func func, void *opaque)
-{
-	gfx_ctx; func; opaque;
-}
-
-int32_t mty_d3d12_ctx_get_error(struct gfx_ctx *gfx_ctx)
-{
-	return 0;
-}

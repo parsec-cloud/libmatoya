@@ -16,7 +16,7 @@
 
 MTY_Error MTY_ThreadGetError(MTY_Thread *ctx)
 {
-	ctx; // not used since errors are managed via tlocal state
+	// `ctx` is not used since errors are managed via tlocal state
 
 	MTY_Error e = MTY_ERROR_OK;
 	error_local_get_next_error(&e);

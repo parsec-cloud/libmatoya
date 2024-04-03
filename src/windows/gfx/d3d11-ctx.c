@@ -36,10 +36,6 @@ struct d3d11_ctx {
 	IDXGISwapChain2 *swap_chain2;
 	HANDLE waitable;
 	UINT flags;
-
-	gfx_error_handler_func error_handler;
-	void *error_handler_opaque;
-	int32_t last_error;
 };
 
 static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
@@ -219,8 +215,6 @@ struct gfx_ctx *mty_d3d11_ctx_create(void *native_window, bool vsync)
 
 	d3d11_ctx_get_size(ctx, &ctx->width, &ctx->height);
 
-	mty_d3d11_ctx_set_error_handler((struct gfx_ctx *) ctx, mty_d3d11_error_handler_default, NULL);
-
 	if (!d3d11_ctx_init(ctx))
 		mty_d3d11_ctx_destroy((struct gfx_ctx **) &ctx);
 
@@ -384,18 +378,4 @@ bool mty_d3d11_ctx_lock(struct gfx_ctx *gfx_ctx)
 
 void mty_d3d11_ctx_unlock(void)
 {
-}
-
-void mty_d3d11_ctx_set_error_handler(struct gfx_ctx *gfx_ctx, gfx_error_handler_func func, void *opaque)
-{
-	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
-
-	ctx->error_handler = func;
-	ctx->error_handler_opaque = opaque;
-}
-
-int32_t mty_d3d11_ctx_get_error(struct gfx_ctx *gfx_ctx)
-{
-	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
-	return ctx->last_error;
 }

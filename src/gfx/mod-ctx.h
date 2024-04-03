@@ -14,8 +14,6 @@
 
 struct gfx_ctx;
 
-typedef int32_t (*gfx_error_handler_func)(int32_t e1, int32_t e2, void *opaque);
-
 #define GFX_CTX_PROTO(api, name) mty##api##ctx_##name
 #define GFX_CTX_FP(api, name)    (*name)
 
@@ -29,9 +27,7 @@ typedef int32_t (*gfx_error_handler_func)(int32_t e1, int32_t e2, void *opaque);
 	MTY_Surface *wrap(api, get_surface)(struct gfx_ctx *gfx_ctx); \
 	void wrap(api, set_sync_interval)(struct gfx_ctx *gfx_ctx, uint32_t interval); \
 	bool wrap(api, lock)(struct gfx_ctx *gfx_ctx); \
-	void wrap(api, unlock)(void); \
-	void wrap(api, set_error_handler)(struct gfx_ctx *gfx_ctx, gfx_error_handler_func func, void *opaque); \
-	int32_t wrap(api, get_error)(struct gfx_ctx *gfx_ctx);
+	void wrap(api, unlock)(void);
 
 #define GFX_CTX_PROTOTYPES(api) \
 	GFX_CTX_DECLARE_API(api, GFX_CTX_PROTO)
@@ -48,6 +44,4 @@ typedef int32_t (*gfx_error_handler_func)(int32_t e1, int32_t e2, void *opaque);
 		mty##api##ctx_set_sync_interval, \
 		mty##api##ctx_lock, \
 		mty##api##ctx_unlock, \
-		mty##api##ctx_set_error_handler, \
-		mty##api##ctx_get_error, \
 	},

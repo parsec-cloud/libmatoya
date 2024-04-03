@@ -77,8 +77,6 @@ typedef bool (*MTY_MenuItemCheckedFunc)(void *opaque);
 typedef intptr_t (*MTY_WMsgFunc)(MTY_App *app, MTY_Window window, void *hwnd, uint32_t msg,
 	intptr_t wparam, uintptr_t lparam, bool *shouldReturn, void *opaque);
 
-typedef int32_t (*MTY_WindowErrorFunc)(MTY_App *app, MTY_Window window, int32_t error, int32_t internal_error, void *opaque);
-
 /// @brief Error codes indicating the current state of the platform.
 /// @details Warnings are positive, errors are negative, 0 (::MTY_ERROR_OK) means no error.
 typedef enum {
@@ -1074,9 +1072,6 @@ MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *frame, MTY_Wi
 /// @param window An MTY_Window.
 MTY_EXPORT void
 MTY_WindowDestroy(MTY_App *app, MTY_Window window);
-
-MTY_EXPORT void
-MTY_WindowSetErrorHandler(MTY_App *app, MTY_Window window, MTY_WindowErrorFunc func, void *opaque);
 
 /// @brief Get a window's current client area width and height.
 /// @param app The MTY_App.

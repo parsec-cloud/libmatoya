@@ -37,8 +37,6 @@ struct d3d11_ui {
 	ID3D11RasterizerState *rs;
 	ID3D11BlendState *bs;
 	ID3D11DepthStencilState *dss;
-
-	int32_t last_error;
 };
 
 struct d3d11_ui_cb {
@@ -477,10 +475,4 @@ void mty_d3d11_ui_destroy(struct gfx_ui **gfx_ui, MTY_Device *device)
 
 	MTY_Free(ctx);
 	*gfx_ui = NULL;
-}
-
-int32_t mty_d3d11_ui_get_error(struct gfx_ui *gfx_ui)
-{
-	struct d3d11_ui *ctx = (struct d3d11_ui *) gfx_ui;
-	return ctx->last_error;
 }

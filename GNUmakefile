@@ -24,6 +24,7 @@ OBJS = \
 	src/async.o \
 	src/crypto.o \
 	src/dtls.o \
+	src/error.o \
 	src/file.o \
 	src/hash.o \
 	src/http.o \

@@ -289,39 +289,6 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 	return cmn->gfx_ctx != NULL;
 }
 
-static int32_t gfx_error_handler(int32_t e1, int32_t e2, void *opaque)
-{
-	struct window_common *cmn = (struct window_common *) opaque;
-
-	return cmn->error_handling.handler(cmn->error_handling.app, cmn->error_handling.window, e1, e2, opaque);
-}
-
-void MTY_WindowSetErrorHandler(MTY_App *app, MTY_Window window, MTY_WindowErrorFunc func, void *opaque)
-{
-	struct window_common *cmn = mty_window_get_common(app, window);
-	if (!cmn || cmn->api == MTY_GFX_NONE)
-		return;
-
-	cmn->error_handling.app = app;
-	cmn->error_handling.window = window;
-	cmn->error_handling.handler = func;
-	cmn->error_handling.opaque = opaque;
-
-	GFX_CTX_API[cmn->api].set_error_handler(cmn->gfx_ctx, gfx_error_handler, cmn);
-}
-
-int32_t MTY_WindowGetError(MTY_App *app, MTY_Window window)
-{
-	struct window_common *cmn = mty_window_get_common(app, window);
-	if (!cmn || cmn->api == MTY_GFX_NONE)
-		return 0;
-
-	int32_t e = cmn->gfx_ctx ? GFX_CTX_API[cmn->api].get_error(cmn->gfx_ctx) : 0;
-	if (!e && cmn->gfx_ui)
-		e = GFX_UI_API[cmn->api].get_error(cmn->gfx_ui);
-	return e;
-}
-
 void MTY_WindowSetSyncInterval(MTY_App *app, MTY_Window window, uint32_t interval)
 {
 	struct window_common *cmn = mty_window_get_common(app, window);

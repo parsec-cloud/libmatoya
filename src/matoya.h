@@ -1636,7 +1636,7 @@ MTY_GetRandomUInt(uint32_t minVal, uint32_t maxVal);
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_AESGCM context must be destroyed with MTY_AESGCMDestroy.
 /// @param key The secret key to use for encryption. This buffer must be 16 or 32
-///   bytes, the size necessary for AES-128 or AES-256, respectively.
+///   bytes, the size necessary for AES-GCM-128 or AES-GCM-256, respectively.
 /// @param keySize Size in bytes of `key`. Must be 16 or 32.
 //- #support Windows macOS Android Linux
 MTY_EXPORT MTY_AESGCM *
@@ -1648,7 +1648,7 @@ MTY_AESGCMCreate(const void *key, size_t keySize);
 MTY_EXPORT void
 MTY_AESGCMDestroy(MTY_AESGCM **aesgcm);
 
-/// @brief Encrypt plain text with a nonce using AES-GCM-128/256 and output the GCM tag.
+/// @brief Encrypt plain text with a nonce using AES-GCM and output the GCM tag.
 /// @param ctx An MTY_AESGCM context.
 /// @param nonce A buffer used as salt during encryption. This buffer must be 12 bytes,
 ///   and it MUST be different for each call to this function using the same
@@ -1664,7 +1664,7 @@ MTY_EXPORT bool
 MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, size_t size,
 	void *tag, void *cipherText);
 
-/// @brief Decrypt cipher text with a nonce and GCM tag using AES-GCM-128/256.
+/// @brief Decrypt cipher text with a nonce and GCM tag using AES-GCM.
 /// @param ctx An MTY_AESGCM context.
 /// @param nonce This buffer must be 12 bytes and it must match the `nonce` used
 ///   during encryption.

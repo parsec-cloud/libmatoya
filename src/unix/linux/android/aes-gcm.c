@@ -29,7 +29,7 @@ struct MTY_AESGCM {
 	jbyteArray buf[AES_GCM_NUM_BUFS];
 };
 
-MTY_AESGCM *MTY_AESGCMCreate(const void *key)
+MTY_AESGCM *MTY_AESGCMCreate(const void *key, size_t keySize)
 {
 	MTY_AESGCM *ctx = MTY_Alloc(1, sizeof(MTY_AESGCM));
 
@@ -41,8 +41,7 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 	mty_jni_retain(env, &ctx->gcm);
 
 	// 128/256 bit AES key
-	size_t key_len = strlen(key);
-	jbyteArray jkey = mty_jni_dup(env, key, key_len);
+	jbyteArray jkey = mty_jni_dup(env, key, keySize);
 	jstring jalg_key = mty_jni_strdup(env, "AES");
 	ctx->key = mty_jni_new(env, "javax/crypto/spec/SecretKeySpec", "([BLjava/lang/String;)V", jkey, jalg_key);
 	mty_jni_retain(env, &ctx->key);

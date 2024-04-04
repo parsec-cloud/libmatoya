@@ -1632,14 +1632,15 @@ MTY_GetRandomBytes(void *buf, size_t size);
 MTY_EXPORT uint32_t
 MTY_GetRandomUInt(uint32_t minVal, uint32_t maxVal);
 
-/// @brief Create an MTY_AESGCM context for AES-GCM-128/256 encryption/decryption.
+/// @brief Create an MTY_AESGCM context for AES-GCM encryption/decryption.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_AESGCM context must be destroyed with MTY_AESGCMDestroy.
 /// @param key The secret key to use for encryption. This buffer must be 16 or 32
 ///   bytes, the size necessary for AES-128 or AES-256, respectively.
+/// @param keySize Size in bytes of `key`. Must be 16 or 32.
 //- #support Windows macOS Android Linux
 MTY_EXPORT MTY_AESGCM *
-MTY_AESGCMCreate(const void *key);
+MTY_AESGCMCreate(const void *key, size_t keySize);
 
 /// @brief Destroy an MTY_AESGCM context.
 /// @param aesgcm Passed by reference and set to NULL after being destroyed.

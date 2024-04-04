@@ -34,20 +34,12 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 	MTY_AESGCM *ctx = MTY_Alloc(1, sizeof(MTY_AESGCM));
 
 	size_t key_len = strlen(key);
-	uint32_t algo = kCCAlgorithmAES128;
-	switch (key_len) {
-		case 16:
-			break;
-		case 32:
-			algo = kCCAlgorithmAES256;
-			break;
-		default:
-			MTY_Log("invalid key length %zu", key_len);
-			e = kCCParamError;
-			goto except;
+	if (key_len != 16 && key_len != 32) {
+		MTY_Log("invalid key length %zu", key_len);
+		goto except;
 	}
 
-	CCCryptorStatus e = CCCryptorCreateWithMode(kCCEncrypt, kCCModeGCM, algo,
+	CCCryptorStatus e = CCCryptorCreateWithMode(kCCEncrypt, kCCModeGCM, kCCAlgorithmAES,
 		0, NULL, key, key_len, NULL, 0, 0, 0, &ctx->enc);
 	if (e != kCCSuccess) {
 		MTY_Log("'CCCryptoCreateWithMode' failed with error %d", e);

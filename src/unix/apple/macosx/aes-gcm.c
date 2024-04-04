@@ -31,13 +31,13 @@ struct MTY_AESGCM {
 
 MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 {
-	MTY_AESGCM *ctx = MTY_Alloc(1, sizeof(MTY_AESGCM));
-
 	size_t key_len = strlen(key);
 	if (key_len != 16 && key_len != 32) {
 		MTY_Log("invalid key length %zu", key_len);
-		goto except;
+		return NULL;
 	}
+
+	MTY_AESGCM *ctx = MTY_Alloc(1, sizeof(MTY_AESGCM));
 
 	CCCryptorStatus e = CCCryptorCreateWithMode(kCCEncrypt, kCCModeGCM, kCCAlgorithmAES,
 		0, NULL, key, key_len, NULL, 0, 0, 0, &ctx->enc);

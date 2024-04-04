@@ -46,7 +46,7 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 		goto except;
 	}
 
-	e = CCCryptorCreateWithMode(kCCDecrypt, kCCModeGCM, algo,
+	e = CCCryptorCreateWithMode(kCCDecrypt, kCCModeGCM, kCCAlgorithmAES,
 		0, NULL, key, key_len, NULL, 0, 0, 0, &ctx->dec);
 	if (e != kCCSuccess) {
 		MTY_Log("'CCCryptoCreateWithMode' failed with error %d", e);

@@ -339,7 +339,7 @@ struct MTY_AESGCM {
 
 MTY_AESGCM *MTY_AESGCMCreate(const void *key, size_t keySize)
 {
-	MTY_AESGCM *ctx = MTY_AllocAligned(sizeof(MTY_AESGCM), 16);
+	MTY_AESGCM *ctx = MTY_AllocAligned(sizeof(MTY_AESGCM), keySize);
 
 	aes_key_expansion(key, ctx->k);
 

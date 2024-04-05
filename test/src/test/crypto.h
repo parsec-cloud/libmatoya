@@ -16,7 +16,7 @@ static bool validate_aesgcm()
 	char *decrypted = calloc(1, strlen(plain) + 1);
 	char *tag1 = calloc(1, 16);
 
-	MTY_AESGCM *aes1 = MTY_AESGCMCreate(password1, false);
+	MTY_AESGCM *aes1 = MTY_AESGCMCreate(password1, 16);
 	test_cmp("MTY_AESGCMCreate", aes1 != NULL);
 	MTY_AESGCMEncrypt(aes1, nonce1, plain, strlen(plain), tag1, encrypted1);
 
@@ -48,20 +48,20 @@ static bool validate_aesgcm()
 
 	MTY_AESGCMDestroy(&aes1);
 
-	aes1 = MTY_AESGCMCreate(password2, false);
+	aes1 = MTY_AESGCMCreate(password2, 16);
 	MTY_AESGCMEncrypt(aes1, nonce1, plain, strlen(plain), tag1, encrypted2);
 	MTY_AESGCMDestroy(&aes1);
 	int32_t cmp_encr_1 = memcmp(encrypted1, encrypted2, strlen(plain));
 
 
-	aes1 = MTY_AESGCMCreate(password1, false);
+	aes1 = MTY_AESGCMCreate(password1, 16);
 	test_cmp("MTY_AESGCMCreate", aes1 != NULL);
 	MTY_AESGCMEncrypt(aes1, nonce2, plain, strlen(plain), tag1, encrypted3);
 	MTY_AESGCMDestroy(&aes1);
 	int32_t cmp_encr_2 = memcmp(encrypted1, encrypted3, strlen(plain));
 	int32_t cmp_encr_3 = memcmp(encrypted2, encrypted3, strlen(plain));
 
-	aes1 = MTY_AESGCMCreate(password1, false);
+	aes1 = MTY_AESGCMCreate(password1, 16);
 	MTY_AESGCMDecrypt(aes1, nonce1, encrypted1, strlen(plain), tag1, decrypted);
 	MTY_AESGCMDestroy(&aes1);
 	int32_t cmp_decr = strcmp(decrypted, plain);

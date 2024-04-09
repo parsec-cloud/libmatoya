@@ -65,14 +65,14 @@ char *mty_tlocal_strcpy(const char *str)
 	return local;
 }
 
-MTY_ThreadLocalState MTY_ThreadLocalOverrideSafe(void *buffer, size_t size)
+MTY_ThreadLocalState MTY_ThreadLocalOverrideSafe(void *buffer, uint64_t size)
 {
 	const MTY_ThreadLocalState old_state = TLOCAL_STATE;
 	TLOCAL_STATE = (MTY_ThreadLocalState) {.buffer = buffer, .size = size, .remaining = size};
 	return old_state;
 }
 
-MTY_ThreadLocalState MTY_ThreadLocalOverrideUnsafe(void *buffer, size_t size)
+MTY_ThreadLocalState MTY_ThreadLocalOverrideUnsafe(void *buffer, uint64_t size)
 {
 	const MTY_ThreadLocalState old_state = TLOCAL_STATE;
 	TLOCAL_STATE = (MTY_ThreadLocalState) {.buffer = buffer, .size = size, .remaining = ~0ULL};

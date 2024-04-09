@@ -3556,6 +3556,21 @@ MTY_RevertTimerResolution(uint32_t res);
 MTY_EXPORT uint32_t
 MTY_GetVersion(void);
 
+typedef struct MTY_ThreadLocalState {
+	uint8_t *buffer;
+	uint64_t size;
+	uint64_t offset;
+	uint64_t remaining;
+} MTY_ThreadLocalState;
+
+MTY_EXPORT MTY_ThreadLocalState 
+MTY_ThreadLocalOverrideSafe(void *buffer, uint64_t size);
+
+MTY_EXPORT MTY_ThreadLocalState 
+MTY_ThreadLocalOverrideUnsafe(void *buffer, uint64_t size);
+
+MTY_EXPORT void 
+MTY_ThreadLocalRestore(MTY_ThreadLocalState old_state);
 
 #ifdef __cplusplus
 }

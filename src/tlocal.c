@@ -10,37 +10,43 @@
 
 #define TLOCAL_MAX (8 * 1024)
 
-static TLOCAL uint8_t *TLOCAL_MEM;
-static TLOCAL size_t *TLOCAL_OFFSET;
-static TLOCAL size_t TLOCAL_SIZE;
-
-static TLOCAL uint8_t TLOCAL_MEM_INTERNAL[TLOCAL_MAX];
-static TLOCAL size_t TLOCAL_OFFSET_INTERNAL;
-static TLOCAL size_t TLOCAL_OFFSET_EXTERNAL;
+static TLOCAL MTY_ThreadLocalState TLOCAL_STATE;
+static TLOCAL uint8_t TLOCAL_BUFFER[TLOCAL_MAX];
 
 static void tlocal_check_mem(void)
 {
-	if (!TLOCAL_MEM) {
-		TLOCAL_MEM = TLOCAL_MEM_INTERNAL;
-		TLOCAL_OFFSET = &TLOCAL_OFFSET_INTERNAL;
-		TLOCAL_SIZE = TLOCAL_MAX;
-	}
+	if (TLOCAL_STATE.buffer)
+		return;
+	TLOCAL_STATE.buffer = TLOCAL_BUFFER;
+	TLOCAL_STATE.size = TLOCAL_MAX;
+	TLOCAL_STATE.remaining = ~0ULL;
+	TLOCAL_STATE.offset = 0;
+}
+
+static void mty_tlocal_consume_bytes(size_t bytes)
+{
+	if (TLOCAL_STATE.remaining < bytes)
+		MTY_LogFatal("Thread local storage safety error");
+	TLOCAL_STATE.remaining -= bytes;
 }
 
 void *mty_tlocal(size_t size)
 {
 	tlocal_check_mem();
-
-	if (size > TLOCAL_SIZE)
+	if (size > TLOCAL_STATE.size)
 		MTY_LogFatal("Thread local storage heap overflow");
 
-	if (*TLOCAL_OFFSET + size > TLOCAL_SIZE)
-		*TLOCAL_OFFSET = 0;
+	const size_t remaining = TLOCAL_STATE.size - TLOCAL_STATE.offset;
+	if (size > remaining) {
+		mty_tlocal_consume_bytes(remaining);
+		TLOCAL_STATE.offset = 0;
+	}
+	mty_tlocal_consume_bytes(size);
 
-	void *ptr = TLOCAL_MEM + *TLOCAL_OFFSET;
+	void *ptr = TLOCAL_STATE.buffer + TLOCAL_STATE.offset;
 	memset(ptr, 0, size);
 
-	*TLOCAL_OFFSET += size;
+	TLOCAL_STATE.offset += size;
 
 	return ptr;
 }
@@ -48,11 +54,10 @@ void *mty_tlocal(size_t size)
 char *mty_tlocal_strcpy(const char *str)
 {
 	tlocal_check_mem();
-
 	size_t len = strlen(str) + 1;
 
-	if (len > TLOCAL_SIZE)
-		len = TLOCAL_SIZE;
+	if (len > TLOCAL_STATE.size)
+		len = TLOCAL_STATE.size;
 
 	char *local = mty_tlocal(len);
 	snprintf(local, len, "%s", str);
@@ -60,13 +65,21 @@ char *mty_tlocal_strcpy(const char *str)
 	return local;
 }
 
-void mty_tlocal_set_mem(void *buf, size_t size)
+MTY_ThreadLocalState MTY_ThreadLocalOverrideSafe(void *buffer, size_t size)
 {
-	TLOCAL_MEM = buf;
-	TLOCAL_SIZE = size;
+	const MTY_ThreadLocalState old_state = TLOCAL_STATE;
+	TLOCAL_STATE = (MTY_ThreadLocalState) {.buffer = buffer, .size = size, .remaining = size};
+	return old_state;
+}
 
-	if (buf) {
-		TLOCAL_OFFSET = &TLOCAL_OFFSET_EXTERNAL;
-		*TLOCAL_OFFSET = 0;
-	}
+MTY_ThreadLocalState MTY_ThreadLocalOverrideUnsafe(void *buffer, size_t size)
+{
+	const MTY_ThreadLocalState old_state = TLOCAL_STATE;
+	TLOCAL_STATE = (MTY_ThreadLocalState) {.buffer = buffer, .size = size, .remaining = ~0ULL};
+	return old_state;
+}
+
+void MTY_ThreadLocalRestore(MTY_ThreadLocalState state)
+{
+	TLOCAL_STATE = state;
 }

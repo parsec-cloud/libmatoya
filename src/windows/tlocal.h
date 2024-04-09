@@ -8,4 +8,3 @@
 
 void *mty_tlocal(size_t size);
 char *mty_tlocal_strcpy(const char *str);
-void mty_tlocal_set_mem(void *buf, size_t size);

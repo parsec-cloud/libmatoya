@@ -104,6 +104,16 @@ void mty_window_motion(MTY_App *ctx, bool relative, int32_t x, int32_t y)
 	ctx->event_func(&evt, ctx->opaque);
 }
 
+__attribute__((export_name("mty_window_hover")))
+void mty_window_hover(MTY_App *ctx, bool hover)
+{
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_HOVER;
+	evt.hover = hover;
+
+	ctx->event_func(&evt, ctx->opaque);
+}
+
 __attribute__((export_name("mty_window_size")))
 void mty_window_size(MTY_App *ctx)
 {

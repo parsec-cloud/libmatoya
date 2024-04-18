@@ -1189,6 +1189,10 @@ onmessage = async (ev) => {
 			if (MTY.app)
 				MTY.exports.mty_window_motion(MTY.app, msg.relative, msg.x, msg.y);
 			break;
+		case 'hover':
+			if (MTY.app)
+				MTY.exports.mty_window_hover(MTY.app, msg.hover);
+			break;
 		case 'button':
 			if (MTY.app)
 				MTY.exports.mty_window_button(MTY.app, msg.pressed, msg.button, msg.x, msg.y);

@@ -42,7 +42,6 @@ static struct MTY_App {
 	MTY_Thread *thread;
 	MTY_InputMode input;
 	MTY_Button long_button;
-	MTY_Time last_scroll;
 	int32_t double_tap;
 	bool check_scroller;
 	bool log_thread_running;
@@ -430,8 +429,8 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1long_1press(JNIEnv 
 	return false;
 }
 
-JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, jobject obj,
-	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers, jboolean start)
+JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, jobject obj,
+	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers)
 {
 	CTX.should_detach = false;
 
@@ -443,14 +442,11 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env,
 		MTY_Event evt = {0};
 
 		// Negative init values mean "don't move the cursor"
-		// Only move on the first event to prevent the cursor from going out of range
-		if (start && (abs_x >= 0.0f || abs_y >= 0.0f)) {
+		if (abs_x > 0.0f || abs_y > 0.0f) {
 			evt.type = MTY_EVENT_MOTION;
 			evt.motion.relative = CTX.relative;
 			evt.motion.x = CTX.relative ? -lrint(x) : lrint(abs_x);
 			evt.motion.y = CTX.relative ? -lrint(y) : lrint(abs_y);
-			evt.motion.flags |= MTY_MOTION_FLAG_TOUCH;
-			evt.motion.flags |= MTY_MOTION_FLAG_START;
 			app_push_event(&CTX, &evt);
 		}
 
@@ -460,8 +456,6 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env,
 		evt.scroll.x = 0;
 		app_push_event(&CTX, &evt);
 
-		CTX.last_scroll = MTY_GetTime();
-
 	// While single finger scrolling in trackpad mode, convert to mouse motion
 	} else if (abs_x > 0.0f || abs_y > 0.0f) {
 		MTY_Event evt = {0};
@@ -469,18 +463,25 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env,
 		evt.motion.relative = CTX.relative;
 		evt.motion.x = CTX.relative ? -lrint(x) : lrint(abs_x);
 		evt.motion.y = CTX.relative ? -lrint(y) : lrint(abs_y);
-		evt.motion.flags |= MTY_MOTION_FLAG_TOUCH;
-		if (start)
-			evt.motion.flags |= MTY_MOTION_FLAG_START;
 		app_push_event(&CTX, &evt);
 	}
+}
 
-	if (CTX.last_scroll && MTY_TimeDiff(CTX.last_scroll, MTY_GetTime()) < 100.0f)
-		return true;
+JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scale(JNIEnv *env, jobject obj,
+	jfloat scaleFactor, jfloat focus_x, jfloat focus_y, jboolean start, jboolean stop)
+{
+	CTX.should_detach = true;
 
-	CTX.last_scroll = 0;
-
-	return false;
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_SCALE;
+	evt.scale.factor = scaleFactor;
+	evt.scale.focusX = focus_x;
+	evt.scale.focusY = focus_y;
+	evt.scale.state =
+		stop  ? MTY_SCALE_STATE_STOP  :
+		start ? MTY_SCALE_STATE_START :
+		MTY_SCALE_STATE_ONGOING;
+	app_push_event(&CTX, &evt);
 }
 
 
@@ -498,6 +499,15 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1mouse_1motion(JNIEnv *e
 	evt.motion.relative = relative;
 	evt.motion.x = lrint(x);
 	evt.motion.y = lrint(y);
+	app_push_event(&CTX, &evt);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1mouse_1hover(JNIEnv *env, jobject obj,
+	jboolean hover)
+{
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_HOVER;
+	evt.hover = hover;
 	app_push_event(&CTX, &evt);
 }
 

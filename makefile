@@ -26,7 +26,6 @@ OBJS = \
 	src\app.obj \
 	src\async.obj \
 	src\crypto.obj \
-	src\cursor.obj \
 	src\dtls.obj \
 	src\file.obj \
 	src\hash.obj \
@@ -42,7 +41,6 @@ OBJS = \
 	src\thread.obj \
 	src\tlocal.obj \
 	src\version.obj \
-	src\zoom.obj \
 	src\gfx\vk\vk.obj \
 	src\gfx\vk\vk-ctx.obj \
 	src\gfx\vk\vk-ui.obj \

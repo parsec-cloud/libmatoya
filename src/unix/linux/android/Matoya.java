@@ -55,11 +55,8 @@ public class Matoya extends SurfaceView implements
 	boolean hiddenCursor;
 	boolean defaultCursor;
 	boolean kbShowing;
-	boolean isNewGesture;
-	boolean isScrolling;
 	float displayDensity;
-	float scrollY;
-	int touchingFingers;
+	int scrollY;
 
 	native void gfx_resize(int width, int height);
 	native void gfx_set_surface(Surface surface);
@@ -72,9 +69,10 @@ public class Matoya extends SurfaceView implements
 	native boolean app_long_press(float x, float y);
 	native void app_unplug(int deviceId);
 	native void app_single_tap_up(float x, float y);
-	native boolean app_scroll(float absX, float absY, float x, float y, int fingers, boolean start);
+	native void app_scroll(float absX, float absY, float x, float y, int fingers);
 	native void app_check_scroller(boolean check);
 	native void app_mouse_motion(boolean relative, float x, float y);
+	native void app_mouse_hover(boolean hover);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_generic_scroll(float x, float y);
 	native void app_scale(float scaleFactor, float focusX, float focusY, boolean begin, boolean end);
@@ -259,13 +257,6 @@ public class Matoya extends SurfaceView implements
 				app_mouse_motion(false, event.getX(0), event.getY(0));
 
 		} else {
-			int currentFingers = event.getPointerCount();
-			if (event.getAction() == MotionEvent.ACTION_UP)
-				currentFingers--;
-			if (touchingFingers != currentFingers)
-				isNewGesture = true;
-			touchingFingers = currentFingers;
-
 			this.detector.onTouchEvent(event);
 			this.sdetector.onTouchEvent(event);
 
@@ -315,9 +306,7 @@ public class Matoya extends SurfaceView implements
 			return false;
 
 		this.scroller.forceFinished(true);
-		this.isScrolling = app_scroll(event2.getX(0), event2.getY(0), distanceX, distanceY, event2.getPointerCount(), isNewGesture);
-		isNewGesture = false;
-
+		app_scroll(event2.getX(0), event2.getY(0), distanceX, distanceY, event2.getPointerCount());
 		return true;
 	}
 
@@ -364,6 +353,12 @@ public class Matoya extends SurfaceView implements
 			switch (event.getActionMasked()) {
 				case MotionEvent.ACTION_HOVER_MOVE:
 					app_mouse_motion(false, event.getX(0), event.getY(0));
+					return true;
+				case MotionEvent.ACTION_HOVER_ENTER:
+					app_mouse_hover(true);
+					return true;
+				case MotionEvent.ACTION_HOVER_EXIT:
+					app_mouse_hover(false);
 					return true;
 				case MotionEvent.ACTION_SCROLL:
 					app_generic_scroll(event.getAxisValue(MotionEvent.AXIS_HSCROLL), event.getAxisValue(MotionEvent.AXIS_VSCROLL));
@@ -600,12 +595,12 @@ public class Matoya extends SurfaceView implements
 	public void checkScroller() {
 		this.scroller.computeScrollOffset();
 
-		if (this.isScrolling && !this.scroller.isFinished()) {
-			float currY = this.scroller.getCurrY();
-			float diff = this.scrollY - currY;
+		if (!this.scroller.isFinished()) {
+			int currY = this.scroller.getCurrY();
+			int diff = this.scrollY - currY;
 
 			if (diff != 0)
-				app_scroll(-1.0f, -1.0f, 0.0f, diff, 2, false);
+				app_scroll(-1.0f, -1.0f, 0.0f, diff, 1);
 
 			this.scrollY = currY;
 

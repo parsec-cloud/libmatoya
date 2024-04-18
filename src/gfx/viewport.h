@@ -6,8 +6,7 @@
 
 #include <math.h>
 
-static void mty_viewport(const MTY_RenderDesc *desc,
-	float *vp_x, float *vp_y, float *vp_w, float *vp_h, bool transform_origin)
+static void mty_viewport(const MTY_RenderDesc *desc, float *vp_x, float *vp_y, float *vp_w, float *vp_h, bool transform_origin)
 {
 	uint32_t w = desc->cropWidth;
 	uint32_t h = desc->cropHeight;

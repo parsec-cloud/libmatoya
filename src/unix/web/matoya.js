@@ -226,6 +226,20 @@ function mty_add_input_events(thread) {
 		});
 	});
 
+	MTY.canvas.addEventListener('mouseenter', (ev) => {
+		thread.postMessage({
+			type: 'hover',
+			hover: true,
+		});
+	});
+
+	MTY.canvas.addEventListener('mouseleave', (ev) => {
+		thread.postMessage({
+			type: 'hover',
+			hover: false,
+		});
+	});
+
 	document.addEventListener('pointerlockchange', (ev) => {
 		// Left relative via the ESC key, which swallows a natural ESC keypress
 		if (!document.pointerLockElement && MTY.synthesizeEsc) {

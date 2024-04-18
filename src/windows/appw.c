@@ -27,6 +27,7 @@ struct window {
 	MTY_Frame frame;
 	HWND hwnd;
 	bool was_zoomed;
+	bool mouse_tracked;
 	uint32_t min_width;
 	uint32_t min_height;
 	RAWINPUT *ri;
@@ -660,6 +661,15 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
+			if (!ctx->mouse_tracked) {
+				SendMessage(ctx->hwnd, WM_MOUSEHOVER, 0, 0);
+				TrackMouseEvent(& (TRACKMOUSEEVENT) {
+					.cbSize = sizeof(TRACKMOUSEEVENT),
+					.hwndTrack = ctx->hwnd,
+					.dwFlags = TME_LEAVE,
+				});
+			}
+
 			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
 				evt.type = MTY_EVENT_MOTION;
 				evt.motion.relative = false;
@@ -669,6 +679,16 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			}
 
 			app->filter_move = false;
+			break;
+		case WM_MOUSEHOVER:
+			ctx->mouse_tracked = true;
+			evt.type = MTY_EVENT_HOVER;
+			evt.hover = true;
+			break;
+		case WM_MOUSELEAVE:
+			ctx->mouse_tracked = false;
+			evt.type = MTY_EVENT_HOVER;
+			evt.hover = false;
 			break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:

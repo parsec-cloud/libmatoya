@@ -115,14 +115,12 @@ void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, cons
 	if (!gfx_ctx_lock(cmn))
 		return;
 
-
 	MTY_RenderDesc mutated = *desc;
+	gfx_ctx_get_size(cmn, &mutated.viewWidth, &mutated.viewHeight);
 
 	MTY_Size size = MTY_WindowGetSize(app, window);
 	mutated.displayWidth = size.w;
 	mutated.displayHeight = size.h;
-
-	gfx_ctx_get_size(cmn, &mutated.viewWidth, &mutated.viewHeight);
 
 	MTY_Device *device = gfx_ctx_get_device(cmn);
 
@@ -568,6 +566,10 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		PEVENT(MTY_EVENT_MOTION, evt,
 			"x: %d, y: %d, relative: %u, synth: %u",
 			evt->motion.x, evt->motion.y, evt->motion.relative, evt->motion.synth);
+
+		PEVENT(MTY_EVENT_HOVER, evt,
+			"hover: %u",
+			evt->hover);
 
 		PEVENT(MTY_EVENT_BUTTON, evt,
 			"x: %d, y: %d, button: %u, pressed: %u",

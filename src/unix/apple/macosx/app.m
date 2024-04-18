@@ -1077,6 +1077,8 @@ static void window_mouseEntered(NSWindow *self, SEL _cmd, NSEvent *event)
 
 	ctx->app->cursor_outside = false;
 	app_apply_cursor(ctx->app);
+
+	ctx->app->event_func(& (MTY_Event) { .type = MTY_EVENT_HOVER, .hover = true }, ctx->app->opaque);
 }
 
 static void window_mouseExited(NSWindow *self, SEL _cmd, NSEvent *event)
@@ -1087,6 +1089,8 @@ static void window_mouseExited(NSWindow *self, SEL _cmd, NSEvent *event)
 
 	ctx->app->cursor_outside = true;
 	app_apply_cursor(ctx->app);
+
+	ctx->app->event_func(& (MTY_Event) { .type = MTY_EVENT_HOVER, .hover = false }, ctx->app->opaque);
 }
 
 static void window_scrollWheel(NSWindow *self, SEL _cmd, NSEvent *event)

@@ -450,6 +450,12 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			evt.motion.x = event->xmotion.x;
 			evt.motion.y = event->xmotion.y;
 			break;
+		case EnterNotify:
+			evt.type = MTY_EVENT_HOVER;
+			evt.hover = true;
+		case LeaveNotify:
+			evt.type = MTY_EVENT_HOVER;
+			evt.hover = false;
 		case ClientMessage: {
 			Atom type = (Atom) event->xclient.data.l[0];
 
@@ -1170,7 +1176,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 
 	XSetWindowAttributes swa = {0};
 	swa.colormap = XCreateColormap(app->display, root, app->vis->visual, AllocNone);
-	swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask |
+	swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | EnterWindowMask | LeaveWindowMask |
 		ButtonReleaseMask | PointerMotionMask | FocusChangeMask | StructureNotifyMask;
 
 	ctx->window = XCreateWindow(app->display, root, 0, 0, frame->size.w, frame->size.h, 0, app->vis->depth,

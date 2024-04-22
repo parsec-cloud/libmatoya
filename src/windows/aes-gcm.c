@@ -17,6 +17,9 @@ struct MTY_AESGCM {
 
 MTY_AESGCM *MTY_AESGCMCreate(const void *key, size_t keySize)
 {
+	if (keySize != 16 && keySize != 32)
+		return NULL;
+
 	MTY_AESGCM *ctx = MTY_Alloc(1, sizeof(MTY_AESGCM));
 	bool r = true;
 

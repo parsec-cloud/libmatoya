@@ -15,6 +15,9 @@ struct MTY_AESGCM {
 
 MTY_AESGCM *MTY_AESGCMCreate(const void *key, size_t keySize)
 {
+	if (keySize != 16 && keySize != 32)
+		return NULL;
+
 	if (!libcrypto_global_init())
 		return NULL;
 

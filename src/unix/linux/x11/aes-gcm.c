@@ -38,7 +38,7 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key, size_t keySize)
 	}
 
 	if (!cipher) {
-		MTY_Log("'EVP_aes_%d_gcm' failed", keySize * 8);
+		MTY_Log("'EVP_aes_%zu_gcm' failed", keySize * 8);
 		r = false;
 		goto except;
 	}

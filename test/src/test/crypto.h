@@ -3,7 +3,7 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
-static bool validate_unknown_aesgcm()
+static bool validate_unknown_aesgcm(void)
 {
 	const char *password1 = "1234567890123456789012345678901212345678901234567890123456789012";
 
@@ -20,7 +20,7 @@ static bool validate_unknown_aesgcm()
 	return true;
 }
 
-static bool validate_aesgcm_128()
+static bool validate_aesgcm_128(void)
 {
 	const uint8_t pre_encrypted[] = {
 		0xE5, 0x19, 0x0B, 0x88, 0x89, 0xE4, 0x3D, 0x6B, 0xCC, 0xD1, 0x59, 0xC7, 0x39, 0x46, 0x34, 0x64,
@@ -115,7 +115,7 @@ static bool validate_aesgcm_128()
 	return true;
 }
 
-static bool validate_aesgcm_256()
+static bool validate_aesgcm_256(void)
 {
 	const uint8_t pre_encrypted[] = {
 		0xD4, 0x9A, 0x98, 0xCE, 0x53, 0x34, 0xA8, 0x82, 0x8E, 0x32, 0x7D, 0xF6, 0xBE, 0x62, 0x06, 0x7C,
@@ -210,7 +210,7 @@ static bool validate_aesgcm_256()
 	return true;
 }
 
-static bool validate_random()
+static bool validate_random(void)
 {
 	int32_t random_size = 1 * 1024 * 1024;
 	uint32_t distribution[256] = {0};
@@ -286,7 +286,7 @@ static bool validate_sha256_hmac(const char *hmac, const char *data, const char 
 	return true;
 }
 
-static bool validate_cryptohash()
+static bool validate_cryptohash(void)
 {
 	/*
 	MTY_ALGORITHM_SHA1
@@ -375,7 +375,7 @@ static bool validate_cryptohash()
 	return true;
 }
 
-static bool validate_djb2()
+static bool validate_djb2(void)
 {
 	uint32_t crc = MTY_DJB2("123456789");
 	test_cmp_("CRC32 1", crc == 0x35cdbb82, "123456789", ": \"%s\"");
@@ -388,7 +388,7 @@ static bool validate_djb2()
 
 }
 
-static bool validate_crc32()
+static bool validate_crc32(void)
 {
 	uint32_t crc = MTY_CRC32(0, "123456789", 9);
 	test_cmp_("CRC32 1", crc == 0xcbf43926, "123456789", ": \"%s\"");
@@ -400,7 +400,7 @@ static bool validate_crc32()
 	return true;
 }
 
-static bool crypto_main()
+static bool crypto_main(void)
 {
 	if (!validate_crc32())
 		return false;

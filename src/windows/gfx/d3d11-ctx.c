@@ -12,8 +12,6 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 #include "gfx/sync.h"
 #include "dxgi-sync.h"
 
-#include "d3d11-error.h"
-
 #define DXGI_FATAL(e) ( \
 	(e) == DXGI_ERROR_DEVICE_REMOVED || \
 	(e) == DXGI_ERROR_DRIVER_INTERNAL_ERROR || \
@@ -24,6 +22,7 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 #define D3D11_CTX_WAIT 2000
 
 struct d3d11_ctx {
+	bool ready;
 	HWND hwnd;
 	struct sync sync;
 	struct dxgi_sync *dxgi_sync;
@@ -49,6 +48,8 @@ static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t 
 
 static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 {
+	ctx->ready = false;
+
 	if (ctx->back_buffer)
 		ID3D11RenderTargetView_Release(ctx->back_buffer);
 
@@ -58,8 +59,11 @@ static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 	if (ctx->swap_chain2)
 		IDXGISwapChain2_Release(ctx->swap_chain2);
 
-	if (ctx->context)
+	if (ctx->context) {
+		ID3D11DeviceContext_Flush(ctx->context);
+		ID3D11DeviceContext_ClearState(ctx->context);
 		ID3D11DeviceContext_Release(ctx->context);
+	}
 
 	if (ctx->device)
 		ID3D11Device_Release(ctx->device);
@@ -190,12 +194,18 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 	if (device2)
 		IDXGIDevice2_Release(device2);
 
-	if (e != S_OK) {
-		d3d11_push_local_error(e);
-		d3d11_ctx_free(ctx);
-	}
+	ctx->ready = e == S_OK;
 
-	return e == S_OK;
+	if (!ctx->ready)
+		d3d11_ctx_free(ctx);
+
+	return ctx->ready;
+}
+
+static bool d3d11_ctx_reinit(struct d3d11_ctx *ctx)
+{
+	d3d11_ctx_free(ctx);
+	return d3d11_ctx_init(ctx);
 }
 
 int32_t mty_d3d11_error_handler_default(int32_t e1, int32_t e2, void *opaque)
@@ -247,6 +257,9 @@ MTY_Device *mty_d3d11_ctx_get_device(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
+	if (!ctx->ready)
+		d3d11_ctx_reinit(ctx);
+
 	return (MTY_Device *) ctx->device;
 }
 
@@ -254,11 +267,17 @@ MTY_Context *mty_d3d11_ctx_get_context(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
+	if (!ctx->ready)
+		d3d11_ctx_reinit(ctx);
+
 	return (MTY_Context *) ctx->context;
 }
 
 static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 {
+	if (!ctx->ready && !d3d11_ctx_reinit(ctx))
+		return;
+
 	uint32_t width = ctx->width;
 	uint32_t height = ctx->height;
 
@@ -275,10 +294,7 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
-			d3d11_push_local_error(e);
-
-			d3d11_ctx_free(ctx);
-			d3d11_ctx_init(ctx);
+			ctx->ready = false;
 		}
 	}
 }
@@ -286,6 +302,9 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 MTY_Surface *mty_d3d11_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
+	if (!ctx->ready && !d3d11_ctx_reinit(ctx))
+		return NULL;
 
 	HRESULT e = S_OK;
 	ID3D11Resource *resource = NULL;
@@ -314,9 +333,7 @@ MTY_Surface *mty_d3d11_ctx_get_surface(struct gfx_ctx *gfx_ctx)
 	if (resource)
 		ID3D11Resource_Release(resource);
 
-	if (e != S_OK)
-		d3d11_push_local_error(e);
-
+	ctx->ready = e == S_OK;
 
 	return (MTY_Surface *) ctx->back_buffer;
 }
@@ -334,6 +351,9 @@ void mty_d3d11_ctx_set_sync_interval(struct gfx_ctx *gfx_ctx, uint32_t interval)
 void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
+	if (!ctx->ready && !d3d11_ctx_reinit(ctx))
+		return;
 
 	if (ctx->back_buffer) {
 		int64_t interval = sync_next_interval(&ctx->sync);
@@ -356,16 +376,13 @@ void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx)
 
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_Present' failed with HRESULT 0x%X", e);
-			d3d11_push_local_error(e);
-
-			d3d11_ctx_free(ctx);
-			d3d11_ctx_init(ctx);
+			ctx->ready = false;
 
 		} else {
 			DWORD we = WaitForSingleObjectEx(ctx->waitable, D3D11_CTX_WAIT, TRUE);
 			if (we != WAIT_OBJECT_0) {
 				MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
-				d3d11_push_local_error(e);
+				ctx->ready = false;
 			}
 		}
 	}

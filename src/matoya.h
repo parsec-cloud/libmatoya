@@ -77,17 +77,6 @@ typedef bool (*MTY_MenuItemCheckedFunc)(void *opaque);
 typedef intptr_t (*MTY_WMsgFunc)(MTY_App *app, MTY_Window window, void *hwnd, uint32_t msg,
 	intptr_t wparam, uintptr_t lparam, bool *shouldReturn, void *opaque);
 
-/// @brief Error codes indicating the current state of the platform.
-/// @details Warnings are positive, errors are negative, 0 (::MTY_ERROR_OK) means no error.
-typedef enum {
-	MTY_ERROR_OK                    =  0, ///< No errors.
-	MTY_ERROR_GFX_INVISIBLE_CONTENT =  11, ///< Warning from the gfx driver that rendered content is hidden (for example, when app is in the UAC prompt on Windows)
-	MTY_ERROR_GFX_REVISIBLE_CONTENT =  12, ///< Notice from the gfx driver that rendered content that was hidden is now visible
-	MTY_ERROR_GFX_ERROR             = -11, ///< Generic gfx error
-	MTY_ERROR_GFX_DEVICE_REMOVED    = -21, ///< Generally indicates that the display was unplugged or disabled abruptly
-	MTY_ERROR_MAKE_32               = INT32_MAX,
-} MTY_Error;
-
 /// @brief 3D graphics APIs.
 typedef enum {
 	MTY_GFX_NONE    = 0, ///< No 3D graphics API.
@@ -2627,11 +2616,6 @@ MTY_ThreadDetach(MTY_ThreadFunc func, void *opaque);
 /// @param ctx An MTY_Thread.
 MTY_EXPORT int64_t
 MTY_ThreadGetID(MTY_Thread *ctx);
-
-/// @brief Get the next error code for the given thread.
-/// @param ctx An MTY_Thread.
-MTY_EXPORT MTY_Error
-MTY_ThreadGetError(MTY_Thread *ctx);
 
 /// @brief Create an MTY_Mutex for synchronization.
 /// @details A mutex can be locked by only one thread at a time. Other threads trying

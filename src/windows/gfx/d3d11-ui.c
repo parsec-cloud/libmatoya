@@ -17,8 +17,6 @@ static
 static
 #include "shaders/vsui.h"
 
-#include "d3d11-error.h"
-
 struct d3d11_ui_buffer {
 	ID3D11Buffer *b;
 	ID3D11Resource *res;
@@ -26,6 +24,7 @@ struct d3d11_ui_buffer {
 };
 
 struct d3d11_ui {
+	bool ready;
 	struct d3d11_ui_buffer vb;
 	struct d3d11_ui_buffer ib;
 	ID3D11VertexShader *vs;
@@ -151,11 +150,10 @@ struct gfx_ui *mty_d3d11_ui_create(MTY_Device *device)
 
 	except:
 
-	if (e != S_OK) {
-		d3d11_push_local_error(e);
-		mty_d3d11_ui_destroy((struct gfx_ui **) &ctx, device);
-	}
+	ctx->ready = e == S_OK;
 
+	if (!ctx->ready)
+		mty_d3d11_ui_destroy((struct gfx_ui **) &ctx, device);
 
 	return (struct gfx_ui *) ctx;
 }
@@ -201,6 +199,9 @@ bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Surface *dest)
 {
 	struct d3d11_ui *ctx = (struct d3d11_ui *) gfx_ui;
+	if (!ctx->ready)
+		return false;
+
 	ID3D11Device *_device = (ID3D11Device *) device;
 	ID3D11DeviceContext *_context = (ID3D11DeviceContext *) context;
 	ID3D11RenderTargetView *_dest = (ID3D11RenderTargetView *) dest;
@@ -349,8 +350,7 @@ bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 
 	except:
 
-	if (e != S_OK)
-		d3d11_push_local_error(e);
+	ctx->ready = e == S_OK;
 
 	return result;
 }
@@ -408,7 +408,6 @@ void *mty_d3d11_ui_create_texture(struct gfx_ui *gfx_ui, MTY_Device *device, con
 		ID3D11Texture2D_Release(tex);
 
 	if (e != S_OK && srv) {
-		d3d11_push_local_error(e);
 		ID3D11ShaderResourceView_Release(srv);
 		srv = NULL;
 	}

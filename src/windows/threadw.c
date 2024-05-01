@@ -8,7 +8,6 @@
 
 #include <windows.h>
 
-#include "error.h"
 
 // Thread
 
@@ -52,7 +51,6 @@ static MTY_Thread *thread_create(MTY_ThreadFunc func, void *opaque, bool detach)
 
 	} else {
 		ctx->thread = thread;
-		error_local_init();
 	}
 
 	return ctx;
@@ -71,8 +69,6 @@ void *MTY_ThreadDestroy(MTY_Thread **thread)
 	MTY_Thread *ctx = *thread;
 
 	if (ctx->thread) {
-		error_local_clear();
-
 		if (WaitForSingleObject(ctx->thread, INFINITE) == WAIT_FAILED)
 			MTY_LogFatal("'WaitForSingleObject' failed with error 0x%X", GetLastError());
 

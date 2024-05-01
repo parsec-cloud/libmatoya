@@ -213,6 +213,8 @@ bool MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const 
 		return false;
 
 	MTY_Device *device = gfx_ctx_get_device(cmn);
+	if (!device)
+		return false;
 
 	bool r = gfx_begin_ui(cmn, device);
 

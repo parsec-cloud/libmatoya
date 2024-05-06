@@ -2062,7 +2062,15 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 
 MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
-	return MTY_CONTEXT_STATE_NORMAL;
+	MTY_ContextState state = MTY_CONTEXT_STATE_NORMAL;
+
+	struct window_common *cmn = mty_window_get_common(app, window);
+	if (cmn && cmn->api != MTY_GFX_NONE && cmn->device_changed) {
+		state = MTY_CONTEXT_STATE_NEW;
+		cmn->device_changed = false;
+	}
+
+	return state;
 }
 
 void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)

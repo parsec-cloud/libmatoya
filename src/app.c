@@ -73,6 +73,7 @@ static void gfx_set_device(struct window_common *cmn, MTY_Device *device)
 		GFX_UI_API[cmn->api].destroy(&cmn->gfx_ui, cmn->device);
 
 		cmn->device = device;
+		cmn->device_changed = true;
 	}
 }
 
@@ -96,8 +97,12 @@ static bool gfx_begin_ui(struct window_common *cmn, MTY_Device *device)
 	if (!cmn->gfx_ui)
 		cmn->gfx_ui = GFX_UI_API[cmn->api].create(device);
 
-	if (!cmn->ui_textures)
+	if (!cmn->gfx_ui) {
+		MTY_HashDestroy(&cmn->ui_textures, NULL);
+
+	} else 	if (!cmn->ui_textures) {
 		cmn->ui_textures = MTY_HashCreate(0);
+	}
 
 	return cmn->gfx_ui != NULL;
 }

@@ -223,6 +223,8 @@ bool MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const 
 
 	bool r = gfx_begin_ui(cmn, device);
 
+	MTY_Log("TEST: Trying to set UI texture id %u for window %u where texture dimensions are %ux%u (%s)", id, window, width, height, r ? "ui ok" : "ui FAILED");
+
 	if (r) {
 		void *texture = MTY_HashPopInt(cmn->ui_textures, id);
 		GFX_UI_API[cmn->api].destroy_texture(cmn->gfx_ui, &texture, device);

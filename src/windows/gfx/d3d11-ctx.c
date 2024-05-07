@@ -204,13 +204,15 @@ static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 
 static bool d3d11_ctx_reinit(struct d3d11_ctx *ctx)
 {
-	MTY_Log("TEMP: Reinitializing d3d11_ctx...");
+	MTY_Log("Reinitializing d3d11_ctx...");
 	d3d11_ctx_free(ctx);
 	bool r = d3d11_ctx_init(ctx);
 	if (r)
 		MTY_Log("d3d11_ctx reinit ok.");
 	else
 		MTY_Log("d3d11_ctx reinit FAILED!");
+
+	return r;
 }
 
 int32_t mty_d3d11_error_handler_default(int32_t e1, int32_t e2, void *opaque)

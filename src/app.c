@@ -223,17 +223,23 @@ bool MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const 
 
 	bool r = gfx_begin_ui(cmn, device);
 
-	MTY_Log("TEST: Trying to set UI texture id %u for window %u where texture dimensions are %ux%u (%s)", id, window, width, height, r ? "ui ok" : "ui FAILED");
-
 	if (r) {
-		void *texture = MTY_HashPopInt(cmn->ui_textures, id);
-		GFX_UI_API[cmn->api].destroy_texture(cmn->gfx_ui, &texture, device);
+		void *texture = MTY_HashGetInt(cmn->ui_textures, id);
 
-		if (rgba)
-			texture = GFX_UI_API[cmn->api].create_texture(cmn->gfx_ui, device, rgba, width, height);
+		if (rgba) {
+			void *texture_new = GFX_UI_API[cmn->api].create_texture(cmn->gfx_ui, device, rgba, width, height);
 
-		if (texture)
-			MTY_HashSetInt(cmn->ui_textures, id, texture);
+			if (texture_new) {
+				GFX_UI_API[cmn->api].destroy_texture(cmn->gfx_ui, &texture, device);
+
+				texture = texture_new;
+				MTY_HashSetInt(cmn->ui_textures, id, texture_new);
+			}
+
+		} else {
+			GFX_UI_API[cmn->api].destroy_texture(cmn->gfx_ui, &texture, device);
+			MTY_HashPopInt(cmn->ui_textures, id);
+		}
 
 		r = texture != NULL;
 	}

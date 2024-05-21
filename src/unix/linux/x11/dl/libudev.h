@@ -44,13 +44,16 @@ static MTY_Atomic32 LIBUDEV_LOCK;
 static MTY_SO *LIBUDEV_SO;
 static bool LIBUDEV_INIT;
 
+static void libudev_global_destroy_lockfree(void)
+{
+	MTY_SOUnload(&LIBUDEV_SO);
+	LIBUDEV_INIT = false;
+}
+
 static void __attribute__((destructor)) libudev_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBUDEV_LOCK);
-
-	MTY_SOUnload(&LIBUDEV_SO);
-	LIBUDEV_INIT = false;
-
+	libudev_global_destroy_lockfree();
 	MTY_GlobalUnlock(&LIBUDEV_LOCK);
 }
 
@@ -91,7 +94,7 @@ static bool libudev_global_init(void)
 		except:
 
 		if (!r)
-			libudev_global_destroy();
+			libudev_global_destroy_lockfree();
 
 		LIBUDEV_INIT = r;
 	}

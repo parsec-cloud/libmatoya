@@ -52,13 +52,16 @@ static MTY_Atomic32 LIBPNG_LOCK;
 static MTY_SO *LIBPNG_SO;
 static bool LIBPNG_INIT;
 
+static void libpng_global_destroy_lockfree(void)
+{
+	MTY_SOUnload(&LIBPNG_SO);
+	LIBPNG_INIT = false;
+}
+
 static void __attribute__((destructor)) libpng_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBPNG_LOCK);
-
-	MTY_SOUnload(&LIBPNG_SO);
-	LIBPNG_INIT = false;
-
+	libpng_global_destroy_lockfree();
 	MTY_GlobalUnlock(&LIBPNG_LOCK);
 }
 
@@ -100,7 +103,7 @@ static bool libpng_global_init(void)
 		except:
 
 		if (!r)
-			libpng_global_destroy();
+			libpng_global_destroy_lockfree();
 
 		LIBPNG_INIT = r;
 	}

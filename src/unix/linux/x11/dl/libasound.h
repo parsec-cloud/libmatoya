@@ -55,13 +55,16 @@ static MTY_Atomic32 LIBASOUND_LOCK;
 static MTY_SO *LIBASOUND_SO;
 static bool LIBASOUND_INIT;
 
+static void libasound_global_destroy_lockfree(void)
+{
+	MTY_SOUnload(&LIBASOUND_SO);
+	LIBASOUND_INIT = false;
+}
+
 static void __attribute__((destructor)) libasound_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBASOUND_LOCK);
-
-	MTY_SOUnload(&LIBASOUND_SO);
-	LIBASOUND_INIT = false;
-
+	libasound_global_destroy_lockfree();
 	MTY_GlobalUnlock(&LIBASOUND_LOCK);
 }
 
@@ -99,7 +102,7 @@ static bool libasound_global_init(void)
 		except:
 
 		if (!r)
-			libasound_global_destroy();
+			libasound_global_destroy_lockfree();
 
 		LIBASOUND_INIT = r;
 	}

@@ -136,7 +136,7 @@ OBJS := $(OBJS) \
 	src/unix/linux/dialog.o \
 	src/unix/linux/ws.o \
 	src/unix/linux/x11/aes-gcm.o \
-	src/unix/linux/x11/app.o \
+	src/unix/linux/x11/app-wayland.o \
 	src/unix/linux/x11/audio.o \
 	src/unix/linux/x11/crypto.o \
 	src/unix/linux/x11/dtls.o \

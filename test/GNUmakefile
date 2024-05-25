@@ -31,7 +31,8 @@ LIBS = \
 	-lc \
 	-ldl \
 	-lpthread \
-	-lm
+	-lm \
+	-lwayland-client
 endif
 
 test: clean clear

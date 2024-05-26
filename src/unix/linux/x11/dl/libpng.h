@@ -27,6 +27,8 @@
 #define PNG_FILLER_BEFORE 0
 #define PNG_FILLER_AFTER  1
 
+#define PNG_INFO_tRNS 0x0010U
+
 typedef unsigned int png_uint_32;
 typedef const char *png_const_charp;
 typedef void *png_voidp;
@@ -69,6 +71,17 @@ static int (*png_set_interlace_handling)(png_structrp png_ptr);
 static void (*png_read_update_info)(png_structrp png_ptr, png_inforp info_ptr);
 static void (*png_read_row)(png_structrp png_ptr, png_bytep row, png_bytep display_row);
 static jmp_buf *(*png_set_longjmp_fn)(png_structrp png_ptr, png_longjmp_ptr longjmp_fn, size_t jmp_buf_size);
+static void (*png_set_gray_to_rgb)(png_structp png_ptr);
+static void (*png_set_filler)(png_structp png_ptr, png_uint_32 filler, int flags);
+static void (*png_set_tRNS_to_alpha)(png_structp png_ptr);
+static int (*png_get_valid)(png_const_structrp png_ptr, png_const_inforp info_ptr, int flag);
+static void (*png_set_expand_gray_1_2_4_to_8)(png_structp png_ptr);
+static void (*png_set_palette_to_rgb)(png_structp png_ptr);
+static void (*png_set_strip_16)(png_structp png_ptr);
+static int (*png_get_bit_depth)(png_const_structrp png_ptr, png_const_inforp info_ptr);
+static int (*png_get_color_type)(png_const_structrp png_ptr, png_const_inforp info_ptr);
+static png_uint_32 (*png_get_image_height)(png_const_structrp png_ptr, png_const_inforp info_ptr);
+static png_uint_32 (*png_get_image_width)(png_const_structrp png_ptr, png_const_inforp info_ptr);
 
 
 // Runtime open
@@ -115,6 +128,18 @@ static bool libpng_global_init(void)
 		LOAD_SYM(LIBPNG_SO, png_read_update_info);
 		LOAD_SYM(LIBPNG_SO, png_read_row);
 		LOAD_SYM(LIBPNG_SO, png_set_longjmp_fn);
+		LOAD_SYM(LIBPNG_SO, png_set_gray_to_rgb);
+		LOAD_SYM(LIBPNG_SO, png_set_filler);
+		LOAD_SYM(LIBPNG_SO, png_set_tRNS_to_alpha);
+		LOAD_SYM(LIBPNG_SO, png_get_valid);
+		LOAD_SYM(LIBPNG_SO, png_set_expand_gray_1_2_4_to_8);
+		LOAD_SYM(LIBPNG_SO, png_set_palette_to_rgb);
+		LOAD_SYM(LIBPNG_SO, png_set_strip_16);
+		LOAD_SYM(LIBPNG_SO, png_get_bit_depth);
+		LOAD_SYM(LIBPNG_SO, png_get_color_type);
+		LOAD_SYM(LIBPNG_SO, png_get_image_height);
+		LOAD_SYM(LIBPNG_SO, png_get_image_width);
+
 
 		except:
 

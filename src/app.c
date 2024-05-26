@@ -237,8 +237,10 @@ bool MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const 
 void MTY_WindowPresent(MTY_App *app, MTY_Window window)
 {
 	struct window_common *cmn = mty_window_get_common(app, window);
-	if (!cmn || cmn->api == MTY_GFX_NONE)
+	if (!cmn || cmn->api == MTY_GFX_NONE) {
+		printf("No Common or API\n");
 		return;
+	}
 
 	if (cmn->webview)
 		mty_webview_render(cmn->webview);
@@ -258,8 +260,10 @@ MTY_GFX MTY_WindowGetGFX(MTY_App *app, MTY_Window window)
 bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 {
 	struct window_common *cmn = mty_window_get_common(app, window);
-	if (!cmn)
+	if (!cmn) {
+		printf("No Common\n");
 		return false;
+	}
 
 	if (cmn->api != MTY_GFX_NONE) {
 		gfx_set_device(cmn, NULL);
@@ -268,8 +272,11 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 		cmn->api = MTY_GFX_NONE;
 	}
 
-	if (api == MTY_GFX_NONE)
+	if (api == MTY_GFX_NONE) {
+		
+		printf("GFX None\n");
 		return false;
+	}
 
 	if (!GFX_API_SUPPORTED(api))
 		api = GFX_API_DEFAULT;
@@ -285,6 +292,9 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 	} else {
 		cmn->api = api;
 	}
+
+	if (cmn->gfx_ctx == NULL)
+		printf("GFX Context is NULL\n");
 
 	return cmn->gfx_ctx != NULL;
 }

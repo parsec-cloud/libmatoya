@@ -26,7 +26,6 @@ static bool app_func(void *opaque)
 	MTY_RenderDesc desc = {
 		.format = MTY_COLOR_FORMAT_RGBA,
 		.filter = MTY_FILTER_LINEAR,
-		.effects = {MTY_EFFECT_SCANLINES},
 		.levels = {0.85f},
 		.imageWidth = ctx->image_w,
 		.imageHeight = ctx->image_h,

@@ -4,7 +4,7 @@
 
 #define _DEFAULT_SOURCE // pid_t
 
-#include "../../../app.h"
+#include "app.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,11 +17,10 @@
 #include <fcntl.h>
 
 #include <unistd.h>
-#include <wayland-client.h>
-#include "dl/xdg-shell.h"
-#include "dl/xdg-shell.c"
 
-#include "../../hid/utils.h"
+#include "dl/libdesktop.h"
+#include "dl/xdg-shell.c"
+#include "hid/utils.h"
 #include "evdev.h"
 #include "keymap-wayland.h"
 
@@ -36,7 +35,7 @@ struct window {
 	struct xdg_surface *xdg_surface;
 	struct xdg_toplevel *xdg_toplevel;
 	struct wl_shm *wl_shm;
-	//struct xinfo info;
+	struct desktop_info info;
 };
 
 struct MTY_App {
@@ -336,6 +335,7 @@ void MTY_AppRun(MTY_App *ctx)
 		}
 
 		wl_display_dispatch(ctx->display);
+		wl_display_roundtrip(ctx->display);
 
 		// evdev events
 		if (ctx->evdev)
@@ -710,10 +710,6 @@ static void xdg_surface_configure(void *data, struct xdg_surface *xdg_surface, u
 {
 	struct window *ctx = data;
 	xdg_surface_ack_configure(xdg_surface, serial);
-
-	struct wl_buffer *buffer = draw_frame(ctx);
-	wl_surface_attach(ctx->surface, buffer, 0, 0);
-	wl_surface_commit(ctx->surface);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
@@ -744,6 +740,10 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	ctx->xdg_toplevel = xdg_surface_get_toplevel(ctx->xdg_surface);
 	ctx->wl_shm = app->wl_shm;
 
+	ctx->info.wayland = true;
+	ctx->info.wl_info.display = app->display;
+	ctx->info.wl_info.surface = ctx->surface;
+
 	app->windows[window] = ctx;
 
 	MTY_Frame dframe = {0};
@@ -753,6 +753,8 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 		frame = &dframe;
 	}
 
+	xdg_surface_set_window_geometry(ctx->xdg_surface, 0, 0, 800, 600);
+	app->scale = 1.0f;
 	dframe = window_denormalize_frame(frame, app->scale);
 	frame = &dframe;
 
@@ -783,7 +785,7 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 
 MTY_Size MTY_WindowGetSize(MTY_App *app, MTY_Window window)
 {
-	return (MTY_Size) {0};
+	return (MTY_Size) {800, 600};
 }
 
 static void window_adjust_frame(struct wl_display *display, struct wl_surface * window, MTY_Frame *frame)
@@ -820,11 +822,12 @@ void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
 	struct window *ctx = app_get_window(app, window);
 	xdg_toplevel_set_title(ctx->xdg_toplevel, title);
+	xdg_toplevel_set_app_id(ctx->xdg_toplevel, title);
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
-	return false;;
+	return true;
 }
 
 bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
@@ -864,7 +867,11 @@ MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 
 void *MTY_WindowGetNative(MTY_App *app, MTY_Window window)
 {
-	return NULL;
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return NULL;
+
+	return (void *) &ctx->info;
 }
 
 

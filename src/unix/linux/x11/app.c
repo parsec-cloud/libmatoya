@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "dl/libx11.c"
+#include "dl/libdesktop.h"
 #include "hid/utils.h"
 #include "evdev.h"
 #include "keymap.h"
@@ -27,7 +28,7 @@ struct window {
 	MTY_Frame frame;
 	int32_t last_width;
 	int32_t last_height;
-	struct xinfo info;
+	struct desktop_info info;
 };
 
 struct MTY_App {
@@ -1193,9 +1194,9 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 
 	window_set_up_wm(app, ctx->window);
 
-	ctx->info.display = app->display;
-	ctx->info.vis = app->vis;
-	ctx->info.window = ctx->window;
+	ctx->info.xinfo.display = app->display;
+	ctx->info.xinfo.vis = app->vis;
+	ctx->info.xinfo.window = ctx->window;
 
 	except:
 

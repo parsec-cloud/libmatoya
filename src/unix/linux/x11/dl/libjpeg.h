@@ -230,12 +230,10 @@ static bool LIBJPEG_INIT;
 
 static void __attribute__((destructor)) libjpeg_global_destroy(void)
 {
-	MTY_GlobalLock(&LIBJPEG_LOCK);
 
 	MTY_SOUnload(&LIBJPEG_SO);
 	LIBJPEG_INIT = false;
 
-	MTY_GlobalUnlock(&LIBJPEG_LOCK);
 }
 
 static bool libjpeg_global_init(void)

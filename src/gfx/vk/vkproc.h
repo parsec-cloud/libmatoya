@@ -19,11 +19,12 @@
 		((e) == VK_ERROR_OUT_OF_DATE_KHR || (e) == VK_SUBOPTIMAL_KHR)
 
 #elif defined(MTY_VK_XLIB)
-	#include "dl/libx11.h"
+	#include "dl/libdesktop.h"
 	#include "vulkan/vulkan_xlib.h"
+	#include "vulkan/vulkan_wayland.h"
 
 	#define VKPROC_SO_NAME "libvulkan.so.1"
-	#define VKPROC_SURFACE_EXT "VK_KHR_xlib_surface"
+	#define VKPROC_SURFACE_EXT "VK_KHR_xlib_surface", "VK_KHR_wayland_surface"
 	#define VKPROC_FORMAT VK_FORMAT_B8G8R8A8_UNORM
 	#define VKPROC_ALPHA VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
 	#define VKPROC_OUT_OF_DATE(e) \

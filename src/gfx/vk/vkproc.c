@@ -98,6 +98,7 @@ VKPROC_DEF(vkDestroySemaphore);
 	VKPROC_DEF(vkCreateWin32SurfaceKHR);
 #elif defined(MTY_VK_XLIB)
 	VKPROC_DEF(vkCreateXlibSurfaceKHR);
+	VKPROC_DEF(vkCreateWaylandSurfaceKHR);
 #elif defined(MTY_VK_ANDROID)
 	VKPROC_DEF(vkCreateAndroidSurfaceKHR);
 #endif
@@ -210,6 +211,7 @@ static bool vkproc_global_init(void)
 			VKPROC_LOAD_SYM(vkCreateWin32SurfaceKHR);
 		#elif defined(MTY_VK_XLIB)
 			VKPROC_LOAD_SYM(vkCreateXlibSurfaceKHR);
+			VKPROC_LOAD_SYM(vkCreateWaylandSurfaceKHR);
 		#elif defined(MTY_VK_ANDROID)
 			VKPROC_LOAD_SYM(vkCreateAndroidSurfaceKHR);
 		#endif

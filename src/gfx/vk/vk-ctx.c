@@ -137,8 +137,8 @@ static bool vk_ctx_get_surface_size(VkPhysicalDevice pdevice, VkSurfaceKHR surfa
 	if (e != VK_SUCCESS)
 		return false;
 
-	*w = caps.currentExtent.width;
-	*h = caps.currentExtent.height;
+	*w = 800;
+	*h = 600;
 
 	return true;
 }
@@ -150,8 +150,12 @@ static bool vk_ctx_create_swapchain(VkSurfaceKHR surface, VkPhysicalDevice pdevi
 
 	// Surface size
 	r = vk_ctx_get_surface_size(pdevice, surface, &sc->w, &sc->h);
-	if (!r)
+	if (!r) {
+		printf("vk_ctx_get_surface_size failed\n");
 		goto except;
+	}
+
+	printf("Width: %d, Height: %d\n", sc->w, sc->h);
 
 	// Swapchain
 	VkSwapchainCreateInfoKHR sci = {
@@ -173,6 +177,7 @@ static bool vk_ctx_create_swapchain(VkSurfaceKHR surface, VkPhysicalDevice pdevi
 
 	VkResult e = vkCreateSwapchainKHR(device, &sci, NULL, &sc->swapchain);
 	if (e != VK_SUCCESS) {
+		printf("vkCreateSwapchainKHR failed: %d\n", e);
 		r = false;
 		goto except;
 	}
@@ -181,6 +186,7 @@ static bool vk_ctx_create_swapchain(VkSurfaceKHR surface, VkPhysicalDevice pdevi
 	sc->nimages = VK_CTX_ENUM_MAX;
 	e = vkGetSwapchainImagesKHR(device, sc->swapchain, &sc->nimages, sc->images);
 	if (e != VK_SUCCESS) {
+		printf("vkGetSwapchainImagesKHR failed: %d\n", e);
 		r = false;
 		goto except;
 	}
@@ -198,6 +204,7 @@ static bool vk_ctx_create_swapchain(VkSurfaceKHR surface, VkPhysicalDevice pdevi
 
 		e = vkCreateImageView(device, &ivci, NULL, &sc->views[x]);
 		if (e != VK_SUCCESS) {
+			printf("vkCreateImageView failed: %d\n", e);
 			r = false;
 			goto except;
 		}
@@ -216,6 +223,7 @@ static bool vk_ctx_create_swapchain(VkSurfaceKHR surface, VkPhysicalDevice pdevi
 		// because it is cast to a pointer
 		e = vkCreateFramebuffer(device, &fci, NULL, &sc->fbs[x]);
 		if (e != VK_SUCCESS || (uint64_t) sc->fbs[x] > SIZE_MAX) {
+			printf("vkCreateFramebuffer failed: %d\n", e);
 			r = false;
 			goto except;
 		}
@@ -299,8 +307,10 @@ static bool vk_ctx_refresh_swapchain(struct vk_ctx *ctx)
 			return false;
 	#endif
 
-	if (!vk_ctx_create_swapchain(ctx->surface, ctx->pdevice, ctx->device, ctx->rp, ctx->vsync, sc))
+	if (!vk_ctx_create_swapchain(ctx->surface, ctx->pdevice, ctx->device, ctx->rp, ctx->vsync, sc)) {
+		printf("vk_ctx_create_swapchain recreate failed\n");
 		return false;
+	}
 
 	#if defined(MTY_VK_ANDROID)
 		mty_gfx_done_with_window();
@@ -402,19 +412,33 @@ struct gfx_ctx *mty_vk_ctx_create(void *native_window, bool vsync)
 	}
 
 	#elif defined(MTY_VK_XLIB)
-	struct xinfo *info = (struct xinfo *) native_window;
 
-	VkXlibSurfaceCreateInfoKHR ci = {
-		.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-		.dpy = info->display,
-		.window = info->window,
-	};
+	struct desktop_info *dinfo = (struct desktop_info *) native_window;
+	if (dinfo->wayland) {
+		VkWaylandSurfaceCreateInfoKHR ciwl = {
+			.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+			.display = dinfo->wl_info.display,
+			.surface = dinfo->wl_info.surface,
+		};
 
-	e = vkCreateXlibSurfaceKHR(ctx->instance, &ci, NULL, &ctx->surface);
+		e = vkCreateWaylandSurfaceKHR(ctx->instance, &ciwl, NULL, &ctx->surface);
+	
+	} else {
+		VkXlibSurfaceCreateInfoKHR ci = {
+			.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+			.dpy = dinfo->xinfo.display,
+			.window = dinfo->xinfo.window,
+		};
+
+		e = vkCreateXlibSurfaceKHR(ctx->instance, &ci, NULL, &ctx->surface);
+	}
+
 	if (e != VK_SUCCESS) {
 		r = false;
 		goto except;
 	}
+
+	printf("Surface created\n");
 
 	#elif defined(MTY_VK_ANDROID)
 	ANativeWindow *window = mty_gfx_wait_for_window(10000);
@@ -431,6 +455,7 @@ struct gfx_ctx *mty_vk_ctx_create(void *native_window, bool vsync)
 	uint32_t qi = 0;
 
 	if (!vk_ctx_get_pdevice(ctx->instance, ctx->surface, &ctx->pdevice, &qi)) {
+		printf("vk_ctx_get_pdevice failed\n");
 		r = false;
 		goto except;
 	}
@@ -439,6 +464,7 @@ struct gfx_ctx *mty_vk_ctx_create(void *native_window, bool vsync)
 
 	// Logical device
 	if (!vk_ctx_get_ldevice(ctx->pdevice, qi, &ctx->device)) {
+		printf("vk_ctx_get_ldevice failed\n");
 		r = false;
 		goto except;
 	}
@@ -454,6 +480,7 @@ struct gfx_ctx *mty_vk_ctx_create(void *native_window, bool vsync)
 
 	e = vkCreateCommandPool(ctx->device, &pci, NULL, &ctx->pool);
 	if (e != VK_SUCCESS) {
+		printf("vkCreateCommandPool failed\n");
 		r = false;
 		goto except;
 	}
@@ -467,6 +494,7 @@ struct gfx_ctx *mty_vk_ctx_create(void *native_window, bool vsync)
 
 	e = vkAllocateCommandBuffers(ctx->device, &cai, &ctx->cmd);
 	if (e != VK_SUCCESS) {
+		printf("vkAllocateCommandBuffers failed\n");
 		r = false;
 		goto except;
 	}
@@ -478,12 +506,14 @@ struct gfx_ctx *mty_vk_ctx_create(void *native_window, bool vsync)
 
 	e = vkCreateSemaphore(ctx->device, &si, NULL, &ctx->semaphores[0]);
 	if (e != VK_SUCCESS) {
+		printf("vkCreateSemaphore failed\n");
 		r = false;
 		goto except;
 	}
 
 	e = vkCreateSemaphore(ctx->device, &si, NULL, &ctx->semaphores[1]);
 	if (e != VK_SUCCESS) {
+		printf("vkCreateSemaphore 2 failed\n");
 		r = false;
 		goto except;
 	}
@@ -513,19 +543,24 @@ struct gfx_ctx *mty_vk_ctx_create(void *native_window, bool vsync)
 
 	e = vkCreateRenderPass(ctx->device, &rpci, NULL, &ctx->rp);
 	if (e != VK_SUCCESS) {
+		printf("vkCreateRenderPass failed: %d\n", e);
 		r = false;
 		goto except;
 	}
 
 	// Swapchain
 	r = vk_ctx_create_swapchain(ctx->surface, ctx->pdevice, ctx->device, ctx->rp, ctx->vsync, &ctx->sc);
-	if (!r)
+	if (!r) {
+		printf("vk_ctx_create_swapchain failed\n");
 		goto except;
+	}
 
 	except:
 
-	if (!r)
+	if (!r) {
+		printf("Bad state\n");
 		mty_vk_ctx_destroy((struct gfx_ctx **) &ctx);
+	}
 
 	return (struct gfx_ctx *) ctx;
 }
@@ -665,8 +700,10 @@ void mty_vk_ctx_present(struct gfx_ctx *gfx_ctx)
 
 	struct vk_swapchain *sc = &ctx->sc;
 
-	if (!sc->bb)
+	if (!sc->bb) {
+		printf("No backbuffer\n");
 		return;
+	}
 
 	// Present barrier
 	vk_ctx_swapchain_barrier(sc, ctx->cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,

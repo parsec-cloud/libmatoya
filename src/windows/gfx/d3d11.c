@@ -311,13 +311,8 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		return true;
 
 	struct d3d11 *ctx = (struct d3d11 *) gfx;
-	bool r = true;
 
-	HANDLE shared_handle[3] = {NULL, NULL, NULL};
-	memcpy(&shared_handle[0], image, sizeof(HANDLE));
-	memcpy(&shared_handle[1], image + sizeof(HANDLE), sizeof(HANDLE));
-	memcpy(&shared_handle[2], image + (sizeof(HANDLE) * 2), sizeof(HANDLE));
-
+	HANDLE *shared_handle = (HANDLE *) image;
 	ID3D11Resource *res_d3d = NULL;
 	ID3D11Texture2D *texture = NULL;
 
@@ -341,14 +336,12 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		if (e != S_OK) {
 			MTY_Log("Failure for index %d shared pointer %p", x, shared_handle[x]);
 			MTY_Log("'ID3D11Device_OpenSharedResource' failed with HRESULT 0x%X", e);
-			r = false;
 			goto except;
 		}
 
 		e = IDXGIResource_QueryInterface(res_d3d, &IID_ID3D11Texture2D, &texture);
 		if (e != S_OK) {
 			MTY_Log("'IDXGIResource_QueryInterface' failed with HRESULT 0x%X", e);
-			r = false;
 			goto except;
 		}
 
@@ -360,7 +353,6 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		e = ID3D11Texture2D_QueryInterface(texture, &IID_ID3D11Resource, &res->resource);
 		if (e != S_OK) {
 			MTY_Log("'ID3D11Texture2D_QueryInterface' failed with HRESULT 0x%X", e);
-			r = false;
 			goto except;
 		}
 		D3D11_TEXTURE2D_DESC desc = {0};
@@ -374,7 +366,6 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		e = ID3D11Device_CreateShaderResourceView(device, res->resource, &srvd, &res->srv);
 		if (e != S_OK) {
 			MTY_Log("'ID3D11Device_CreateShaderResourceView' failed for index %d with HRESULT 0x%X", x, e);
-			r = false;
 			goto except;
 		}
 
@@ -407,7 +398,7 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 		d3d11_destroy_resource(res);
 	}
 
-	return r;
+	return false;
 }
 
 bool mty_d3d11_valid_hardware_frame(MTY_Device *device, MTY_Context *context, const void *shared_resource)

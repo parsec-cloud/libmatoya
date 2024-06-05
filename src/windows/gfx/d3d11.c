@@ -305,7 +305,6 @@ static bool d3d11_refresh_resource(struct gfx *gfx, MTY_Device *_device, MTY_Con
 static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_Context *context, MTY_ColorFormat fmt,
 	uint8_t plane, const uint8_t *image, uint32_t full_w, uint32_t w, uint32_t h, uint8_t bpp)
 {
-
 	// We do all textures at once so we dont want to deal with any later planes.
 	if (plane > 0)
 		return true;
@@ -319,6 +318,7 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 	for (uint32_t x = 0; x < 3 ; x++) {
 		if (!shared_handle[x])
 			continue;
+
 		struct d3d11_res *res = &ctx->staging[x];
 
 		ID3D11Device *device = (ID3D11Device *) _device;
@@ -355,6 +355,7 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 			MTY_Log("'ID3D11Texture2D_QueryInterface' failed with HRESULT 0x%X", e);
 			goto except;
 		}
+
 		D3D11_TEXTURE2D_DESC desc = {0};
 		ID3D11Texture2D_GetDesc(texture, &desc);
 
@@ -404,16 +405,15 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 bool mty_d3d11_valid_hardware_frame(MTY_Device *device, MTY_Context *context, const void *shared_resource)
 {
 	ID3D11Device *d3d_device = (ID3D11Device *) device;
-	HANDLE shared_handle =  NULL;
+	HANDLE shared_handle = NULL;
 	memcpy(&shared_handle, shared_resource, sizeof(HANDLE));
-	bool r = true;
 
+	bool r = true;
 	IDXGIResource *resource = NULL;
 
 	HRESULT e = ID3D11Device_OpenSharedResource(d3d_device, shared_handle, &IID_IDXGIResource, &resource);
-	if (e != S_OK) {
+	if (e != S_OK)
 		r = false;
-	}
 
 	if (resource)
 		IDXGIResource_Release(resource);
@@ -441,6 +441,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	if (desc->hardware) {
 		if (!fmt_reload_textures(gfx, device, context, image, desc, d3d11_map_shared_resource))
 			return false;
+
 	} else {
 		if (!fmt_reload_textures(gfx, device, context, image, desc, d3d11_refresh_resource))
 			return false;

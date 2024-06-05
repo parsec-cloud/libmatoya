@@ -108,11 +108,7 @@ bool MTY_WindowIsValidHardwareFrame(MTY_App *app, MTY_Window window, const void 
 
 	MTY_Device *device = gfx_ctx_get_device(cmn);
 
-	if (GFX_API[cmn->api].valid_hardware_frame) {
-		return GFX_API[cmn->api].valid_hardware_frame(device, gfx_ctx_get_context(cmn), shared_resource);
-	}
-
-	return false;
+	return GFX_API[cmn->api].valid_hardware_frame(device, gfx_ctx_get_context(cmn), shared_resource);
 }
 
 void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, const MTY_RenderDesc *desc)

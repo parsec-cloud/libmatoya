@@ -9,7 +9,7 @@
 #define RESET "\x1b[0m"
 
 #define test_print_cmp_(name, cmps, cmp, val, fmt) \
-	printf("[%s] %s %s" fmt "\n", name, (cmp) ? GREEN "Passed" RESET : RED "Failed" RESET, cmps, val);
+	printf("::%s file=%s,line=%d::%s %s" fmt "\n", (cmp) ? "notice" : "error", __FILE__, __LINE__, name, cmps, val);
 
 #define test_cmp_(name, cmp, val, fmt) { \
 	bool ___CMP___ = cmp; \

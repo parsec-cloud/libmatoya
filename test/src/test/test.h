@@ -10,18 +10,15 @@
 
 extern uint64_t test_seed;
 
-static inline void test_GetRandomBytes(void *dest_void, uint32_t bytes)
+static inline void test_GetRandomBytes(void *buf, size_t size)
 {
-	uint8_t *dest = dest_void;
-	while (bytes >= sizeof(test_seed)) {
-		test_seed = test_seed * 6364136223846793005ULL + 1442695040888963407ULL;
-		memcpy(dest, &test_seed, sizeof(test_seed));
-		dest += sizeof(test_seed);
-		bytes -= sizeof(test_seed);
-	}
-	if (bytes > 0) {
+	uint8_t *dest = buf;
+	while (size) {
+		const size_t bytes = size < sizeof(test_seed) ? size : sizeof(test_seed);
 		test_seed = test_seed * 6364136223846793005ULL + 1442695040888963407ULL;
 		memcpy(dest, &test_seed, bytes);
+		dest += bytes;
+		size -= bytes;
 	}
 }
 

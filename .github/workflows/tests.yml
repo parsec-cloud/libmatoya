@@ -1,37 +1,16 @@
 name: Tests
 on:
-  push:
-    branches:
-      - '**'
-    tags-ignore:
-      - '**'
   pull_request:
-    types: labeled
+    types: [ labeled, synchronize ]
 jobs:
   label:
     name: Find 'Test Matoya' Label
     runs-on: ubuntu-latest
     outputs:
-      label_exists: ${{contains(steps.pull_request.outputs.result, 'Test Matoya') || contains(toJson(github.event.label.name), 'Test Matoya')}}
+      label_exists: ${{contains(toJson(github.event.label.name), 'Test Matoya') || ( (github.event.action == 'synchronize') && contains(toJson(github.event.pull_request.labels.*.name), 'Test Matoya') )}}
     permissions:
       id-token: write
       contents: read
-      pull-requests: read
-    steps:
-      - name: pull_request
-        id: pull_request
-        uses: actions/github-script@v7
-        with:
-          script: |
-            pull_requests = (
-              await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              commit_sha: context.sha,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            })).data;
-            if (pull_requests.constructor === Array && pull_requests.length > 0 && "labels" in pull_requests[0])
-                return pull_requests[0]["labels"];
-            return "";
   macos:
     name: macOS
     runs-on: macos-latest

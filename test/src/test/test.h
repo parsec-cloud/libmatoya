@@ -20,6 +20,15 @@
 #define test_cmp(name, cmp) \
 	test_cmp_(name, (cmp), "", "%s")
 
+#define test_cmp_warn(name, cmp, val, fmt) { \
+	bool ___CMP___ = cmp; \
+	test_print_cmp_(name, #cmp, ___CMP___, val, fmt); \
+	if (!___CMP___) return true; \
+}
+
+#define test_cmp_warn(name, cmp) \
+	test_cmp_warn_(name, (cmp), "", "%s")
+
 #define test_print_cmps(name, cmp, s) { \
 	bool ___PCMP___ = cmp; \
 	test_print_cmp_(name, #cmp, ___PCMP___, s, "%s") \

@@ -1,11 +1,42 @@
 name: Tests
 on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
   pull_request:
-    types: [ labeled, synchronize ]
+    types: labeled
 jobs:
+  label:
+    name: Find 'Test Matoya' Label
+    runs-on: ubuntu-latest
+    outputs:
+      label_exists: ${{contains(steps.pull_request.outputs.result, 'Test Matoya') || contains(toJson(github.event.label.name), 'Test Matoya')}}
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
+    steps:
+      - name: pull_request
+        id: pull_request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            pull_requests = (
+              await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              commit_sha: context.sha,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            })).data;
+            if (pull_requests.constructor === Array && pull_requests.length > 0 && "labels" in pull_requests[0])
+                return pull_requests[0]["labels"];
+            return "";
   macos:
     name: macOS
     runs-on: macos-latest
+    needs: label
+    if: ${{needs.label.outputs.label_exists == 'true'}}
     permissions:
       id-token: write
       contents: read
@@ -25,6 +56,8 @@ jobs:
   linux:
     name: Linux
     runs-on: ubuntu-latest
+    needs: label
+    if: ${{needs.label.outputs.label_exists == 'true'}}
     permissions:
       id-token: write
       contents: read
@@ -44,6 +77,8 @@ jobs:
   windows:
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
+    needs: label
+    if: ${{needs.label.outputs.label_exists == 'true'}}
     permissions:
       id-token: write
       contents: read

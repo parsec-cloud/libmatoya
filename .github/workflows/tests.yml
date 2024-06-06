@@ -1,0 +1,68 @@
+name: Tests
+on:
+  pull_request:
+    types: [ labeled, synchronize ]
+jobs:
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      TERM: xterm-256color
+    steps:
+      - name: Checkout Branch
+        uses: actions/checkout@v4
+        with:
+          path: libmatoya
+      - name: Test
+        run: |
+          cd libmatoya
+          make ARCH=arm64
+          cd test
+          make ARCH=arm64
+  linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      TERM: xterm-256color
+    steps:
+      - name: Checkout Branch
+        uses: actions/checkout@v4
+        with:
+          path: libmatoya
+      - name: Test
+        run: |
+          cd libmatoya
+          make
+          cd test
+          make
+  windows:
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: "Windows x64", os: windows-2022, bits: 64 }
+    env:
+      VCVARS_PATH: C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build
+    steps:
+      - name: Checkout Branch
+        uses: actions/checkout@v4
+        with:
+          path: libmatoya
+      - name: Test
+        shell: cmd
+        run: |
+          cd libmatoya
+          nmake
+          cd test
+          nmake

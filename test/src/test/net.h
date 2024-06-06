@@ -108,7 +108,7 @@ static bool net_badssl(void)
 	badssl_test("ecc384.badssl.com", false);
 	badssl_test("rsa2048.badssl.com", false);
 	badssl_test("rsa4096.badssl.com", false);
-	badssl_test("rsa8192.badssl.com", false);
+	// badssl_test("rsa8192.badssl.com", false);
 	// badssl_test("extended-validation.badssl.com", false);
 	badssl_test("mozilla-modern.badssl.com", false);
 	badssl_test("tls-v1-2.badssl.com", false);

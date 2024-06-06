@@ -48,7 +48,7 @@ int32_t main(int32_t argc, char **argv)
 	const char *seed = getenv("seed");
 	if (seed)
 		sscanf(seed, "0x%" PRIx64, &test_seed);
-	MTY_Log("seed=0x%" PRIx64, test_seed);
+	printf("::notice file=%s,line=%d::seed=0x%" PRIx64 "\n", __FILE__, __LINE__, test_seed);
 
 	if (!json_main())
 		return 1;

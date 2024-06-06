@@ -11,6 +11,10 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    steps:
+      - name: Nothing
+        shell: bash
+        run: echo ""
   macos:
     name: macOS
     runs-on: macos-latest

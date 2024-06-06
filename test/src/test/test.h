@@ -8,6 +8,30 @@
 #define RED   "\x1b[91m"
 #define RESET "\x1b[0m"
 
+extern uint64_t test_seed;
+
+static inline void test_GetRandomBytes(void *dest_void, uint32_t bytes)
+{
+	uint8_t *dest = dest_void;
+	while (bytes >= sizeof(test_seed)) {
+		test_seed = test_seed * 6364136223846793005ULL + 1442695040888963407ULL;
+		memcpy(dest, &test_seed, sizeof(test_seed));
+		dest += sizeof(test_seed);
+		bytes -= sizeof(test_seed);
+	}
+	if (bytes > 0) {
+		test_seed = test_seed * 6364136223846793005ULL + 1442695040888963407ULL;
+		memcpy(dest, &test_seed, bytes);
+	}
+}
+
+static inline uint32_t test_GetRandomUInt(uint32_t lo, uint32_t hi)
+{
+	uint32_t temp;
+	test_GetRandomBytes(&temp, sizeof(temp));
+	return lo + temp % (hi - lo);
+}
+
 #define test_print_cmp_(name, cmps, cmp, val, fmt) \
 	printf("::%s file=%s,line=%d::%s %s" fmt "\n", (cmp) ? "notice" : "error", __FILE__, __LINE__, name, cmps, val);
 

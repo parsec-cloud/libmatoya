@@ -33,11 +33,11 @@ static const char *JSON_UTF16 = "\""
 
 static char *json_random_string(void)
 {
-	uint32_t len = MTY_GetRandomUInt(JSON_STRING_MIN, JSON_STRING_MAX);
+	uint32_t len = test_GetRandomUInt(JSON_STRING_MIN, JSON_STRING_MAX);
 	char *str = MTY_Alloc(len + 1, 1);
 
 	for (uint32_t x = 0; x < len; x++)
-		str[x] = (char) MTY_GetRandomUInt(1, 128);
+		str[x] = (char) test_GetRandomUInt(1, 128);
 
 	return str;
 }
@@ -46,11 +46,11 @@ static MTY_JSON *json_random(uint32_t *n)
 {
 	MTY_JSON *j = NULL;
 
-	uint32_t action = MTY_GetRandomUInt(0, 6);
+	uint32_t action = test_GetRandomUInt(0, 6);
 
 	switch (action) {
 		case 0: {
-			uint32_t size = MTY_GetRandomUInt(0, JSON_ARRAY_MAX);
+			uint32_t size = test_GetRandomUInt(0, JSON_ARRAY_MAX);
 			j = MTY_JSONArrayCreate(size);
 
 			for (uint32_t x = 0; x < size && *n < JSON_ITEM_MAX; x++, (*n)++)
@@ -58,7 +58,7 @@ static MTY_JSON *json_random(uint32_t *n)
 			break;
 		}
 		case 1: {
-			uint32_t size = MTY_GetRandomUInt(0, JSON_OBJECT_MAX);
+			uint32_t size = test_GetRandomUInt(0, JSON_OBJECT_MAX);
 			j = MTY_JSONObjCreate();
 
 			for (uint32_t x = 0; x < size && *n < JSON_ITEM_MAX; x++, (*n)++) {
@@ -71,13 +71,13 @@ static MTY_JSON *json_random(uint32_t *n)
 		}
 		case 2: {
 			double num = 0;
-			MTY_GetRandomBytes(&num, sizeof(double));
+			test_GetRandomBytes(&num, sizeof(double));
 
 			j = MTY_JSONNumberCreate(num);
 			break;
 		}
 		case 3:
-			j = MTY_JSONBoolCreate(MTY_GetRandomUInt(0, 2) == 1);
+			j = MTY_JSONBoolCreate(test_GetRandomUInt(0, 2) == 1);
 			break;
 		case 4:
 			j = MTY_JSONNullCreate();

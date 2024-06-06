@@ -12,8 +12,7 @@
 static bool net_websocket_echo(void)
 {
 	uint16_t us = 0;
-	MTY_WebSocket *ws = MTY_WebSocketConnect("https://echo.websocket.events/",
-		"Origin: https://echo.websocket.events", NULL, 10000, &us);
+	MTY_WebSocket *ws = MTY_WebSocketConnect("https://echo.websocket.events/", NULL, NULL, 10000, &us);
 	test_cmp("MTY_WebSocketConnect", ws != NULL);
 	test_cmp("Upgrade Status", us == 101);
 

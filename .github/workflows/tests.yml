@@ -62,6 +62,7 @@ jobs:
       - name: Test
         shell: cmd
         run: |
+          call "%VCVARS_PATH%/vcvars${{ matrix.config.bits }}.bat"
           cd libmatoya
           nmake
           cd test

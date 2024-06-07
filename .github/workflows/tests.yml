@@ -8,9 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       label_exists: ${{contains(toJson(github.event.label.name), 'Test Matoya') || ( (github.event.action == 'synchronize') && contains(toJson(github.event.pull_request.labels.*.name), 'Test Matoya') )}}
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - name: Nothing
         shell: bash

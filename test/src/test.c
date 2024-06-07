@@ -45,10 +45,10 @@ int32_t main(int32_t argc, char **argv)
 	MTY_SetLogFunc(main_log, NULL);
 
 	test_seed ^= MTY_GetTime();
-	const char *seed = getenv("seed");
+	const char *seed = getenv("MATOYA_TEST_SEED");
 	if (seed)
 		sscanf(seed, "0x%" PRIx64, &test_seed);
-	printf("::notice file=%s,line=%d::seed=0x%" PRIx64 "\n", __FILE__, __LINE__, test_seed);
+	printf("::notice file=%s,line=%d::MATOYA_TEST_SEED=0x%" PRIx64 "\n", __FILE__, __LINE__, test_seed);
 
 	if (!json_main())
 		return 1;

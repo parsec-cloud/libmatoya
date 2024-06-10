@@ -110,13 +110,16 @@ static MTY_Atomic32 LIBCURL_LOCK;
 static MTY_SO *LIBCURL_SO;
 static bool LIBCURL_INIT;
 
+static void libcurl_global_destroy_lockfree(void)
+{
+	MTY_SOUnload(&LIBCURL_SO);
+	LIBCURL_INIT = false;
+}
+
 static void __attribute__((destructor)) libcurl_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBCURL_LOCK);
-
-	MTY_SOUnload(&LIBCURL_SO);
-	LIBCURL_INIT = false;
-
+	libcurl_global_destroy_lockfree();
 	MTY_GlobalUnlock(&LIBCURL_LOCK);
 }
 
@@ -160,7 +163,7 @@ static bool libcurl_global_init(void)
 		except:
 
 		if (!r)
-			libcurl_global_destroy();
+			libcurl_global_destroy_lockfree();
 
 		LIBCURL_INIT = r;
 	}

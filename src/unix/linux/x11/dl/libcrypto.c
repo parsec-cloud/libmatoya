@@ -35,13 +35,16 @@ static MTY_Atomic32 LIBCRYPTO_LOCK;
 static MTY_SO *LIBCRYPTO_SO;
 static bool LIBCRYPTO_INIT;
 
+static void libcrypto_global_destroy_lockfree(void)
+{
+	MTY_SOUnload(&LIBCRYPTO_SO);
+	LIBCRYPTO_INIT = false;
+}
+
 static void __attribute__((destructor)) libcrypto_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBCRYPTO_LOCK);
-
-	MTY_SOUnload(&LIBCRYPTO_SO);
-	LIBCRYPTO_INIT = false;
-
+	libcrypto_global_destroy_lockfree();
 	MTY_GlobalUnlock(&LIBCRYPTO_LOCK);
 }
 
@@ -85,7 +88,7 @@ static bool libcrypto_global_init(void)
 		except:
 
 		if (!r)
-			libcrypto_global_destroy();
+			libcrypto_global_destroy_lockfree();
 
 		LIBCRYPTO_INIT = r;
 	}

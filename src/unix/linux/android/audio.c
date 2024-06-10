@@ -71,7 +71,7 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
 	ctx->mutex = MTY_MutexCreate();
 	ctx->buffer = MTY_Alloc(AUDIO_BUF_SIZE(ctx), 1);
 
-	uint32_t frames_per_ms = lrint((float) format->sample_rate / 1000.0f);
+	uint32_t frames_per_ms = lrint((float) format->sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE(format->sampleFormat);
 	ctx->max_buffer = maxBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE(format->sampleFormat);
 

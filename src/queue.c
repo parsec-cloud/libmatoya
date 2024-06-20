@@ -219,4 +219,12 @@ void MTY_QueueFlush(MTY_Queue *ctx, MTY_FreeFunc freeFunc)
 
 		MTY_QueuePop(ctx);
 	}
+
+	for (uint32_t x = 0; x < ctx->len && !ctx->ptr_queue; x++) {
+		struct queue_slot *slot = &ctx->slots[x];
+		if (freeFunc)
+			freeFunc(slot->data);
+
+		memset(slot->data, 0, ctx->buf_size);
+	}
 }

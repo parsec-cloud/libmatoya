@@ -21,6 +21,7 @@ struct queue_slot {
 struct MTY_Queue {
 	size_t buf_size;
 	uint32_t len;
+	bool ptr_queue;
 
 	MTY_Waitable *pop_sync;
 	MTY_Mutex *push_mutex;
@@ -36,8 +37,10 @@ MTY_Queue *MTY_QueueCreate(uint32_t len, size_t bufSize)
 	ctx->len = len;
 	ctx->buf_size = bufSize;
 
-	if (ctx->buf_size < sizeof(void *))
+	if (ctx->buf_size < sizeof(void *)) {
+		ctx->ptr_queue = true;
 		ctx->buf_size = sizeof(void *);
+	}
 
 	ctx->pop_sync = MTY_WaitableCreate();
 	ctx->push_mutex = MTY_MutexCreate();

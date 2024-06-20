@@ -1111,6 +1111,12 @@ MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window);
 MTY_EXPORT float
 MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window);
 
+/// @brief Get the refresh rate of the display where the window currently resides.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+MTY_EXPORT uint32_t
+MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window);
+
 /// @brief Set the window's title.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
@@ -1751,9 +1757,10 @@ typedef enum {
 
 /// @brief File properties.
 typedef struct {
-	char *path; ///< The base path to the file.
-	char *name; ///< The file name.
-	bool dir;   ///< The file is a directory.
+	char *path;    ///< The base path to the file.
+	char *name;    ///< The file name.
+	uint64_t size; ///< The file size in bytes.
+	bool dir;      ///< The file is a directory.
 } MTY_FileDesc;
 
 /// @brief A list of files.
@@ -2427,6 +2434,15 @@ MTY_SprintfD(const char *fmt, ...) MTY_FMT(1, 2);
 ///   This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_SprintfDL(const char *fmt, ...) MTY_FMT(1, 2);
+
+/// @brief Search a string for a list of substrings.
+/// @param a String to be searched.
+/// @param b List of substrings delimited by `delim`.
+/// @param delim Delimiters used to for `s1`. Each character in this string is treated
+///   as a delimiter like MTY_Strtok.
+/// @returns Returns true if any of `s1` is found in `s0`, otherwise false.
+MTY_EXPORT bool
+MTY_StrSearch(const char *s0, const char *s1, const char *delim);
 
 /// @brief Case insensitive string comparison.
 /// @details For more information, see `strcasecmp` from the C standard library.
@@ -3557,10 +3573,10 @@ MTY_RevertTimerResolution(uint32_t res);
 //-   A minor version increase means an implementation change or a pure addition to the
 //-   interface. A major version increase means the interface has changed.
 
-#define MTY_VERSION_MAJOR   4      ///< libmatoya major version number.
+#define MTY_VERSION_MAJOR   5      ///< libmatoya major version number.
 #define MTY_VERSION_MINOR   0      ///< libmatoya minor version number.
-#define MTY_VERSION_STRING  "4.0"  ///< UTF-8 libmatoya version string.
-#define MTY_VERSION_STRINGW L"4.0" ///< Wide character libmatoya version string.
+#define MTY_VERSION_STRING  "5.0"  ///< UTF-8 libmatoya version string.
+#define MTY_VERSION_STRINGW L"5.0" ///< Wide character libmatoya version string.
 
 /// @brief Get the version libmatoya was compiled with.
 /// @returns The major and minor version numbers packed into a 32-bit integer. The major

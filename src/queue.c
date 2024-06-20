@@ -208,6 +208,7 @@ bool MTY_QueuePopPtr(MTY_Queue *ctx, int32_t timeout, void **opaque, size_t *siz
 
 void MTY_QueueFlush(MTY_Queue *ctx, MTY_FreeFunc freeFunc)
 {
+	// Empty queue and call freeFunc on filled pointer slots
 	for (void *data = NULL; queue_pop(ctx, 0, false, (void **) &data, NULL);) {
 		struct queue_slot *slot = &ctx->slots[ctx->pop_pos];
 

@@ -76,7 +76,7 @@ const char *MTY_GetProcessPath(void)
 	return "/app";
 }
 
-bool MTY_RestartProcess(char * const *argv)
+bool MTY_RestartProcess(const char *path, const char * const *argv, const char *dir)
 {
 	return false;
 }

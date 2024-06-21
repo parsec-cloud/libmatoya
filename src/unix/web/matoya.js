@@ -732,13 +732,16 @@ async function mty_ws_connect(url) {
 		ws.closeCode = 0;
 		ws.msgs = [];
 
+		let tm = 0;
 		ws.onclose = (ev) => {
 			ws.closeCode = ev.code == 1005 ? 1000 : ev.code;
+			clearInterval(tm);
 			resolve(null);
 		};
 
 		ws.onerror = (err) => {
 			console.error(err);
+			clearInterval(tm);
 			resolve(null);
 		};
 
@@ -749,6 +752,7 @@ async function mty_ws_connect(url) {
 		ws.onmessage = (ev) => {
 			ws.msgs.push(ev.data);
 			Atomics.notify(ws.sync, 0, 1);
+			tm = setInterval(() => {ws.send('__ping__');}, 60000); // Fake keepalive
 		};
 	});
 }

@@ -2,6 +2,8 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "matoya.h"
 
 #define _USE_MATH_DEFINES
@@ -29,6 +31,8 @@
 #include "test/crypto.h"
 #include "test/net.h"
 
+uint64_t test_seed = 0xDEADBEEFCAFEBABEUL;
+
 static void main_log(const char *msg, void *opaque)
 {
 	printf("%s\n", msg);
@@ -39,6 +43,12 @@ int32_t main(int32_t argc, char **argv)
 	setlocale(LC_ALL, "en_US.UTF-8");
 
 	MTY_SetLogFunc(main_log, NULL);
+
+	test_seed ^= MTY_GetTime();
+	const char *seed = getenv("MATOYA_TEST_SEED");
+	if (seed)
+		sscanf(seed, "0x%" PRIx64, &test_seed);
+	printf("::notice file=%s,line=%d::MATOYA_TEST_SEED=0x%" PRIx64 "\n", __FILE__, __LINE__, test_seed);
 
 	if (!json_main())
 		return 1;

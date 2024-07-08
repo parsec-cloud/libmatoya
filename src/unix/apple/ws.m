@@ -30,8 +30,19 @@ struct MTY_WebSocket {
 static void websocket_URLSession_task_didCompleteWithError(id self, SEL _cmd, NSURLSession *session,
 	NSURLSessionTask *task, NSError *error)
 {
-	if (error)
-		MTY_Log("'URLSession:task:didCompleteWithError' fired with code %ld\n", error.code);
+	if (!error)
+		return;
+
+	MTY_Log("'URLSession:task:didCompleteWithError' fired with code %ld", error.code);
+
+	MTY_WebSocket *ctx = OBJC_CTX();
+	if (!ctx)
+		return;
+
+	ctx->closed = true;
+
+	if (ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static void websocket_URLSession_webSocketTask_didOpenWithProtocol(id self, SEL _cmd, NSURLSession *session,
@@ -39,13 +50,16 @@ static void websocket_URLSession_webSocketTask_didOpenWithProtocol(id self, SEL 
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
 
-	MTY_WaitableSignal(ctx->conn);
+	if (ctx && ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static void websocket_URLSession_webSocketTask_didCloseWithCode_reason(id self, SEL _cmd, NSURLSession *session,
 	NSURLSessionWebSocketTask *webSocketTask, NSURLSessionWebSocketCloseCode closeCode, NSData *reason)
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
+	if (!ctx)
+		return;
 
 	ctx->closed = true;
 
@@ -57,7 +71,8 @@ static void websocket_URLSession_didBecomeInvalidWithError(id self, SEL _cmd, NS
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
 
-	MTY_WaitableSignal(ctx->conn);
+	if (ctx && ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static Class websocket_class(void)
@@ -113,7 +128,7 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *url, const char *headers, const 
 
 	[ctx->task resume];
 
-	bool opened = MTY_WaitableWait(ctx->conn, timeout);
+	bool opened = MTY_WaitableWait(ctx->conn, timeout) && !ctx->closed;
 
 	// Upgrade status
 	NSHTTPURLResponse *response = (NSHTTPURLResponse *) ctx->task.response;

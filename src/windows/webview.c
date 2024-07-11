@@ -52,6 +52,7 @@ struct webview {
 	bool url;
 	bool debug;
 	bool passthrough;
+	bool focussed;
 	bool ready;
 };
 
@@ -599,6 +600,11 @@ void mty_webview_run(struct webview *ctx)
 
 void mty_webview_render(struct webview *ctx)
 {
+}
+
+bool mty_webview_is_focussed(struct webview *ctx)
+{
+	return ctx->focussed;
 }
 
 bool mty_webview_is_steam(void)

@@ -33,6 +33,11 @@ struct webview_handler2 {
 	void *opaque;
 };
 
+struct webview_handler3 {
+	ICoreWebView2FocusChangedEventHandler handler;
+	void *opaque;
+};
+
 struct webview {
 	MTY_App *app;
 	MTY_Window window;
@@ -47,6 +52,8 @@ struct webview {
 	struct webview_handler0 handler0;
 	struct webview_handler1 handler1;
 	struct webview_handler2 handler2;
+	struct webview_handler3 handler3; // GotFocus
+	struct webview_handler3 handler4; // LostFocus
 	ICoreWebView2EnvironmentOptions opts;
 	WCHAR *source;
 	bool url;
@@ -72,6 +79,42 @@ static ULONG STDMETHODCALLTYPE com_AddRef(void *This)
 static ULONG STDMETHODCALLTYPE com_Release(void *This)
 {
 	return 0;
+}
+
+
+// ICoreWebView2FocusChangedEventHandler
+
+static HRESULT STDMETHODCALLTYPE h3_QueryInterface(void *This,
+	REFIID riid, _COM_Outptr_ void **ppvObject)
+{
+	if (com_check_riid(riid, &IID_ICoreWebView2FocusChangedEventHandler)) {
+		*ppvObject = This;
+		return S_OK;
+	}
+
+	return E_NOINTERFACE;
+}
+
+static HRESULT STDMETHODCALLTYPE h3_Invoke_GotFocus(ICoreWebView2FocusChangedEventHandler *This,
+	ICoreWebView2 *sender, IUnknown *args)
+{
+	struct webview_handler3 *handler = (struct webview_handler3 *) This;
+	struct webview *ctx = handler->opaque;
+
+	ctx->focussed = true;
+
+	return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE h3_Invoke_LostFocus(ICoreWebView2FocusChangedEventHandler *This,
+	ICoreWebView2 *sender, IUnknown *args)
+{
+	struct webview_handler3 *handler = (struct webview_handler3 *) This;
+	struct webview *ctx = handler->opaque;
+
+	ctx->focussed = false;
+
+	return S_OK;
 }
 
 
@@ -394,7 +437,21 @@ static ICoreWebView2WebMessageReceivedEventHandlerVtbl VTBL2 = {
 	.Invoke = h2_Invoke,
 };
 
-static ICoreWebView2EnvironmentOptionsVtbl VTBL3 = {
+static ICoreWebView2FocusChangedEventHandlerVtbl VTBL3 = {
+	.QueryInterface = h3_QueryInterface,
+	.AddRef = com_AddRef,
+	.Release = com_Release,
+	.Invoke = h3_Invoke_GotFocus,
+};
+
+static ICoreWebView2FocusChangedEventHandlerVtbl VTBL4 = {
+	.QueryInterface = h3_QueryInterface,
+	.AddRef = com_AddRef,
+	.Release = com_Release,
+	.Invoke = h3_Invoke_LostFocus,
+};
+
+static ICoreWebView2EnvironmentOptionsVtbl VTBL5 = {
 	.QueryInterface = opts_QueryInterface,
 	.AddRef = com_AddRef,
 	.Release = com_Release,
@@ -475,7 +532,11 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 	ctx->handler1.opaque = ctx;
 	ctx->handler2.handler.lpVtbl = &VTBL2;
 	ctx->handler2.opaque = ctx;
-	ctx->opts.lpVtbl = &VTBL3;
+	ctx->handler3.handler.lpVtbl = &VTBL3;
+	ctx->handler3.opaque = ctx;
+	ctx->handler4.handler.lpVtbl = &VTBL4;
+	ctx->handler4.opaque = ctx;
+	ctx->opts.lpVtbl = &VTBL5;
 
 	const WCHAR *dirw = dir ? MTY_MultiToWideDL(dir) : L"webview-data";
 

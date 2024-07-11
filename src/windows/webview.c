@@ -102,7 +102,8 @@ static HRESULT STDMETHODCALLTYPE h3_Invoke_GotFocus(ICoreWebView2FocusChangedEve
 	struct webview *ctx = handler->opaque;
 
 	ctx->focussed = true;
-	PostMessage(MTY_WindowGetNative(ctx->app, ctx->window), WM_SETFOCUS, 0, 0);
+	if (mty_webview_is_visible(ctx))
+		PostMessage(MTY_WindowGetNative(ctx->app, ctx->window), WM_SETFOCUS, 0, 0);
 
 	return S_OK;
 }
@@ -114,7 +115,8 @@ static HRESULT STDMETHODCALLTYPE h3_Invoke_LostFocus(ICoreWebView2FocusChangedEv
 	struct webview *ctx = handler->opaque;
 
 	ctx->focussed = false;
-	PostMessage(MTY_WindowGetNative(ctx->app, ctx->window), WM_KILLFOCUS, 0, 0);
+	if (mty_webview_is_visible(ctx))
+		PostMessage(MTY_WindowGetNative(ctx->app, ctx->window), WM_KILLFOCUS, 0, 0);
 
 	return S_OK;
 }

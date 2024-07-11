@@ -2017,8 +2017,9 @@ bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 		return false;
 
 	struct window_common *cmn = mty_window_get_common(app, window);
+	bool webview_active = cmn && mty_webview_is_focussed(cmn->webview);
 
-	return app_hwnd_active(ctx->hwnd) || mty_webview_is_focussed(cmn->webview);
+	return app_hwnd_active(ctx->hwnd) || webview_active;
 }
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)

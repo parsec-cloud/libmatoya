@@ -628,7 +628,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_SETFOCUS:
 		case WM_KILLFOCUS:
 			evt.type = MTY_EVENT_FOCUS;
-			evt.focus = msg == WM_SETFOCUS;
+			evt.focus = msg == WM_SETFOCUS || mty_webview_is_focussed(ctx->cmn.webview);
 			app->state++;
 			break;
 		case WM_QUERYENDSESSION:

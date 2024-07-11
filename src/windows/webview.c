@@ -96,7 +96,7 @@ static HRESULT STDMETHODCALLTYPE h3_QueryInterface(void *This,
 }
 
 static HRESULT STDMETHODCALLTYPE h3_Invoke_GotFocus(ICoreWebView2FocusChangedEventHandler *This,
-	ICoreWebView2 *sender, IUnknown *args)
+	ICoreWebView2Controller *sender, IUnknown *args)
 {
 	struct webview_handler3 *handler = (struct webview_handler3 *) This;
 	struct webview *ctx = handler->opaque;
@@ -107,7 +107,7 @@ static HRESULT STDMETHODCALLTYPE h3_Invoke_GotFocus(ICoreWebView2FocusChangedEve
 }
 
 static HRESULT STDMETHODCALLTYPE h3_Invoke_LostFocus(ICoreWebView2FocusChangedEventHandler *This,
-	ICoreWebView2 *sender, IUnknown *args)
+	ICoreWebView2Controller *sender, IUnknown *args)
 {
 	struct webview_handler3 *handler = (struct webview_handler3 *) This;
 	struct webview *ctx = handler->opaque;
@@ -258,6 +258,11 @@ static HRESULT STDMETHODCALLTYPE h1_Invoke(ICoreWebView2CreateCoreWebView2Contro
 	ICoreWebView2Settings_put_AreDefaultContextMenusEnabled(settings, ctx->debug);
 	ICoreWebView2Settings_put_IsZoomControlEnabled(settings, FALSE);
 	ICoreWebView2Settings_Release(settings);
+
+	ICoreWebView2Controller2_add_GotFocus(ctx->controller,
+		(ICoreWebView2FocusChangedEventHandler *) &ctx->handler3, NULL);
+	ICoreWebView2Controller2_add_LostFocus(ctx->controller,
+		(ICoreWebView2FocusChangedEventHandler *) &ctx->handler4, NULL);
 
 	EventRegistrationToken token = {0};
 	ICoreWebView2_add_WebMessageReceived(ctx->webview,
@@ -665,7 +670,7 @@ void mty_webview_render(struct webview *ctx)
 
 bool mty_webview_is_focussed(struct webview *ctx)
 {
-	return ctx->focussed;
+	return ctx && ctx->focussed;
 }
 
 bool mty_webview_is_steam(void)

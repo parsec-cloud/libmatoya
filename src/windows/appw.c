@@ -27,6 +27,7 @@ struct window {
 	MTY_Frame frame;
 	HWND hwnd;
 	bool was_zoomed;
+	bool focussed;
 	uint32_t min_width;
 	uint32_t min_height;
 	RAWINPUT *ri;
@@ -627,8 +628,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 		case WM_SETFOCUS:
 		case WM_KILLFOCUS:
+			// If WebView2 is visible, only the WebView2 focus state is relevant.
+			// This comparison lets us ignore the original window focus state.
+			bool webview_visible = mty_webview_is_visible(ctx->cmn.webview);
+			if (webview_visible && (ctx->focussed != mty_webview_is_focussed(ctx->cmn.webview)))
+				break;
+
 			evt.type = MTY_EVENT_FOCUS;
-			evt.focus = msg == WM_SETFOCUS || mty_webview_is_focussed(ctx->cmn.webview);
+			ctx->focussed = evt.focus = (msg == WM_SETFOCUS);
 			app->state++;
 			break;
 		case WM_QUERYENDSESSION:

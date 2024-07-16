@@ -2844,6 +2844,22 @@ MTY_Atomic32Get(MTY_Atomic32 *atomic);
 MTY_EXPORT int64_t
 MTY_Atomic64Get(MTY_Atomic64 *atomic);
 
+/// @brief Or to a 32-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
+/// @param value Value to atomically or. 
+/// @returns The value of the atomic before the operation.
+MTY_EXPORT uint32_t
+MTY_Atomic32Or(MTY_Atomic32 *atomic, uint32_t value);
+
+/// @brief And to a 32-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
+/// @param value Value to atomically and. 
+/// @returns The value of the atomic before the operation.
+MTY_EXPORT uint32_t
+MTY_Atomic32And(MTY_Atomic32 *atomic, uint32_t value);
+
 /// @brief Add to a 32-bit integer atomically.
 /// @details All atomic operations in libmatoya create a full memory barrier.
 /// @param atomic An MTY_Atomic32.

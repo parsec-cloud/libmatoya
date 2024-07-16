@@ -219,6 +219,16 @@ int64_t MTY_Atomic64Get(MTY_Atomic64 *atomic)
 	return InterlockedOr64(&atomic->value, 0);
 }
 
+uint32_t MTY_Atomic32Or(MTY_Atomic32 *atomic, uint32_t value)
+{
+	return InterlockedOr((LONG volatile *) &atomic->value, value);
+}
+
+uint32_t MTY_Atomic32And(MTY_Atomic32 *atomic, uint32_t value)
+{
+	return InterlockedAnd((LONG volatile *) &atomic->value, value);
+}
+
 int32_t MTY_Atomic32Add(MTY_Atomic32 *atomic, int32_t value)
 {
 	return InterlockedAdd((volatile LONG *) &atomic->value, value);

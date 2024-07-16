@@ -268,6 +268,16 @@ int64_t MTY_Atomic64Get(MTY_Atomic64 *atomic)
 	return r;
 }
 
+uint32_t MTY_Atomic32Or(MTY_Atomic32 *atomic, uint32_t value)
+{
+	return __atomic_fetch_or(&atomic->value, value, __ATOMIC_SEQ_CST);
+}
+
+uint32_t MTY_Atomic32And(MTY_Atomic32 *atomic, uint32_t value)
+{
+	return __atomic_fetch_and(&atomic->value, value, __ATOMIC_SEQ_CST);
+}
+
 int32_t MTY_Atomic32Add(MTY_Atomic32 *atomic, int32_t value)
 {
 	return __atomic_add_fetch(&atomic->value, value, __ATOMIC_SEQ_CST);

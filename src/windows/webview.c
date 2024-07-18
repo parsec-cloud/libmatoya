@@ -686,7 +686,7 @@ bool mty_webview_is_available(void)
 {
 	MTY_SO *webview = webview_load_dll();
 	if (webview) {
-		MTY_SOUnload(&webview);
+		FreeLibrary(&webview);
 		return true;
 	}
 

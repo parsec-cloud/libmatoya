@@ -24,9 +24,8 @@ else
 	@glslangValidator -S vert -V --vn VERT $< -o $@
 
 .fragvk.h:
-	@deps/bin/glslangValidator -S frag -V --vn FRAG $< -o $@
-endif
 	@glslangValidator -S frag -V --vn FRAG $< -o $@
+endif
 
 .m.o:
 	$(CC) $(OCFLAGS)  -c -o $@ $<

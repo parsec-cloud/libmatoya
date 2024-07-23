@@ -27,6 +27,7 @@ struct window {
 	MTY_Frame frame;
 	HWND hwnd;
 	bool was_zoomed;
+	bool was_focussed;
 	uint32_t min_width;
 	uint32_t min_height;
 	RAWINPUT *ri;
@@ -426,7 +427,8 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 		bool intercept = ((p->flags & LLKHF_ALTDOWN) && p->vkCode == VK_TAB) || // ALT + TAB
 			(p->vkCode == VK_LWIN || p->vkCode == VK_RWIN) || // Windows Key
 			(p->vkCode == VK_APPS) || // Application Key
-			(p->vkCode == VK_ESCAPE); // ESC
+			(p->vkCode == VK_ESCAPE) || // ESC
+			(p->vkCode == VK_SNAPSHOT); // Print Screen;
 
 		if (intercept) {
 			bool up = p->flags & LLKHF_UP;
@@ -629,6 +631,15 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_KILLFOCUS:
 			evt.type = MTY_EVENT_FOCUS;
 			evt.focus = msg == WM_SETFOCUS;
+
+			// This block effectively coalesces focus events between the normal and webview windows
+			bool webview_visible = mty_webview_is_visible(ctx->cmn.webview);
+			bool webview_focus_evt = evt.focus == mty_webview_is_focussed(ctx->cmn.webview);
+			bool focus_unchanged = ctx->was_focussed == evt.focus;
+			ctx->was_focussed = evt.focus;
+			if ((webview_visible && !webview_focus_evt) || focus_unchanged)
+				break;
+
 			app->state++;
 			break;
 		case WM_QUERYENDSESSION:
@@ -1963,6 +1974,21 @@ float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 	return monitor_get_scale(monitor_from_hwnd(ctx->hwnd));
 }
 
+uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return 60;
+
+	MONITORINFOEX info = monitor_get_info(monitor_from_hwnd(ctx->hwnd));
+	DEVMODE mode = {.dmSize = sizeof(DEVMODE)};
+
+	if (EnumDisplaySettings(info.szDevice, ENUM_CURRENT_SETTINGS, &mode))
+		return mode.dmDisplayFrequency;
+
+	return 60;
+}
+
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
 	struct window *ctx = app_get_window(app, window);
@@ -1991,7 +2017,10 @@ bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return false;
 
-	return app_hwnd_active(ctx->hwnd);
+	struct window_common *cmn = mty_window_get_common(app, window);
+	bool webview_active = cmn && mty_webview_is_focussed(cmn->webview);
+
+	return app_hwnd_active(ctx->hwnd) || webview_active;
 }
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)

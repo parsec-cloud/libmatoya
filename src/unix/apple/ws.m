@@ -30,8 +30,19 @@ struct MTY_WebSocket {
 static void websocket_URLSession_task_didCompleteWithError(id self, SEL _cmd, NSURLSession *session,
 	NSURLSessionTask *task, NSError *error)
 {
-	if (error)
-		MTY_Log("'URLSession:task:didCompleteWithError' fired with code %ld\n", error.code);
+	if (!error)
+		return;
+
+	MTY_Log("'URLSession:task:didCompleteWithError' fired with code %ld", error.code);
+
+	MTY_WebSocket *ctx = OBJC_CTX();
+	if (!ctx)
+		return;
+
+	ctx->closed = true;
+
+	if (ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static void websocket_URLSession_webSocketTask_didOpenWithProtocol(id self, SEL _cmd, NSURLSession *session,
@@ -39,13 +50,16 @@ static void websocket_URLSession_webSocketTask_didOpenWithProtocol(id self, SEL 
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
 
-	MTY_WaitableSignal(ctx->conn);
+	if (ctx && ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static void websocket_URLSession_webSocketTask_didCloseWithCode_reason(id self, SEL _cmd, NSURLSession *session,
 	NSURLSessionWebSocketTask *webSocketTask, NSURLSessionWebSocketCloseCode closeCode, NSData *reason)
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
+	if (!ctx)
+		return;
 
 	ctx->closed = true;
 
@@ -57,7 +71,8 @@ static void websocket_URLSession_didBecomeInvalidWithError(id self, SEL _cmd, NS
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
 
-	MTY_WaitableSignal(ctx->conn);
+	if (ctx && ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static Class websocket_class(void)
@@ -113,7 +128,7 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *url, const char *headers, const 
 
 	[ctx->task resume];
 
-	bool opened = MTY_WaitableWait(ctx->conn, timeout);
+	bool opened = MTY_WaitableWait(ctx->conn, timeout) && !ctx->closed;
 
 	// Upgrade status
 	NSHTTPURLResponse *response = (NSHTTPURLResponse *) ctx->task.response;
@@ -196,23 +211,17 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, siz
 				MTY_Log("NSURLSessionWebSocketTask:receiveMessage failed: %s", [e.localizedDescription UTF8String]);
 				ctx->read_error = true;
 
-			} else {
+			} else if (ctx->read) {
 				if (ws_msg.type == NSURLSessionWebSocketMessageTypeString)
 					ctx->msg = MTY_Strdup([ws_msg.string UTF8String]);
-			}
-
-			if (ctx->read)
 				MTY_WaitableSignal(ctx->read);
+			}
 		}];
 	}
 
 	// Wait for a new message
 	if (MTY_WaitableWait(ctx->read, timeout)) {
 		ctx->read_started = false;
-
-		// Error
-		if (ctx->read_error)
-			return MTY_ASYNC_ERROR;
 
 		if (ctx->msg) {
 			size_t ws_msg_size = strlen(ctx->msg) + 1;
@@ -229,6 +238,12 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, siz
 		}
 	}
 
+	// Error
+	if (ctx->read_error) {
+		ctx->read_started = false;
+		return MTY_ASYNC_ERROR;
+	}
+
 	return MTY_ASYNC_CONTINUE;
 }
 
@@ -243,10 +258,10 @@ bool MTY_WebSocketWrite(MTY_WebSocket *ctx, const char *msg)
 		if (e) {
 			r = false;
 			MTY_Log("NSURLSessionWebSocketTask:sendMessage failed with error %ld", [e code]);
-		}
 
-		if (ctx->write)
+		} else if (ctx->write) {
 			MTY_WaitableSignal(ctx->write);
+		}
 	}];
 
 	if (!MTY_WaitableWait(ctx->write, 1000))

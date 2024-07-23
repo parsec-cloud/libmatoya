@@ -508,6 +508,8 @@ typedef struct {
 	float scale;            ///< Multiplier applied to the dimensions of the image, producing an
 	                        ///<   minimized or magnified image. This can be set to 0
 	                        ///<   if unnecessary.
+	bool hardware;          ///< The graphics data is a handle to a SharedResource and should be
+	                        ///<   mapped to a texture directly for rendering.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.
@@ -1109,6 +1111,12 @@ MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window);
 MTY_EXPORT float
 MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window);
 
+/// @brief Get the refresh rate of the display where the window currently resides.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+MTY_EXPORT uint32_t
+MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window);
+
 /// @brief Set the window's title.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
@@ -1168,6 +1176,15 @@ MTY_WindowSetFullscreen(MTY_App *app, MTY_Window window, bool fullscreen);
 //- #support Windows macOS Linux
 MTY_EXPORT void
 MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y);
+
+/// @brief Test if the hardware frame provided can be used on the current window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param shared_resource The hardware frame pointer.
+/// @param desc Description of the image and how it should be rendered.
+MTY_EXPORT bool
+MTY_WindowIsValidHardwareFrame(MTY_App *app, MTY_Window window, const void *shared_resource,
+	const MTY_RenderDesc *desc);
 
 /// @brief Draw a quad with a raw image and MTY_RenderDesc.
 /// @param app The MTY_App.
@@ -1352,6 +1369,13 @@ MTY_WebViewSetInputPassthrough(MTY_App *app, MTY_Window window, bool passthrough
 /// @brief Check if libmatoya is using the Steam API for its WebView implementation.
 MTY_EXPORT bool
 MTY_WebViewIsSteam(void);
+
+/// @brief Check if the WebView is available on the current platform.
+/// @details The function returns true if the platform supports WebView, AND has the necessary
+///   dependencies to create a WebView. For example, on Windows, WebView is only available on
+///   Windows 10 and later, and the WebView2 runtime must be installed.
+MTY_EXPORT bool
+MTY_WebViewIsAvailable(void);
 
 /// @brief Fill an MTY_Frame taking the current display settings into account.
 /// @details The returned MTY_Frame can be passed directly to MTY_WindowCreate or
@@ -1632,14 +1656,15 @@ MTY_GetRandomBytes(void *buf, size_t size);
 MTY_EXPORT uint32_t
 MTY_GetRandomUInt(uint32_t minVal, uint32_t maxVal);
 
-/// @brief Create an MTY_AESGCM context for AES-GCM-128 encryption/decryption.
+/// @brief Create an MTY_AESGCM context for AES-GCM encryption/decryption.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_AESGCM context must be destroyed with MTY_AESGCMDestroy.
-/// @param key The secret key to use for encryption. This buffer must be 16 bytes,
-///   the size necessary for AES-128.
+/// @param key The secret key to use for encryption. This buffer must be 16 or 32
+///   bytes, the size necessary for AES-GCM-128 or AES-GCM-256, respectively.
+/// @param keySize Size in bytes of `key`. Must be 16 or 32.
 //- #support Windows macOS Android Linux
 MTY_EXPORT MTY_AESGCM *
-MTY_AESGCMCreate(const void *key);
+MTY_AESGCMCreate(const void *key, size_t keySize);
 
 /// @brief Destroy an MTY_AESGCM context.
 /// @param aesgcm Passed by reference and set to NULL after being destroyed.
@@ -1647,7 +1672,7 @@ MTY_AESGCMCreate(const void *key);
 MTY_EXPORT void
 MTY_AESGCMDestroy(MTY_AESGCM **aesgcm);
 
-/// @brief Encrypt plain text with a nonce using AES-GCM-128 and output the GCM tag.
+/// @brief Encrypt plain text with a nonce using AES-GCM and output the GCM tag.
 /// @param ctx An MTY_AESGCM context.
 /// @param nonce A buffer used as salt during encryption. This buffer must be 12 bytes,
 ///   and it MUST be different for each call to this function using the same
@@ -1663,7 +1688,7 @@ MTY_EXPORT bool
 MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, size_t size,
 	void *tag, void *cipherText);
 
-/// @brief Decrypt cipher text with a nonce and GCM tag using AES-GCM-128.
+/// @brief Decrypt cipher text with a nonce and GCM tag using AES-GCM.
 /// @param ctx An MTY_AESGCM context.
 /// @param nonce This buffer must be 12 bytes and it must match the `nonce` used
 ///   during encryption.
@@ -1739,9 +1764,10 @@ typedef enum {
 
 /// @brief File properties.
 typedef struct {
-	char *path; ///< The base path to the file.
-	char *name; ///< The file name.
-	bool dir;   ///< The file is a directory.
+	char *path;    ///< The base path to the file.
+	char *name;    ///< The file name.
+	uint64_t size; ///< The file size in bytes.
+	bool dir;      ///< The file is a directory.
 } MTY_FileDesc;
 
 /// @brief A list of files.
@@ -2415,6 +2441,15 @@ MTY_SprintfD(const char *fmt, ...) MTY_FMT(1, 2);
 ///   This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_SprintfDL(const char *fmt, ...) MTY_FMT(1, 2);
+
+/// @brief Search a string for a list of substrings.
+/// @param a String to be searched.
+/// @param b List of substrings delimited by `delim`.
+/// @param delim Delimiters used to for `s1`. Each character in this string is treated
+///   as a delimiter like MTY_Strtok.
+/// @returns Returns true if any of `s1` is found in `s0`, otherwise false.
+MTY_EXPORT bool
+MTY_StrSearch(const char *s0, const char *s1, const char *delim);
 
 /// @brief Case insensitive string comparison.
 /// @details For more information, see `strcasecmp` from the C standard library.
@@ -3545,10 +3580,10 @@ MTY_RevertTimerResolution(uint32_t res);
 //-   A minor version increase means an implementation change or a pure addition to the
 //-   interface. A major version increase means the interface has changed.
 
-#define MTY_VERSION_MAJOR   4      ///< libmatoya major version number.
+#define MTY_VERSION_MAJOR   5      ///< libmatoya major version number.
 #define MTY_VERSION_MINOR   0      ///< libmatoya minor version number.
-#define MTY_VERSION_STRING  "4.0"  ///< UTF-8 libmatoya version string.
-#define MTY_VERSION_STRINGW L"4.0" ///< Wide character libmatoya version string.
+#define MTY_VERSION_STRING  "5.0"  ///< UTF-8 libmatoya version string.
+#define MTY_VERSION_STRINGW L"5.0" ///< Wide character libmatoya version string.
 
 /// @brief Get the version libmatoya was compiled with.
 /// @returns The major and minor version numbers packed into a 32-bit integer. The major

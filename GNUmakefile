@@ -21,11 +21,12 @@ ifeq ($(ARCH), aarch64)
 	@deps/bin/glslangValidator-aarch64 -S frag -V --vn FRAG $< -o $@
 else
 .vertvk.h:
-	@deps/bin/glslangValidator -S vert -V --vn VERT $< -o $@
+	@glslangValidator -S vert -V --vn VERT $< -o $@
 
 .fragvk.h:
 	@deps/bin/glslangValidator -S frag -V --vn FRAG $< -o $@
 endif
+	@glslangValidator -S frag -V --vn FRAG $< -o $@
 
 .m.o:
 	$(CC) $(OCFLAGS)  -c -o $@ $<
@@ -275,7 +276,7 @@ objs: $(OBJS)
 # developer.android.com/ndk/downloads -> ~/android-ndk
 
 ifndef ANDROID_NDK_ROOT
-ANDROID_NDK_ROOT = $(HOME)/android-ndk
+export ANDROID_NDK_ROOT = $(HOME)/android-home/ndk
 endif
 
 ifndef ABI

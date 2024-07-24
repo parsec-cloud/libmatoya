@@ -160,7 +160,7 @@ const char *MTY_GetProcessPath(void)
 	return MTY_WideToMultiDL(tmp);
 }
 
-bool MTY_RestartProcess(const char *path, const char * const *argv, const char *dir)
+bool MTY_StartInProcess(const char *path, const char * const *argv, const char *dir)
 {
 	if (dir) {
 		WCHAR dirw[MAX_PATH] = {0};
@@ -193,6 +193,11 @@ bool MTY_RestartProcess(const char *path, const char * const *argv, const char *
 	MTY_Free(pathw);
 
 	return false;
+}
+
+bool MTY_RestartProcess(const char * const *argv, const char *dir)
+{
+	return MTY_StartInProcess(NULL, argv, dir);
 }
 
 static LONG WINAPI system_exception_handler(EXCEPTION_POINTERS *ex)

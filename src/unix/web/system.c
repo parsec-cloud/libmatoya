@@ -81,9 +81,9 @@ bool MTY_StartInProcess(const char *path, const char * const *argv, const char *
 	return false;
 }
 
-bool MTY_RestartProcess(const char * const *argv, const char *dir)
+bool MTY_RestartProcess(char * const *argv)
 {
-	return MTY_StartInProcess(NULL, argv, dir);
+	return MTY_StartInProcess(NULL, argv, NULL);
 }
 
 void MTY_SetCrashFunc(MTY_CrashFunc func, void *opaque)

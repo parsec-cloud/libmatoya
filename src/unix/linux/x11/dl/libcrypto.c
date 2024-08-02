@@ -44,7 +44,9 @@ static void libcrypto_global_destroy_lockfree(void)
 static void __attribute__((destructor)) libcrypto_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBCRYPTO_LOCK);
+
 	libcrypto_global_destroy_lockfree();
+
 	MTY_GlobalUnlock(&LIBCRYPTO_LOCK);
 }
 

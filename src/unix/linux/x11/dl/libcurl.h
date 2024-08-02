@@ -119,7 +119,9 @@ static void libcurl_global_destroy_lockfree(void)
 static void __attribute__((destructor)) libcurl_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBCURL_LOCK);
+
 	libcurl_global_destroy_lockfree();
+
 	MTY_GlobalUnlock(&LIBCURL_LOCK);
 }
 

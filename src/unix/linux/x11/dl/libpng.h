@@ -61,7 +61,9 @@ static void libpng_global_destroy_lockfree(void)
 static void __attribute__((destructor)) libpng_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBPNG_LOCK);
+
 	libpng_global_destroy_lockfree();
+
 	MTY_GlobalUnlock(&LIBPNG_LOCK);
 }
 

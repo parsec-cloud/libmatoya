@@ -125,7 +125,9 @@ static void libssl_global_destroy_lockfree(void)
 static void __attribute__((destructor)) libssl_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBSSL_LOCK);
+
 	libssl_global_destroy_lockfree();
+
 	MTY_GlobalUnlock(&LIBSSL_LOCK);
 }
 

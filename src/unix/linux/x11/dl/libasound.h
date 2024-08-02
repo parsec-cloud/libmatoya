@@ -64,7 +64,9 @@ static void libasound_global_destroy_lockfree(void)
 static void __attribute__((destructor)) libasound_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBASOUND_LOCK);
+
 	libasound_global_destroy_lockfree();
+
 	MTY_GlobalUnlock(&LIBASOUND_LOCK);
 }
 

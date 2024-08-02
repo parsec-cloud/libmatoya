@@ -147,7 +147,9 @@ static void libX11_global_destroy_lockfree(void)
 static void __attribute__((destructor)) libX11_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBX11_LOCK);
+
 	libX11_global_destroy_lockfree();
+
 	MTY_GlobalUnlock(&LIBX11_LOCK);
 }
 

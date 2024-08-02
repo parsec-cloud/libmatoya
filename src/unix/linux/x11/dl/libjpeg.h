@@ -44,7 +44,9 @@ static void libjpeg_global_destroy_lockfree(void)
 static void __attribute__((destructor)) libjpeg_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBJPEG_LOCK);
+
 	libjpeg_global_destroy_lockfree();
+
 	MTY_GlobalUnlock(&LIBJPEG_LOCK);
 }
 

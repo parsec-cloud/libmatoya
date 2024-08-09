@@ -18,7 +18,6 @@ endif
 
 .fragvk.h:
 	@glslangValidator -S frag -V --vn FRAG $< -o $@
-endif
 
 .m.o:
 	$(CC) $(OCFLAGS)  -c -o $@ $<

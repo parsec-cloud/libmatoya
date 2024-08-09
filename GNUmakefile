@@ -13,13 +13,6 @@ endif
 .frag.h:
 	@hexdump -ve '1/1 "0x%.2x,"' $< | (echo 'static const GLchar FRAG[]={' && cat && echo '0x00};') > $@
 
-ifeq ($(ARCH), aarch64)
-.vertvk.h:
-	@deps/bin/glslangValidator-aarch64 -S vert -V --vn VERT $< -o $@
-
-.fragvk.h:
-	@deps/bin/glslangValidator-aarch64 -S frag -V --vn FRAG $< -o $@
-else
 .vertvk.h:
 	@glslangValidator -S vert -V --vn VERT $< -o $@
 

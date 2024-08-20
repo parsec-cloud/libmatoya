@@ -238,8 +238,3 @@ bool MTY_Atomic64CAS(MTY_Atomic64 *atomic, int64_t oldValue, int64_t newValue)
 {
 	return InterlockedCompareExchange64(&atomic->value, newValue, oldValue) == oldValue;
 }
-
-void MTY_MemoryBarrier()
-{
-	MemoryBarrier();
-}

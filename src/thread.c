@@ -62,17 +62,20 @@ void MTY_RWLockDestroy(MTY_RWLock **rwlock)
 		return;
 
 	MTY_RWLock *ctx = *rwlock;
+	*rwlock = NULL;
 
 	mty_rwlock_destroy(&ctx->rwlock);
 	memset(&RWLOCK_STATE[ctx->index], 0, sizeof(struct thread_rwlock));
 	MTY_Atomic32Set(&RWLOCK_INIT[ctx->index], 0);
 
 	MTY_Free(ctx);
-	*rwlock = NULL;
 }
 
 bool MTY_RWTryLockReader(MTY_RWLock *ctx)
 {
+	if (!ctx)
+		return false;
+
 	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	bool r = true;
@@ -91,6 +94,9 @@ bool MTY_RWTryLockReader(MTY_RWLock *ctx)
 
 void MTY_RWLockReader(MTY_RWLock *ctx)
 {
+	if (!ctx)
+		return;
+
 	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	if (rw->taken == 0) {
@@ -104,6 +110,9 @@ void MTY_RWLockReader(MTY_RWLock *ctx)
 
 void MTY_RWLockWriter(MTY_RWLock *ctx)
 {
+	if (!ctx)
+		return;
+
 	bool relock = false;
 	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
@@ -125,6 +134,9 @@ void MTY_RWLockWriter(MTY_RWLock *ctx)
 
 void MTY_RWLockUnlock(MTY_RWLock *ctx)
 {
+	if (!ctx)
+		return;
+
 	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	if (--rw->taken == 0) {

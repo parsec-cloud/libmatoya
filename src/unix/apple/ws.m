@@ -148,6 +148,10 @@ void MTY_WebSocketDestroy(MTY_WebSocket **webSocket)
 		return;
 
 	MTY_WebSocket *ctx = *webSocket;
+	*webSocket = NULL;
+
+	id delegate = [ctx->session delegate];
+	OBJC_CTX_CLEAR(delegate);
 
 	if (ctx->task)
 		[ctx->task cancelWithCloseCode:NSURLSessionWebSocketCloseCodeNormalClosure reason:nil];
@@ -168,7 +172,6 @@ void MTY_WebSocketDestroy(MTY_WebSocket **webSocket)
 
 	MTY_Free(ctx->msg);
 	MTY_Free(ctx);
-	*webSocket = NULL;
 }
 
 MTY_Async MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, size_t size)

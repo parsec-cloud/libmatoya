@@ -176,16 +176,19 @@ void MTY_WaitableDestroy(MTY_Waitable **waitable)
 		return;
 
 	MTY_Waitable *ctx = *waitable;
+	*waitable = NULL;
 
 	MTY_CondDestroy(&ctx->cond);
 	MTY_MutexDestroy(&ctx->mutex);
 
 	MTY_Free(ctx);
-	*waitable = NULL;
 }
 
 bool MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout)
 {
+	if (!ctx)
+		return false;
+
 	MTY_MutexLock(ctx->mutex);
 
 	if (!ctx->signal)
@@ -201,6 +204,9 @@ bool MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout)
 
 void MTY_WaitableSignal(MTY_Waitable *ctx)
 {
+	if (!ctx)
+		return false;
+
 	MTY_MutexLock(ctx->mutex);
 
 	if (!ctx->signal) {

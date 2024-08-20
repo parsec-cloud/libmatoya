@@ -200,7 +200,7 @@ bool MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout)
 void MTY_WaitableSignal(MTY_Waitable *ctx)
 {
 	if (!ctx)
-		return false;
+		return;
 
 	MTY_MutexLock(ctx->mutex);
 

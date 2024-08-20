@@ -18,10 +18,8 @@
 
 #if defined(__GNUC__)
 	#define MTY_FMT(a, b) __attribute__((format(printf, a, b)))
-	#define MTY_MEMORY_BARRIER() __sync_synchronize()
 #else
 	#define MTY_FMT(a, b)
-	#define MTY_MEMORY_BARRIER() MemoryBarrier()
 #endif
 
 #ifdef __cplusplus
@@ -2888,6 +2886,9 @@ MTY_Atomic32CAS(MTY_Atomic32 *atomic, int32_t oldValue, int32_t newValue);
 /// @returns If the atomic is set to `newValue`, returns true, otherwise false.
 MTY_EXPORT bool
 MTY_Atomic64CAS(MTY_Atomic64 *atomic, int64_t oldValue, int64_t newValue);
+
+MTY_EXPORT void *
+MTY_PointerExchange(void **pointer, void *newValue);
 
 /// @brief Globally lock via an atomic.
 /// @details All atomic operations in libmatoya create a full memory barrier.\n\n

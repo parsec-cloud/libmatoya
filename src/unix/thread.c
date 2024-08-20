@@ -122,9 +122,7 @@ void MTY_MutexDestroy(MTY_Mutex **mutex)
 	if (!mutex || !*mutex)
 		return;
 
-	MTY_Mutex *ctx = *mutex;
-	*mutex = NULL;
-	MTY_MEMORY_BARRIER();
+	MTY_Mutex *ctx = MTY_PointerExchange((void **) mutex, NULL);
 
 	int32_t e = pthread_mutex_destroy(&ctx->mutex);
 	if (e != 0)
@@ -188,9 +186,7 @@ void MTY_CondDestroy(MTY_Cond **cond)
 	if (!cond || !*cond)
 		return;
 
-	MTY_Cond *ctx = *cond;
-	*cond = NULL;
-	MTY_MEMORY_BARRIER();
+	MTY_Cond *ctx = MTY_PointerExchange((void **) cond, NULL);
 
 	int32_t e = pthread_cond_destroy(&ctx->cond);
 	if (e != 0)
@@ -308,4 +304,17 @@ bool MTY_Atomic64CAS(MTY_Atomic64 *atomic, int64_t oldValue, int64_t newValue)
 {
 	return __atomic_compare_exchange_n(&atomic->value, &oldValue, newValue, false,
 		__ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+}
+
+void *MTY_PointerExchange(void **pointer, void *newValue)
+{
+	const uintptr_t integer = (uintptr_t) pointer;
+	const uintptr_t mask = sizeof(void*) - 1;
+	if (integer & mask) {
+		void *oldValue = *pointer;
+		*pointer = newValue;
+		__atomic_thread_fence(__ATOMIC_SEQ_CST);
+		return oldValue;
+	}
+	return __atomic_exchange_n(pointer, newValue, __ATOMIC_SEQ_CST);
 }

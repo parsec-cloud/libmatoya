@@ -115,9 +115,7 @@ void MTY_MutexDestroy(MTY_Mutex **mutex)
 	if (!mutex || !*mutex)
 		return;
 
-	MTY_Mutex *ctx = *mutex;
-	*mutex = NULL;
-	MTY_MEMORY_BARRIER();
+	MTY_Mutex *ctx = MTY_PointerExchange((void **) mutex, NULL);
 
 	DeleteCriticalSection(&ctx->mutex);
 
@@ -169,9 +167,7 @@ void MTY_CondDestroy(MTY_Cond **cond)
 	if (!cond || !*cond)
 		return;
 
-	MTY_Cond *ctx = *cond;
-	*cond = NULL;
-	MTY_MEMORY_BARRIER();
+	MTY_Cond *ctx = MTY_PointerExchange((void **) cond, NULL);
 
 	MTY_Free(ctx);
 }
@@ -257,4 +253,17 @@ bool MTY_Atomic32CAS(MTY_Atomic32 *atomic, int32_t oldValue, int32_t newValue)
 bool MTY_Atomic64CAS(MTY_Atomic64 *atomic, int64_t oldValue, int64_t newValue)
 {
 	return InterlockedCompareExchange64(&atomic->value, newValue, oldValue) == oldValue;
+}
+
+void *MTY_PointerExchange(void **pointer, void *newValue)
+{
+	const uintptr_t integer = (uintptr_t) pointer;
+	const uintptr_t mask = sizeof(void*) - 1;
+	if (integer & mask) {
+		void *oldValue = *pointer;
+		*pointer = newValue;
+		MemoryBarrier();
+		return oldValue;
+	}
+	return InterlockedExchangePointer(pointer, newValue);
 }

@@ -289,3 +289,8 @@ bool MTY_Atomic64CAS(MTY_Atomic64 *atomic, int64_t oldValue, int64_t newValue)
 	return __atomic_compare_exchange_n(&atomic->value, &oldValue, newValue, false,
 		__ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 }
+
+void MTY_MemoryBarrier()
+{
+	__sync_synchronize();
+}

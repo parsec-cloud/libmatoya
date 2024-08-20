@@ -250,6 +250,7 @@ void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach)
 		return;
 
 	MTY_ThreadPool *ctx = *pool;
+	*pool = NULL;
 
 	for (uint32_t x = 0; x < ctx->num; x++) {
 		MTY_ThreadPoolDetach(ctx, x, detach);
@@ -262,7 +263,6 @@ void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach)
 
 	MTY_Free(ctx->ti);
 	MTY_Free(ctx);
-	*pool = NULL;
 }
 
 static void *thread_pool_func(void *opaque)
@@ -288,6 +288,9 @@ static void *thread_pool_func(void *opaque)
 
 uint32_t MTY_ThreadPoolDispatch(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaque)
 {
+	if (!ctx)
+		return 0;
+
 	uint32_t index = 0;
 
 	for (uint32_t x = 1; x < ctx->num && index == 0; x++) {
@@ -317,6 +320,9 @@ uint32_t MTY_ThreadPoolDispatch(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *op
 
 void MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc detach)
 {
+	if (!ctx)
+		return;
+
 	struct thread_info *ti = &ctx->ti[index];
 
 	MTY_MutexLock(ti->m);
@@ -336,6 +342,9 @@ void MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc deta
 
 MTY_Async MTY_ThreadPoolPoll(MTY_ThreadPool *ctx, uint32_t index, void **opaque)
 {
+	if (!ctx)
+		return MTY_ASYNC_ERROR;
+
 	struct thread_info *ti = &ctx->ti[index];
 
 	MTY_MutexLock(ti->m);

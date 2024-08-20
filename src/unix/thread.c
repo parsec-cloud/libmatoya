@@ -188,17 +188,20 @@ void MTY_CondDestroy(MTY_Cond **cond)
 		return;
 
 	MTY_Cond *ctx = *cond;
+	*cond = NULL;
 
 	int32_t e = pthread_cond_destroy(&ctx->cond);
 	if (e != 0)
 		MTY_LogFatal("'pthread_cond_destroy' failed with error %d", e);
 
 	MTY_Free(ctx);
-	*cond = NULL;
 }
 
 bool MTY_CondWait(MTY_Cond *ctx, MTY_Mutex *mutex, int32_t timeout)
 {
+	if (!ctx || !mutex)
+		return false;
+
 	// Use pthread_cond_timedwait
 	if (timeout >= 0) {
 		struct timespec ts = {0};
@@ -231,6 +234,9 @@ bool MTY_CondWait(MTY_Cond *ctx, MTY_Mutex *mutex, int32_t timeout)
 
 void MTY_CondSignal(MTY_Cond *ctx)
 {
+	if (!ctx)
+		return;
+
 	int32_t e = pthread_cond_signal(&ctx->cond);
 	if (e != 0)
 		MTY_LogFatal("'pthread_cond_signal' failed with error %d", e);
@@ -238,6 +244,9 @@ void MTY_CondSignal(MTY_Cond *ctx)
 
 void MTY_CondSignalAll(MTY_Cond *ctx)
 {
+	if (!ctx)
+		return;
+
 	int32_t e = pthread_cond_broadcast(&ctx->cond);
 	if (e != 0)
 		MTY_LogFatal("'pthread_cond_broadcast' failed with error %d", e);

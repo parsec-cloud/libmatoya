@@ -169,13 +169,16 @@ void MTY_CondDestroy(MTY_Cond **cond)
 		return;
 
 	MTY_Cond *ctx = *cond;
+	*cond = NULL;
 
 	MTY_Free(ctx);
-	*cond = NULL;
 }
 
 bool MTY_CondWait(MTY_Cond *ctx, MTY_Mutex *mutex, int32_t timeout)
 {
+	if (!ctx || !mutex)
+		return false;
+
 	bool r = true;
 	timeout = timeout < 0 ? INFINITE : timeout;
 
@@ -197,11 +200,17 @@ bool MTY_CondWait(MTY_Cond *ctx, MTY_Mutex *mutex, int32_t timeout)
 
 void MTY_CondSignal(MTY_Cond *ctx)
 {
+	if (!ctx)
+		return;
+
 	WakeConditionVariable(&ctx->cond);
 }
 
 void MTY_CondSignalAll(MTY_Cond *ctx)
 {
+	if (!ctx)
+		return;
+
 	WakeAllConditionVariable(&ctx->cond);
 }
 

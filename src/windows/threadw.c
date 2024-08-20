@@ -116,25 +116,34 @@ void MTY_MutexDestroy(MTY_Mutex **mutex)
 		return;
 
 	MTY_Mutex *ctx = *mutex;
+	*mutex = NULL;
 
 	DeleteCriticalSection(&ctx->mutex);
 
 	MTY_Free(ctx);
-	*mutex = NULL;
 }
 
 void MTY_MutexLock(MTY_Mutex *ctx)
 {
+	if (!ctx)
+		return;
+
 	EnterCriticalSection(&ctx->mutex);
 }
 
 bool MTY_MutexTryLock(MTY_Mutex *ctx)
 {
+	if (!ctx)
+		return false;;
+
 	return TryEnterCriticalSection(&ctx->mutex);
 }
 
 void MTY_MutexUnlock(MTY_Mutex *ctx)
 {
+	if (!ctx)
+		return;
+
 	LeaveCriticalSection(&ctx->mutex);
 }
 

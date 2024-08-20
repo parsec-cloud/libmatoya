@@ -134,7 +134,7 @@ void MTY_MutexDestroy(MTY_Mutex **mutex)
 
 void MTY_MutexLock(MTY_Mutex *ctx)
 {
-	if (!mutex || !ctx->mutex)
+	if (!ctx)
 		return;
 
 	int32_t e = pthread_mutex_lock(&ctx->mutex);
@@ -144,7 +144,7 @@ void MTY_MutexLock(MTY_Mutex *ctx)
 
 bool MTY_MutexTryLock(MTY_Mutex *ctx)
 {
-	if (!mutex || !ctx->mutex)
+	if (!ctx)
 		return false;
 
 	int32_t e = pthread_mutex_trylock(&ctx->mutex);
@@ -156,7 +156,7 @@ bool MTY_MutexTryLock(MTY_Mutex *ctx)
 
 void MTY_MutexUnlock(MTY_Mutex *ctx)
 {
-	if (!mutex || !ctx->mutex)
+	if (!ctx)
 		return;
 
 	int32_t e = pthread_mutex_unlock(&ctx->mutex);

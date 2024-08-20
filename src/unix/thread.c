@@ -123,17 +123,20 @@ void MTY_MutexDestroy(MTY_Mutex **mutex)
 		return;
 
 	MTY_Mutex *ctx = *mutex;
+	*mutex = NULL;
 
 	int32_t e = pthread_mutex_destroy(&ctx->mutex);
 	if (e != 0)
 		MTY_LogFatal("'pthread_mutex_destroy' failed with error %d", e);
 
 	MTY_Free(ctx);
-	*mutex = NULL;
 }
 
 void MTY_MutexLock(MTY_Mutex *ctx)
 {
+	if (!mutex || !ctx->mutex)
+		return;
+
 	int32_t e = pthread_mutex_lock(&ctx->mutex);
 	if (e != 0)
 		MTY_LogFatal("'pthread_mutex_lock' failed with error %d", e);
@@ -141,6 +144,9 @@ void MTY_MutexLock(MTY_Mutex *ctx)
 
 bool MTY_MutexTryLock(MTY_Mutex *ctx)
 {
+	if (!mutex || !ctx->mutex)
+		return false;
+
 	int32_t e = pthread_mutex_trylock(&ctx->mutex);
 	if (e != 0 && e != EBUSY)
 		MTY_LogFatal("'pthread_mutex_trylock' failed with error %d", e);
@@ -150,6 +156,9 @@ bool MTY_MutexTryLock(MTY_Mutex *ctx)
 
 void MTY_MutexUnlock(MTY_Mutex *ctx)
 {
+	if (!mutex || !ctx->mutex)
+		return;
+
 	int32_t e = pthread_mutex_unlock(&ctx->mutex);
 	if (e != 0)
 		MTY_LogFatal("'pthread_mutex_unlock' failed with error %d", e);

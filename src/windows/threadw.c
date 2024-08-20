@@ -117,6 +117,7 @@ void MTY_MutexDestroy(MTY_Mutex **mutex)
 
 	MTY_Mutex *ctx = *mutex;
 	*mutex = NULL;
+	MTY_MEMORY_BARRIER();
 
 	DeleteCriticalSection(&ctx->mutex);
 
@@ -170,6 +171,7 @@ void MTY_CondDestroy(MTY_Cond **cond)
 
 	MTY_Cond *ctx = *cond;
 	*cond = NULL;
+	MTY_MEMORY_BARRIER();
 
 	MTY_Free(ctx);
 }

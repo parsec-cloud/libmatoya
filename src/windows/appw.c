@@ -630,6 +630,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_SETFOCUS:
 		case WM_KILLFOCUS:
 			evt.focus = msg == WM_SETFOCUS;
+			if (mty_webview_is_visible(ctx->cmn.webview))
+				evt.focus = mty_webview_is_focussed(ctx->cmn.webview);
 
 			// This block effectively coalesces focus events between the normal and webview windows
 			bool webview_visible = mty_webview_is_visible(ctx->cmn.webview);

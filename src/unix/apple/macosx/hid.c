@@ -167,6 +167,19 @@ struct hid *mty_hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_R
 	IOHIDManagerScheduleWithRunLoop(ctx->mgr, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 
 	IOReturn e = IOHIDManagerOpen(ctx->mgr, kIOHIDOptionsTypeNone);
+	if (e == kIOReturnExclusiveAccess && key) {
+		CFMutableDictionaryRef d4 = IOServiceNameMatching("org_pqrs_Karabiner_DriverKit_VirtualHIDKeyboard");
+		CFMutableDictionaryRef dict_list2[] = {d0, d1, d2, d4};
+
+		CFArrayRef matches2 = CFArrayCreate(kCFAllocatorDefault, (const void **) dict_list2, 4, NULL);
+		IOHIDManagerSetDeviceMatchingMultiple(ctx->mgr, matches);
+
+		CFRelease(matches2);
+		CFRelease(d4);
+
+		e = IOHIDManagerOpen(ctx->mgr, kIOHIDOptionsTypeNone);
+	}
+
 	CFRelease(matches);
 	CFRelease(d3);
 	CFRelease(d2);

@@ -164,15 +164,15 @@ struct hid *mty_hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_R
 	CFArrayRef matches = CFArrayCreate(kCFAllocatorDefault, (const void **) dict_list, key ? 4 : 3, NULL);
 	IOHIDManagerSetDeviceMatchingMultiple(ctx->mgr, matches);
 
+	IOHIDManagerScheduleWithRunLoop(ctx->mgr, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+
+	IOReturn e = IOHIDManagerOpen(ctx->mgr, kIOHIDOptionsTypeNone);
 	CFRelease(matches);
 	CFRelease(d3);
 	CFRelease(d2);
 	CFRelease(d1);
 	CFRelease(d0);
 
-	IOHIDManagerScheduleWithRunLoop(ctx->mgr, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
-
-	IOReturn e = IOHIDManagerOpen(ctx->mgr, kIOHIDOptionsTypeNone);
 	if (e != kIOReturnSuccess) {
 		r = false;
 		MTY_Log("'IOHIDManagerOpen' failed with error 0x%X", e);

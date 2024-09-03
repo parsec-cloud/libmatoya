@@ -173,12 +173,14 @@ struct hid *mty_hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_R
 		CFMutableDictionaryRef dict_list2[] = {d0, d1, d2, d4};
 
 		CFArrayRef matches2 = CFArrayCreate(kCFAllocatorDefault, (const void **) dict_list2, 4, NULL);
-		IOHIDManagerSetDeviceMatchingMultiple(ctx->mgr, matches);
+		IOHIDManagerSetDeviceMatchingMultiple(ctx->mgr, matches2);
 
 		CFRelease(matches2);
 		CFRelease(d4);
 
 		e = IOHIDManagerOpen(ctx->mgr, kIOHIDOptionsTypeNone);
+		if (e == kIOReturnSuccess)
+			MTY_Log("Using Karabiner compatibility for IOHID access.");
 	}
 
 	CFRelease(matches);

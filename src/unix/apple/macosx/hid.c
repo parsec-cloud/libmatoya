@@ -6,6 +6,7 @@
 
 #include <IOKit/hid/IOHIDManager.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/IOKitLib.h>
 
 #define HID_DEV_GET_USAGE(dev) \
 	hid_device_get_prop_int(dev, CFSTR(kIOHIDPrimaryUsageKey))

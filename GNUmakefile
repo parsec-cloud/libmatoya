@@ -241,6 +241,12 @@ OCFLAGS = $(CFLAGS) -fobjc-arc
 
 all: clean-build clear $(SHADERS)
 	make objs -j4
+ifdef DEBUG
+	cd ./test && $(MAKE) 1-draw DEBUG=1
+else
+	cd ./test && $(MAKE) 1-draw
+endif
+
 
 objs: $(OBJS)
 	mkdir -p bin/$(TARGET)/$(ARCH)

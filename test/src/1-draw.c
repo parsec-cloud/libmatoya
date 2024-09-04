@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 		return 1;
 
 	MTY_WindowCreate(ctx.app, "My Window", NULL, 0);
-	MTY_WindowSetGFX(ctx.app, 0, MTY_GetDefaultGFX(), true);
+	MTY_WindowSetGFX(ctx.app, 0, MTY_GFX_GL, true);
 
 	// Fetch a PNG from the internet
 	const char *url = "https://snowcone.ltd/misc/ff.png";

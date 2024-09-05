@@ -8,6 +8,7 @@
 
 #include <windows.h>
 #include <ole2.h>
+#include <shlwapi.h>
 
 #define COBJMACROS
 #include "webview2.h"
@@ -701,19 +702,15 @@ bool mty_webview_is_steam(void)
 
 bool mty_webview_is_available(void)
 {
-	WCHAR pathw[MTY_PATH_MAX] = {0};
+	WCHAR path[MTY_PATH_MAX] = {0};
 
-	bool have_path = webview_dll_path(pathw, false);
+	bool have_path = webview_dll_path(path, false);
 	if (!have_path)
-		have_path = webview_dll_path(pathw, true);
+		have_path = webview_dll_path(path, true);
 
 	if (!have_path)
-		return false;
-
-	char path[MTY_PATH_MAX] = {0};
-	if (!MTY_WideToMulti(pathw, path, MTY_PATH_MAX))
 		return false;
 
 	// Loading the lib would be ideal to be sure, but repeated loads eventually cause issues
-	return MTY_FileExists(path);
+	return PathFileExists(path);
 }

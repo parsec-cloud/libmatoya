@@ -524,45 +524,17 @@ static bool webview_dll_path(WCHAR *path, bool as_user)
 
 static HMODULE webview_load_dll(void)
 {
-	HKEY key = NULL;
-	WCHAR *dll = NULL;
-	HMODULE lib = NULL;
+	WCHAR path[MTY_PATH_MAX] = {0};
 
-	LSTATUS r = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-		L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
-		0, KEY_WOW64_32KEY | KEY_READ, &key);
-	if (r != ERROR_SUCCESS)
-		goto except;
+	// Try system WebView
+	if (webview_dll_path(path, false))
+		return LoadLibrary(path);
 
-	dll = MTY_Alloc(MAX_PATH, sizeof(WCHAR));
-	DWORD size = MAX_PATH * sizeof(WCHAR);
+	// Try user WebView
+	if (webview_dll_path(path, true))
+		return LoadLibrary(path);
 
-	r = RegQueryValueEx(key, L"EBWebView", 0, NULL, (BYTE *) dll, &size);
-	if (r != ERROR_SUCCESS)
-		goto except;
-
-	#if defined(_WIN64)
-		const WCHAR *path = L"\\EBWebView\\x64\\EmbeddedBrowserWebView.dll";
-
-	#else
-		const WCHAR *path = L"\\EBWebView\\x86\\EmbeddedBrowserWebView.dll";
-	#endif
-
-	if (wcscat_s(dll, MAX_PATH, path) != 0)
-		goto except;
-
-	lib = LoadLibrary(dll);
-	if (!lib)
-		goto except;
-
-	except:
-
-	MTY_Free(dll);
-
-	if (key)
-		RegCloseKey(key);
-
-	return lib;
+	return NULL;
 }
 
 struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *dir,

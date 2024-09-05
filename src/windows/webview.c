@@ -483,7 +483,6 @@ static bool webview_dll_path(WCHAR *pathw, bool as_user)
 
 	HKEY key = NULL;
 	WCHAR dll[MTY_PATH_MAX] = {0};
-	HMODULE lib = NULL;
 
 	// https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
 	const wchar_t *machine_path = L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";

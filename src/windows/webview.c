@@ -564,7 +564,8 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 	ctx->handler4.opaque = ctx;
 	ctx->opts.lpVtbl = &VTBL5;
 
-	const WCHAR *dirw = dir ? MTY_MultiToWideDL(dir) : L"webview-data";
+	WCHAR dirw[MTY_PATH_MAX] = {0};
+	MTY_MultiToWide(dir ? dir : "webview-data", dirw, MTY_PATH_MAX);
 
 	HRESULT e = E_FAIL;
 	ctx->lib = webview_load_dll();

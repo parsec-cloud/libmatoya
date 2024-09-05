@@ -488,9 +488,9 @@ static bool webview_dll_path(WCHAR *path, bool as_user)
 	// https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
 	const char *machine_path = L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
 	const char *user_path = L"Software\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
-	const char *path = as_user ? user_path : machine_path;
+	const char *reg_path = as_user ? user_path : machine_path;
 
-	LSTATUS r = RegOpenKeyEx(HKEY_LOCAL_MACHINE, path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
+	LSTATUS r = RegOpenKeyEx(HKEY_LOCAL_MACHINE, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
 	if (r != ERROR_SUCCESS)
 		goto except;
 

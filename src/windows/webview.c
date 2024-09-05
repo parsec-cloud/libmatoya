@@ -477,7 +477,7 @@ static ICoreWebView2EnvironmentOptionsVtbl VTBL5 = {
 
 // Public
 
-static bool webview_dll_path(WCHAR *path, bool as_user)
+static bool webview_dll_path(WCHAR *pathw, bool as_user)
 {
 	bool ok = false;
 
@@ -486,9 +486,9 @@ static bool webview_dll_path(WCHAR *path, bool as_user)
 	HMODULE lib = NULL;
 
 	// https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
-	const char *machine_path = L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
-	const char *user_path = L"Software\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
-	const char *reg_path = as_user ? user_path : machine_path;
+	const wchar_t *machine_path = L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
+	const wchar_t *user_path = L"Software\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
+	const wchar_t *reg_path = as_user ? user_path : machine_path;
 
 	LSTATUS r = RegOpenKeyEx(HKEY_LOCAL_MACHINE, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
 	if (r != ERROR_SUCCESS)
@@ -509,8 +509,8 @@ static bool webview_dll_path(WCHAR *path, bool as_user)
 	if (wcscat_s(dll, MTY_PATH_MAX, path) != 0)
 		goto except;
 
-	if (path)
-		_snwprintf_s(path, MTY_PATH_MAX, _TRUNCATE, L"%s", dll);
+	if (pathw)
+		_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s", dll);
 
 	ok = true;
 

@@ -172,7 +172,7 @@ struct hid *mty_hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_R
 		CFMutableDictionaryRef d4 = IOServiceNameMatching("org_pqrs_Karabiner_DriverKit_VirtualHIDKeyboard");
 		CFMutableDictionaryRef dict_list2[] = {d0, d1, d2, d4};
 
-		CFArrayRef matches2 = CFArrayCreate(kCFAllocatorDefault, (const void **) dict_list2, 4, NULL);
+		CFArrayRef matches2 = CFArrayCreate(kCFAllocatorDefault, (const void **) dict_list2, sizeof(dict_list2) / sizeof(dict_list2[0]), NULL);
 		IOHIDManagerSetDeviceMatchingMultiple(ctx->mgr, matches2);
 
 		CFRelease(matches2);

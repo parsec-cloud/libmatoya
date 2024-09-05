@@ -701,11 +701,19 @@ bool mty_webview_is_steam(void)
 
 bool mty_webview_is_available(void)
 {
-	HMODULE webview = webview_load_dll();
-	if (webview) {
-		FreeLibrary(webview);
-		return true;
-	}
+	WCHAR pathw[MTY_PATH_MAX] = {0};
 
-	return false;
+	bool have_path = webview_dll_path(pathw, false);
+	if (!have_path)
+		have_path = webview_dll_path(pathw, true);
+
+	if (!have_path)
+		return false;
+
+	char path[MTY_PATH_MAX] = {0};
+	if (!MTY_WideToMulti(pathw, path, MTY_PATH_MAX))
+		return false;
+
+	// Loading the lib would be ideal to be sure, but repeated loads eventually cause issues
+	return MTY_FileExists(path);
 }

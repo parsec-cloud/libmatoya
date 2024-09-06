@@ -22,6 +22,9 @@ DEFINE_GUID(IID_IMMNotificationClient, 0x7991EEC9, 0x7E89, 0x4D85, 0x83, 0x90, 0
 #define AUDIO_SAMPLE_SIZE sizeof(int16_t)
 #define AUDIO_BUFFER_SIZE ((1 * 1000 * 1000 * 1000) / 100) // 1 second
 
+#define AUDIO_REINIT_MAX_TRIES   5
+#define AUDIO_REINIT_DELAY_MS  100
+
 struct MTY_Audio {
 	bool playing;
 	bool notification_init;
@@ -399,13 +402,13 @@ static HRESULT audio_reinit_device(MTY_Audio *ctx)
 
 	// When the default device is in the process of changing, this may fail so we try multiple times
 	HRESULT e = AUDCLNT_E_NOT_INITIALIZED;
-	for (uint8_t x = 0; x < 5; x++) {
+	for (uint8_t x = 0; x < AUDIO_REINIT_MAX_TRIES; x++) {
 		e = audio_device_create(ctx);
 
 		if (e == S_OK && ctx->client)
 			break;
 
-		MTY_Sleep(100);
+		MTY_Sleep(AUDIO_REINIT_DELAY_MS);
 	}
 
 	return e;

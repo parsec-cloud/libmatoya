@@ -1843,6 +1843,15 @@ MTY_Mkdir(const char *path);
 MTY_EXPORT const char *
 MTY_JoinPath(const char *path0, const char *path1);
 
+/// @brief Join two components of a path using the appropriate delimiter.
+/// @param dest Destination buffer, in which to put the joined path.
+/// @param dest_size Size of destination buffer, in bytes.
+/// @param path0 First component of the joined path.
+/// @param path1 Second component of the joined path.
+/// @returns Number of bytes required to store the joined path.
+MTY_EXPORT int32_t
+MTY_JoinPathFixed(char *dest, uint32_t dest_size, const char *path0, const char *path1);
+
 /// @brief Resolves a relative path into a full absolute path.
 /// @details This function expands all symbolic links and resolves references to
 ///   `..` and `.`. It also removes extra delimiters.

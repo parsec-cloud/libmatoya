@@ -112,14 +112,18 @@ void MTY_FreeFileList(MTY_FileList **fileList)
 	*fileList = NULL;
 }
 
+int32_t MTY_JoinPathFixed(char *dest, uint32_t dest_size, const char *path0, const char *path1)
+{
+	const int32_t size_required = snprintf(dest, dest_size, "%s%c%s", path0, FSUTIL_DELIM, path1) + 1;
+	return size_required;
+}
+
 const char *MTY_JoinPath(const char *path0, const char *path1)
 {
-	char *path = MTY_SprintfD("%s%c%s", path0, FSUTIL_DELIM, path1);
-	char *local = mty_tlocal_strcpy(path);
-
-	MTY_Free(path);
-
-	return local;
+	const int32_t size_required = MTY_JoinPathFixed(NULL, 0, path0, path1);
+	char *local = mty_tlocal(size_required);
+	MTY_JoinPathFixed(local, size_required, path0, path1);
+	return local;	
 }
 
 const char *MTY_GetFileName(const char *path, bool extension)

@@ -478,12 +478,12 @@ static ICoreWebView2EnvironmentOptionsVtbl VTBL5 = {
 
 // Public
 
-static bool webview_dll_path(WCHAR *pathw, bool as_user)
+static bool webview_dll_path(wchar_t *pathw, bool as_user)
 {
 	bool ok = false;
 
 	HKEY key = NULL;
-	WCHAR dll[MTY_PATH_MAX] = {0};
+	wchar_t dll[MTY_PATH_MAX] = {0};
 
 	// https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
 	const wchar_t *machine_path = L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
@@ -494,16 +494,16 @@ static bool webview_dll_path(WCHAR *pathw, bool as_user)
 	if (r != ERROR_SUCCESS)
 		goto except;
 
-	DWORD size = MTY_PATH_MAX * sizeof(WCHAR);
+	DWORD size = MTY_PATH_MAX * sizeof(wchar_t);
 	r = RegQueryValueEx(key, L"EBWebView", 0, NULL, (BYTE *) dll, &size);
 	if (r != ERROR_SUCCESS)
 		goto except;
 
 	#if defined(_WIN64)
-		const WCHAR *path = L"\\EBWebView\\x64\\EmbeddedBrowserWebView.dll";
+		const wchar_t *path = L"\\EBWebView\\x64\\EmbeddedBrowserWebView.dll";
 
 	#else
-		const WCHAR *path = L"\\EBWebView\\x86\\EmbeddedBrowserWebView.dll";
+		const wchar_t *path = L"\\EBWebView\\x86\\EmbeddedBrowserWebView.dll";
 	#endif
 
 	if (wcscat_s(dll, MTY_PATH_MAX, path) != 0)
@@ -524,7 +524,7 @@ static bool webview_dll_path(WCHAR *pathw, bool as_user)
 
 static HMODULE webview_load_dll(void)
 {
-	WCHAR path[MTY_PATH_MAX] = {0};
+	wchar_t path[MTY_PATH_MAX] = {0};
 
 	// Try system WebView
 	if (webview_dll_path(path, false))
@@ -702,7 +702,7 @@ bool mty_webview_is_steam(void)
 
 bool mty_webview_is_available(void)
 {
-	WCHAR path[MTY_PATH_MAX] = {0};
+	wchar_t path[MTY_PATH_MAX] = {0};
 
 	bool have_path = webview_dll_path(path, false);
 	if (!have_path)

@@ -16,9 +16,7 @@
 #include "unix/web/keymap.h"
 
 // https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
-// Using ClientState to get `EBWebView` key, instead of using Clients and fetching both `location` and `pv`
-#define WEBVIEW_MACHINE_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\%s\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
-#define WEBVIEW_USER_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\%s\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+#define WEBVIEW_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\%s\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 #if defined(_WIN64)
 	#define WEBVIEW_DLL_PATH L"EBWebView\\x64\\EmbeddedBrowserWebView.dll"
@@ -494,11 +492,10 @@ static bool webview_dll_path_clientstate(wchar_t *pathw, bool as_user)
 {
 	bool ok = false;
 
-	const wchar_t *reg_path_fmt = as_user ? WEBVIEW_USER_REG_PATH : WEBVIEW_MACHINE_REG_PATH;
 	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
 
 	wchar_t reg_path[MAX_PATH] = {0};
-	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, reg_path_fmt, L"ClientState");
+	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, WEBVIEW_REG_PATH, L"ClientState");
 
 	HKEY key = NULL;
 	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
@@ -528,11 +525,10 @@ static bool webview_dll_path_client(wchar_t *pathw, bool as_user)
 {
 	bool ok = false;
 
-	const wchar_t *reg_path_fmt = as_user ? WEBVIEW_USER_REG_PATH : WEBVIEW_MACHINE_REG_PATH;
 	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
 
 	wchar_t reg_path[MAX_PATH] = {0};
-	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, reg_path_fmt, L"Clients");
+	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, WEBVIEW_REG_PATH, L"Clients");
 
 	HKEY key = NULL;
 	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);

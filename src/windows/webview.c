@@ -16,8 +16,9 @@
 #include "unix/web/keymap.h"
 
 // https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
+// Using ClientState to get `EBWebView` key, instead of using Clients and fetching both `location` and `pv`
 #define WEBVIEW_MACHINE_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
-#define WEBVIEW_USER_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+#define WEBVIEW_USER_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 #if defined(_WIN64)
 	#define WEBVIEW_DLL_PATH L"\\EBWebView\\x64\\EmbeddedBrowserWebView.dll"

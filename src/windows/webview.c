@@ -491,14 +491,17 @@ static ICoreWebView2EnvironmentOptionsVtbl VTBL5 = {
 static bool webview_dll_path_clientstate(wchar_t *pathw, bool as_user)
 {
 	bool ok = false;
+	DWORD flags = KEY_READ;
 
 	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
+	if (!as_user)
+		flags |= KEY_WOW64_32KEY;
 
 	wchar_t reg_path[MAX_PATH] = {0};
 	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, WEBVIEW_REG_PATH, L"ClientState");
 
 	HKEY key = NULL;
-	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
+	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, flags, &key);
 	if (r != ERROR_SUCCESS)
 		goto except;
 
@@ -524,14 +527,17 @@ static bool webview_dll_path_clientstate(wchar_t *pathw, bool as_user)
 static bool webview_dll_path_client(wchar_t *pathw, bool as_user)
 {
 	bool ok = false;
+	DWORD flags = KEY_READ;
 
 	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
+	if (!as_user)
+		flags |= KEY_WOW64_32KEY;
 
 	wchar_t reg_path[MAX_PATH] = {0};
 	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, WEBVIEW_REG_PATH, L"Clients");
 
 	HKEY key = NULL;
-	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
+	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, flags, &key);
 	if (r != ERROR_SUCCESS)
 		goto except;
 

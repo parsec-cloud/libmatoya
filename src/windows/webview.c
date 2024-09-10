@@ -15,6 +15,17 @@
 
 #include "unix/web/keymap.h"
 
+// https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
+#define WEBVIEW_MACHINE_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+#define WEBVIEW_USER_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+
+#if defined(_WIN64)
+	#define WEBVIEW_DLL_PATH L"\\EBWebView\\x64\\EmbeddedBrowserWebView.dll"
+
+#else
+	#define WEBVIEW_DLL_PATH L"\\EBWebView\\x86\\EmbeddedBrowserWebView.dll"
+#endif
+
 typedef HRESULT (WINAPI *WEBVIEW_CREATE_FUNC)(uintptr_t _unknown0, uintptr_t _unknown1,
 	const WCHAR *wdir, ICoreWebView2EnvironmentOptions *opts,
 	ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *handler);
@@ -482,32 +493,21 @@ static bool webview_dll_path(wchar_t *pathw, bool as_user)
 {
 	bool ok = false;
 
-	HKEY key = NULL;
-	wchar_t dll[MTY_PATH_MAX] = {0};
-
-	// https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
-	const wchar_t *machine_path = L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
-	const wchar_t *user_path = L"Software\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
-	const wchar_t *reg_path = as_user ? user_path : machine_path;
+	const wchar_t *reg_path = as_user ? WEBVIEW_USER_REG_PATH : WEBVIEW_MACHINE_REG_PATH;
 	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
 
+	HKEY key = NULL;
 	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
 	if (r != ERROR_SUCCESS)
 		goto except;
 
-	DWORD size = MTY_PATH_MAX * sizeof(wchar_t);
+	DWORD size = MAX_PATH * sizeof(wchar_t);
+	wchar_t dll[MAX_PATH] = {0};
 	r = RegQueryValueEx(key, L"EBWebView", 0, NULL, (BYTE *) dll, &size);
 	if (r != ERROR_SUCCESS)
 		goto except;
 
-	#if defined(_WIN64)
-		const wchar_t *path = L"\\EBWebView\\x64\\EmbeddedBrowserWebView.dll";
-
-	#else
-		const wchar_t *path = L"\\EBWebView\\x86\\EmbeddedBrowserWebView.dll";
-	#endif
-
-	if (wcscat_s(dll, MTY_PATH_MAX, path) != 0)
+	if (wcscat_s(dll, MTY_PATH_MAX, WEBVIEW_DLL_PATH) != 0)
 		goto except;
 
 	if (pathw)

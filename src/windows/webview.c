@@ -17,14 +17,14 @@
 
 // https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
 // Using ClientState to get `EBWebView` key, instead of using Clients and fetching both `location` and `pv`
-#define WEBVIEW_MACHINE_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
-#define WEBVIEW_USER_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+#define WEBVIEW_MACHINE_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\%s\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+#define WEBVIEW_USER_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\%s\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 #if defined(_WIN64)
-	#define WEBVIEW_DLL_PATH L"\\EBWebView\\x64\\EmbeddedBrowserWebView.dll"
+	#define WEBVIEW_DLL_PATH L"EBWebView\\x64\\EmbeddedBrowserWebView.dll"
 
 #else
-	#define WEBVIEW_DLL_PATH L"\\EBWebView\\x86\\EmbeddedBrowserWebView.dll"
+	#define WEBVIEW_DLL_PATH L"EBWebView\\x86\\EmbeddedBrowserWebView.dll"
 #endif
 
 typedef HRESULT (WINAPI *WEBVIEW_CREATE_FUNC)(uintptr_t _unknown0, uintptr_t _unknown1,
@@ -490,12 +490,15 @@ static ICoreWebView2EnvironmentOptionsVtbl VTBL5 = {
 
 // Public
 
-static bool webview_dll_path(wchar_t *pathw, bool as_user)
+static bool webview_dll_path_clientstate(wchar_t *pathw, bool as_user)
 {
 	bool ok = false;
 
-	const wchar_t *reg_path = as_user ? WEBVIEW_USER_REG_PATH : WEBVIEW_MACHINE_REG_PATH;
+	const wchar_t *reg_path_fmt = as_user ? WEBVIEW_USER_REG_PATH : WEBVIEW_MACHINE_REG_PATH;
 	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
+
+	wchar_t reg_path[MAX_PATH] = {0};
+	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, reg_path_fmt, L"ClientState");
 
 	HKEY key = NULL;
 	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
@@ -508,11 +511,8 @@ static bool webview_dll_path(wchar_t *pathw, bool as_user)
 	if (r != ERROR_SUCCESS)
 		goto except;
 
-	if (wcscat_s(dll, MTY_PATH_MAX, WEBVIEW_DLL_PATH) != 0)
-		goto except;
-
 	if (pathw)
-		_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s", dll);
+		_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s\\%s", dll, WEBVIEW_DLL_PATH);
 
 	ok = true;
 
@@ -522,6 +522,56 @@ static bool webview_dll_path(wchar_t *pathw, bool as_user)
 		RegCloseKey(key);
 
 	return ok;
+}
+
+static bool webview_dll_path_client(wchar_t *pathw, bool as_user)
+{
+	bool ok = false;
+
+	const wchar_t *reg_path_fmt = as_user ? WEBVIEW_USER_REG_PATH : WEBVIEW_MACHINE_REG_PATH;
+	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
+
+	wchar_t reg_path[MAX_PATH] = {0};
+	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, reg_path_fmt, L"Clients");
+
+	HKEY key = NULL;
+	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, KEY_WOW64_32KEY | KEY_READ, &key);
+	if (r != ERROR_SUCCESS)
+		goto except;
+
+	DWORD size = MAX_PATH * sizeof(wchar_t);
+	wchar_t dll[MAX_PATH] = {0};
+	r = RegQueryValueEx(key, L"location", 0, NULL, (BYTE *) dll, &size);
+	if (r != ERROR_SUCCESS)
+		goto except;
+
+	size = MAX_PATH * sizeof(wchar_t);
+	wchar_t version[MAX_PATH] = {0};
+	r = RegQueryValueEx(key, L"pv", 0, NULL, (BYTE *) version, &size);
+	if (r != ERROR_SUCCESS)
+		goto except;
+
+	if (pathw)
+		_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s\\%s\\%s", dll, version, WEBVIEW_DLL_PATH);
+
+	ok = true;
+
+	except:
+
+	if (key)
+		RegCloseKey(key);
+
+	return ok;
+}
+
+static bool webview_dll_path(wchar_t *pathw, bool as_user)
+{
+	// Try convenient ClientState first
+	if (webview_dll_path_clientstate(pathw, as_user))
+		return true;
+
+	// Construct the base path manually if ClientState is not available
+	return webview_dll_path_client(pathw, as_user);
 }
 
 static HMODULE webview_load_dll(void)

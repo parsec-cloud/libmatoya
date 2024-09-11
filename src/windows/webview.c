@@ -511,10 +511,9 @@ static bool webview_dll_path_clientstate(wchar_t *pathw, bool as_user)
 	if (r != ERROR_SUCCESS)
 		goto except;
 
-	if (pathw)
-		_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s\\%s", dll, WEBVIEW_DLL_PATH);
+	_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s\\%s", dll, WEBVIEW_DLL_PATH);
 
-	ok = true;
+	ok = PathFileExists(pathw);
 
 	except:
 
@@ -553,10 +552,9 @@ static bool webview_dll_path_client(wchar_t *pathw, bool as_user)
 	if (r != ERROR_SUCCESS)
 		goto except;
 
-	if (pathw)
-		_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s\\%s\\%s", dll, version, WEBVIEW_DLL_PATH);
+	_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s\\%s\\%s", dll, version, WEBVIEW_DLL_PATH);
 
-	ok = true;
+	ok = PathFileExists(pathw);
 
 	except:
 
@@ -763,10 +761,7 @@ bool mty_webview_is_available(void)
 	if (!have_path)
 		have_path = webview_dll_path(path, true);
 
-	if (!have_path)
-		return false;
-
 	// Loading the lib would be ideal to be sure, but repeated loads eventually cause issues from Windows not un-reserving memory.
 	// https://forums.codeguru.com/showthread.php?60548-Is-there-a-limit-on-how-many-times-one-can-load-(and-free)-the-same-DLL-in-a-process&p=156821#post156821
-	return PathFileExists(path);
+	return false;
 }

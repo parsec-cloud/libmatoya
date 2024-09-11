@@ -579,16 +579,17 @@ static bool webview_dll_path(wchar_t *pathw, bool as_user)
 static HMODULE webview_load_dll(void)
 {
 	wchar_t path[MTY_PATH_MAX] = {0};
+	HMODULE ret = NULL;
 
 	// Try system WebView
 	if (webview_dll_path(path, false))
-		return LoadLibrary(path);
+		ret = LoadLibrary(path);
 
 	// Try user WebView
-	if (webview_dll_path(path, true))
-		return LoadLibrary(path);
+	if (!ret && webview_dll_path(path, true))
+		ret = LoadLibrary(path);
 
-	return NULL;
+	return ret;
 }
 
 struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *dir,

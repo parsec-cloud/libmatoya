@@ -747,13 +747,13 @@ async function mty_ws_connect(url) {
 
 		ws.onopen = () => {
 			resolve(ws);
+			tm = setInterval(() => {ws.send('__ping__');}, 60000); // we've seen timeouts at the 10-minute mark,
+			                                                       // so a 60-second period should be more than enough
 		};
 
 		ws.onmessage = (ev) => {
 			ws.msgs.push(ev.data);
 			Atomics.notify(ws.sync, 0, 1);
-			tm = setInterval(() => {ws.send('__ping__');}, 60000); // we've seen timeouts at the 10-minute mark,
-			                                                       // so a 60-second period should be more than enough
 		};
 	});
 }

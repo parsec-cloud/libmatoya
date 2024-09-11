@@ -336,25 +336,17 @@ void MTY_AudioDestroy(MTY_Audio **audio)
 
 static HRESULT audio_get_queued_frames(MTY_Audio *ctx, uint32_t *out)
 {
-	HRESULT e = S_OK;
-	uint32_t frames = ctx->buffer_size; // indicates that the buffer is full, which also serves
-	                                    // as a useful return value in the case of an error.
+	*out = ctx->buffer_size; // indicates that the buffer is full, which also serves
+	                         // as a useful return value in the case of an error.
 
-	if (!ctx->client) {
-		e = AUDCLNT_E_NOT_INITIALIZED;
-		goto except;
-	}
+	if (!ctx->client)
+		return AUDCLNT_E_NOT_INITIALIZED;
 
 	UINT32 padding = 0;
-	e = IAudioClient_GetCurrentPadding(ctx->client, &padding);
-	if (e != S_OK)
-		goto except;
+	HRESULT e = IAudioClient_GetCurrentPadding(ctx->client, &padding);
+	if (e == S_OK)
+		*out = padding;
 
-	frames = padding;
-
-	except:
-
-	*out = frames;
 	return e;
 }
 
@@ -449,7 +441,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 			return;
 		}
 
-		e = audio_get_queued_frames(ctx, &queued);
+		audio_get_queued_frames(ctx, &queued);
 	}
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun

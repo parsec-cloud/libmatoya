@@ -763,5 +763,5 @@ bool mty_webview_is_available(void)
 
 	// Loading the lib would be ideal to be sure, but repeated loads eventually cause issues from Windows not un-reserving memory.
 	// https://forums.codeguru.com/showthread.php?60548-Is-there-a-limit-on-how-many-times-one-can-load-(and-free)-the-same-DLL-in-a-process&p=156821#post156821
-	return false;
+	return have_path;
 }

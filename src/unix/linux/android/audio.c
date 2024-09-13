@@ -25,6 +25,7 @@ struct MTY_Audio {
 	uint32_t min_buffer;
 	uint32_t max_buffer;
 	uint8_t channels;
+	uint32_t channels_mask;
 	bool flushing;
 	bool playing;
 
@@ -66,6 +67,7 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 	ctx->channels = format->channels;
+	ctx->channels_mask = format->channelsMask;
 	ctx->sample_format = format->sampleFormat;
 	ctx->sample_rate = format->sampleRate;
 	ctx->mutex = MTY_MutexCreate();
@@ -128,6 +130,7 @@ static void audio_start(MTY_Audio *ctx)
 		AAudioStreamBuilder_setDeviceId(ctx->builder, AAUDIO_UNSPECIFIED);
 		AAudioStreamBuilder_setSampleRate(ctx->builder, ctx->sample_rate);
 		AAudioStreamBuilder_setChannelCount(ctx->builder, ctx->channels);
+		AAudioStreamBuilder_setChannelMask(ctx->builder, ctx->channels_mask ? (aaudio_channel_mask_t) ctx->channels_mask : AAUDIO_UNSPECIFIED);
 		AAudioStreamBuilder_setFormat(ctx->builder, ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? AAUDIO_FORMAT_PCM_FLOAT : AAUDIO_FORMAT_PCM_I16);
 		AAudioStreamBuilder_setPerformanceMode(ctx->builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
 		AAudioStreamBuilder_setErrorCallback(ctx->builder, audio_error, ctx);

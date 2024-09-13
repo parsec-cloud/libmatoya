@@ -135,7 +135,7 @@ void MTY_MutexLock(MTY_Mutex *ctx)
 bool MTY_MutexTryLock(MTY_Mutex *ctx)
 {
 	if (!ctx)
-		return false;;
+		return false;
 
 	return TryEnterCriticalSection(&ctx->mutex);
 }

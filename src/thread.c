@@ -56,6 +56,7 @@ void MTY_RWLockDestroy(MTY_RWLock **rwlock)
 
 	MTY_RWLock *ctx = *rwlock;
 	*rwlock = NULL;
+	MTY_MEMORY_BARRIER();
 
 	mty_rwlock_destroy(&ctx->rwlock);
 	memset(&RWLOCK_STATE[ctx->index], 0, sizeof(struct thread_rwlock));
@@ -172,6 +173,7 @@ void MTY_WaitableDestroy(MTY_Waitable **waitable)
 
 	MTY_Waitable *ctx = *waitable;
 	*waitable = NULL;
+	MTY_MEMORY_BARRIER();
 
 	MTY_CondDestroy(&ctx->cond);
 	MTY_MutexDestroy(&ctx->mutex);
@@ -251,6 +253,7 @@ void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach)
 
 	MTY_ThreadPool *ctx = *pool;
 	*pool = NULL;
+	MTY_MEMORY_BARRIER();
 
 	for (uint32_t x = 0; x < ctx->num; x++) {
 		MTY_ThreadPoolDetach(ctx, x, detach);

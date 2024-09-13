@@ -124,6 +124,7 @@ void MTY_MutexDestroy(MTY_Mutex **mutex)
 
 	MTY_Mutex *ctx = *mutex;
 	*mutex = NULL;
+	MTY_MEMORY_BARRIER();
 
 	int32_t e = pthread_mutex_destroy(&ctx->mutex);
 	if (e != 0)
@@ -189,6 +190,7 @@ void MTY_CondDestroy(MTY_Cond **cond)
 
 	MTY_Cond *ctx = *cond;
 	*cond = NULL;
+	MTY_MEMORY_BARRIER();
 
 	int32_t e = pthread_cond_destroy(&ctx->cond);
 	if (e != 0)

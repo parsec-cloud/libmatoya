@@ -25,7 +25,7 @@ struct MTY_Audio {
 	uint32_t min_buffer;
 	uint32_t max_buffer;
 	uint8_t channels;
-	uint32_t channelsMask;
+	uint32_t channels_mask;
 	bool playing;
 };
 
@@ -169,10 +169,10 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	}
 
 	// Specify channel configuration
-	if (ctx->channelsMask) {
+	if (ctx->channels_mask) {
 		AudioChannelLayout channel_layout = {
 			.mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelBitmap,
-			.mChannelBitmap = ctx->channelsMask, // Core Audio channel bitmap follows the spec that the WAVE format follows, so we can simply pass in the mask as-is
+			.mChannelBitmap = ctx->channels_mask, // Core Audio channel bitmap follows the spec that the WAVE format follows, so we can simply pass in the mask as-is
 		};
 
 		e = AudioQueueSetProperty(ctx->q, kAudioQueueProperty_ChannelLayout, (const void *) &channel_layout, sizeof(AudioChannelLayout));
@@ -209,7 +209,7 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format_in, uint32_t minBuffer,
 	ctx->sample_format = format_in->sampleFormat;
 	ctx->sample_rate = format_in->sampleRate;
 	ctx->channels = format_in->channels;
-	ctx->channelsMask = format_in->channelsMask;
+	ctx->channels_mask = format_in->channelsMask;
 
 	uint32_t frames_per_ms = lrint((float) format_in->sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * frames_per_ms;

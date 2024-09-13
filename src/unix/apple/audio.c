@@ -130,6 +130,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 			if (uid_cf)
 				CFRelease(uid_cf);
+
 			free(uid);
 		}
 	}
@@ -193,6 +194,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 	if (selected_device_uid)
 		CFRelease(selected_device_uid);
+
 	free(device_ids);
 
 	return e;
@@ -216,9 +218,8 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format_in, uint32_t minBuffer,
 	OSStatus e = audio_device_create(ctx, deviceID);
 
 	// Upon failure initializing the given device, try again with the system default device
-	if (AUDIO_SV_ERROR(e))
-		if (deviceID && deviceID[0])
-			e = audio_device_create(ctx, NULL);
+	if (AUDIO_SV_ERROR(e) && deviceID && deviceID[0])
+		e = audio_device_create(ctx, NULL);
 
 	if (AUDIO_SV_ERROR(e))
 		MTY_AudioDestroy(&ctx);

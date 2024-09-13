@@ -1478,7 +1478,7 @@ typedef struct {
 
 /// @brief Create an MTY_Audio context for playback.
 /// @param format Format that the audio device will attempt to initialize. If the
-///   provided format is supported, the function will fail and return NULL.
+///   provided format is not supported, the function will fail and return NULL.
 ///   This parameter is a required argument and MUST NOT be NULL.
 /// @param minBuffer The minimum amount of audio in milliseconds that must be queued
 ///   before playback begins.

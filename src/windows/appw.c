@@ -579,6 +579,8 @@ static void app_fix_mouse_buttons(MTY_App *ctx)
 	}
 }
 
+static TOUCHINPUT buffer_touch_inputs[MAX_TOUCH_COUNT] = {0};
+
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	MTY_App *app = ctx->app;
@@ -788,6 +790,29 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			defreturn = true;
 			break;
+		case WM_TOUCH: {
+			bool handled = false;
+
+			HTOUCHINPUT hti = (HTOUCHINPUT) lparam;
+			UINT count = LOWORD(wparam);
+
+			ZeroMemory(buffer_touch_inputs, sizeof(buffer_touch_inputs));
+			if (GetTouchInputInfo(hti, count, buffer_touch_inputs, sizeof(TOUCHINPUT))) {
+				handled = true;
+				evt.type = MTY_EVENT_TOUCH;
+				evt.touch.count = count;
+				evt.touch.inputs = buffer_touch_inputs;
+
+			} else {
+				MTY_Log("'GetTouchInputInfo' failed with error 0x%X", GetLastError());
+			}
+
+			if (handled) {
+				r = TRUE;
+				CloseTouchInputHandle(hti);
+			}
+			break;
+		}
 		case WM_HOTKEY:
 			if (!app->ghk_disabled) {
 				evt.type = MTY_EVENT_HOTKEY;
@@ -1746,13 +1771,44 @@ static void window_set_placement(MTY_App *app, HMONITOR mon, HWND hwnd, const MT
 	SetWindowPlacement(hwnd, &p);
 }
 
+static bool window_query_touch_capabilities(void)
+{
+	int32_t r = GetSystemMetrics(SM_DIGITIZER);
+
+	if (!r)
+		return false;
+
+	bool touch_internal = r & NID_INTEGRATED_TOUCH;
+	bool touch_external = r & NID_EXTERNAL_TOUCH;
+	bool pen_internal  = r & NID_INTEGRATED_PEN;
+	bool pen_external = r & NID_EXTERNAL_PEN;
+	bool multi = r & NID_MULTI_INPUT;
+	bool ready = r & NID_READY;
+
+	MTY_Log("\nTouch Input Support:"
+			"\n\tIntegrated Touch = %u"
+			"\n\t  External Touch = %u"
+			"\n\t  Integrated Pen = %u"
+			"\n\t    External Pen = %u"
+			"\n\t     Multi-Input = %u"
+			"\n\t           Ready = %u"
+			"\n",
+		touch_internal ? 1 : 0,
+		touch_external ? 1 : 0,
+		pen_internal ? 1 : 0,
+		pen_external ? 1 : 0,
+		multi ? 1 : 0,
+		ready ? 1 : 0);
+
+	return ready && (touch_internal || touch_external);
+}
+
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *frame, MTY_Window index)
 {
 	MTY_Window window = -1;
 	bool r = true;
 
 	wchar_t *titlew = NULL;
-
 	window = app_find_open_window(app, index);
 	if (window == -1) {
 		r = false;
@@ -1820,6 +1876,16 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	if (window == 0) {
 		AddClipboardFormatListener(ctx->hwnd);
 		mty_hid_win32_listen(ctx->hwnd);
+	}
+
+	// Enable capturing of touch inputs
+	if (window_query_touch_capabilities()) {
+		if (RegisterTouchWindow(ctx->hwnd, TWF_FINETOUCH | TWF_WANTPALM)) {
+			MTY_Log("Ready to capture touch inputs");
+
+		} else {
+			MTY_Log("'RegisterTouchWindow' failed with error 0x%X", GetLastError());
+		}
 	}
 
 	except:

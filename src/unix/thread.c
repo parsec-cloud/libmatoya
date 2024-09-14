@@ -234,6 +234,10 @@ void MTY_CondSignalAll(MTY_Cond *ctx)
 		MTY_LogFatal("'pthread_cond_broadcast' failed with error %d", e);
 }
 
+void MTY_MemoryBarrier()
+{
+	MTY_MEMORY_BARRIER();
+}
 
 // Atomic
 

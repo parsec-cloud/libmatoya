@@ -2827,6 +2827,10 @@ MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc detach);
 MTY_EXPORT MTY_Async
 MTY_ThreadPoolPoll(MTY_ThreadPool *ctx, uint32_t index, void **opaque);
 
+/// @brief Force code above barrier to complete, before code below barrier begins.
+MTY_EXPORT void
+MTY_MemoryBarrier();
+
 /// @brief Set a 32-bit integer atomically.
 /// @details All atomic operations in libmatoya create a full memory barrier.
 /// @param atomic An MTY_Atomic32.

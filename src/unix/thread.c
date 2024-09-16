@@ -254,6 +254,7 @@ void MTY_CondSignalAll(MTY_Cond *ctx)
 		MTY_LogFatal("'pthread_cond_broadcast' failed with error %d", e);
 }
 
+
 // Atomic
 
 // XXX Android will complain about the 64-bit atomics on 32-bit platforms,

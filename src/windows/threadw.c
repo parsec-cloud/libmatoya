@@ -216,11 +216,6 @@ void MTY_CondSignalAll(MTY_Cond *ctx)
 	WakeAllConditionVariable(&ctx->cond);
 }
 
-void MTY_MemoryBarrier()
-{
-	MTY_MEMORY_BARRIER();
-}
-
 // Atomic
 
 void MTY_Atomic32Set(MTY_Atomic32 *atomic, int32_t value)

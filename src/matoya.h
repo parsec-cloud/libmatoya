@@ -2874,6 +2874,38 @@ MTY_Atomic32Add(MTY_Atomic32 *atomic, int32_t value);
 MTY_EXPORT int64_t
 MTY_Atomic64Add(MTY_Atomic64 *atomic, int64_t value);
 
+/// @brief Or to a 32-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
+/// @param value Value to atomically or.
+/// @returns The value of the 32-bit integer before the or.
+MTY_EXPORT int32_t
+MTY_Atomic32Or(MTY_Atomic32 *atomic, int32_t value);
+
+/// @brief Or to a 64-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic64.
+/// @param value Value to atomically or.
+/// @returns The value of the 64-bit integer before the or.
+MTY_EXPORT int64_t
+MTY_Atomic64Or(MTY_Atomic64 *atomic, int64_t value);
+
+/// @brief And to a 32-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
+/// @param value Value to atomically and.
+/// @returns The value of the 32-bit integer before the and.
+MTY_EXPORT int32_t
+MTY_Atomic32And(MTY_Atomic32 *atomic, int32_t value);
+
+/// @brief And to a 64-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic64.
+/// @param value Value to atomically and.
+/// @returns The value of the 64-bit integer before the and.
+MTY_EXPORT int64_t
+MTY_Atomic64And(MTY_Atomic64 *atomic, int64_t value);
+
 /// @brief Compare two 32-bit values and if the same, atomically set to a new value.
 /// @details All atomic operations in libmatoya create a full memory barrier.
 /// @param atomic An MTY_Atomic32.

@@ -229,6 +229,26 @@ int64_t MTY_Atomic64Add(MTY_Atomic64 *atomic, int64_t value)
 	return InterlockedAdd64(&atomic->value, value);
 }
 
+int32_t MTY_Atomic32Or(MTY_Atomic32 *atomic, int32_t value)
+{
+	return InterlockedOr((volatile LONG *) &atomic->value, value);
+}
+
+int64_t MTY_Atomic64Or(MTY_Atomic64 *atomic, int64_t value)
+{
+	return InterlockedOr64(&atomic->value, value);
+}
+
+int32_t MTY_Atomic32And(MTY_Atomic32 *atomic, int32_t value)
+{
+	return InterlockedAnd((volatile LONG *) &atomic->value, value);
+}
+
+int64_t MTY_Atomic64And(MTY_Atomic64 *atomic, int64_t value)
+{
+	return InterlockedAnd64(&atomic->value, value);
+}
+
 bool MTY_Atomic32CAS(MTY_Atomic32 *atomic, int32_t oldValue, int32_t newValue)
 {
 	return InterlockedCompareExchange((volatile LONG *) &atomic->value, newValue, oldValue) == oldValue;

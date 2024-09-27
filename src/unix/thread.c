@@ -278,6 +278,26 @@ int64_t MTY_Atomic64Add(MTY_Atomic64 *atomic, int64_t value)
 	return __atomic_add_fetch(&atomic->value, value, __ATOMIC_SEQ_CST);
 }
 
+int32_t MTY_Atomic32Or(MTY_Atomic32 *atomic, int32_t value)
+{
+	return __atomic_fetch_or(&atomic->value, value, __ATOMIC_SEQ_CST);
+}
+
+int64_t MTY_Atomic64Or(MTY_Atomic64 *atomic, int64_t value)
+{
+	return __atomic_fetch_or(&atomic->value, value, __ATOMIC_SEQ_CST);
+}
+
+int32_t MTY_Atomic32And(MTY_Atomic32 *atomic, int32_t value)
+{
+	return __atomic_fetch_and(&atomic->value, value, __ATOMIC_SEQ_CST);
+}
+
+int64_t MTY_Atomic64And(MTY_Atomic64 *atomic, int64_t value)
+{
+	return __atomic_fetch_and(&atomic->value, value, __ATOMIC_SEQ_CST);
+}
+
 bool MTY_Atomic32CAS(MTY_Atomic32 *atomic, int32_t oldValue, int32_t newValue)
 {
 	return __atomic_compare_exchange_n(&atomic->value, &oldValue, newValue, false,

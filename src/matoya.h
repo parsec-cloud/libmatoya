@@ -3561,6 +3561,13 @@ MTY_GetTime(void);
 MTY_EXPORT double
 MTY_TimeDiff(MTY_Time begin, MTY_Time end);
 
+/// @brief Add the number of milliseconds to an MTY_Time stamp, and return a new MTY_Time stamp.
+/// @param begin The beginning time stamp.
+/// @param milliseconds The number of milliseconds to add.
+/// @returns A new MTY_Time stamp.
+MTY_EXPORT MTY_Time
+MTY_TimeAdd(MTY_Time begin, double milliseconds);
+
 /// @brief Suspend the current thread.
 /// @param timeout The number of milliseconds to sleep.
 //- #support Windows macOS Android Linux

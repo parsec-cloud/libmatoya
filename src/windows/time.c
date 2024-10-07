@@ -20,16 +20,26 @@ MTY_Time MTY_GetTime(void)
 	return ts.QuadPart;
 }
 
+static void time_initialize()
+{
+	if (TIME_FREQ_INIT)
+		return;
+	LARGE_INTEGER frequency;
+	QueryPerformanceFrequency(&frequency);
+	TIME_FREQUENCY = frequency.QuadPart / 1000.0;
+	TIME_FREQ_INIT = true;
+}
+
 double MTY_TimeDiff(MTY_Time begin, MTY_Time end)
 {
-	if (!TIME_FREQ_INIT) {
-		LARGE_INTEGER frequency;
-		QueryPerformanceFrequency(&frequency);
-		TIME_FREQUENCY = frequency.QuadPart / 1000.0;
-		TIME_FREQ_INIT = true;
-	}
-
+	time_initialize();
 	return (end - begin) / TIME_FREQUENCY;
+}
+
+MTY_Time MTY_TimeAdd(MTY_Time begin, double milliseconds)
+{
+	time_initialize();
+	return begin + (MTY_Time) (milliseconds * TIME_FREQUENCY);
 }
 
 static HANDLE time_create_timer(BOOL manual)

@@ -28,6 +28,11 @@ double MTY_TimeDiff(MTY_Time begin, MTY_Time end)
 	return (end - begin) / 1000.0;
 }
 
+MTY_Time MTY_TimeAdd(MTY_Time begin, double milliseconds)
+{
+	return begin + milliseconds * 1000.0f;
+}
+
 void MTY_Sleep(uint32_t timeout)
 {
 	struct timespec ts = {0};

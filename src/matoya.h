@@ -18,8 +18,10 @@
 
 #if defined(__GNUC__)
 	#define MTY_FMT(a, b) __attribute__((format(printf, a, b)))
+	#define MTY_MEMORY_BARRIER() __sync_synchronize()
 #else
 	#define MTY_FMT(a, b)
+	#define MTY_MEMORY_BARRIER() MemoryBarrier()
 #endif
 
 #ifdef __cplusplus
@@ -1370,6 +1372,13 @@ MTY_WebViewSetInputPassthrough(MTY_App *app, MTY_Window window, bool passthrough
 MTY_EXPORT bool
 MTY_WebViewIsSteam(void);
 
+/// @brief Check if the WebView is available on the current platform.
+/// @details The function returns true if the platform supports WebView, AND has the necessary
+///   dependencies to create a WebView. For example, on Windows, WebView is only available on
+///   Windows 10 and later, and the WebView2 runtime must be installed.
+MTY_EXPORT bool
+MTY_WebViewIsAvailable(void);
+
 /// @brief Fill an MTY_Frame taking the current display settings into account.
 /// @details The returned MTY_Frame can be passed directly to MTY_WindowCreate or
 ///   MTY_WindowSetFrame.
@@ -2215,6 +2224,9 @@ MTY_JSONObjSetItem(MTY_JSON *json, const char *key, MTY_JSON *value);
 
 #define MTY_JSONObjGetFloat(json, key, val) \
 	MTY_JSONFloat(MTY_JSONObjGetItem(json, key), val)
+
+#define MTY_JSONObjGetNumber(json, key, val) \
+	MTY_JSONNumber(MTY_JSONObjGetItem(json, key), val)
 
 #define MTY_JSONObjGetString(json, key, val, size) \
 	MTY_JSONString(MTY_JSONObjGetItem(json, key), val, size)
@@ -3368,6 +3380,19 @@ MTY_GetProcessPath(void);
 /// @returns This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetProcessDir(void);
+
+/// @brief Restart the current process into a specific binary.
+/// @details For more information, see `execv` from the C standard library.
+/// @param path Full path to an executable to execv.
+///   May be set to `NULL` to restart the current process.
+/// @param argv Arguments to set up a call to `execv`. This is an array of strings
+///   that must have its last element set to NULL.
+/// @param dir The working directory to set. May be NULL to use the current working directory
+/// @returns On success this function does not return, otherwise it returns false.
+///   Call MTY_GetLog for details.
+//- #support Windows macOS Linux
+MTY_EXPORT bool
+MTY_StartInProcess(const char *path, char * const *argv, const char *dir);
 
 /// @brief Restart the current process.
 /// @details For more information, see `execv` from the C standard library.

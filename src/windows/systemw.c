@@ -230,6 +230,23 @@ void MTY_SetCrashFunc(MTY_CrashFunc func, void *opaque)
 	SYSTEM_OPAQUE = opaque;
 }
 
+static BOOL WINAPI system_handler_routine(DWORD dwCtrlType)
+{
+	// Console close == SIGTERM, Ctrl+C == SIGINT
+	if (SYSTEM_CRASH_FUNC)
+		SYSTEM_CRASH_FUNC(dwCtrlType == CTRL_CLOSE_EVENT || dwCtrlType == CTRL_C_EVENT, SYSTEM_OPAQUE);
+
+	// Prevent secondary calls to the SYSTEM_CRASH_FUNC
+	SYSTEM_CRASH_FUNC = NULL;
+
+	// For all except CTRL_LOGOFF_EVENT, exit the process with code 1
+	if (dwCtrlType != CTRL_LOGOFF_EVENT)
+		ExitProcess(1);
+
+	// Prevent additional handlers from running, except for CTRL_LOGOFF_EVENT, which doesn't necessarily mean THIS user is logging off
+	return dwCtrlType != CTRL_LOGOFF_EVENT;
+}
+
 void MTY_OpenConsole(const char *title)
 {
 	HWND console = GetConsoleWindow();
@@ -262,6 +279,9 @@ void MTY_OpenConsole(const char *title)
 		SetConsoleTitle(titlew);
 
 		MTY_Free(titlew);
+
+		// Add Ctrl handler
+		SetConsoleCtrlHandler(system_handler_routine, TRUE);
 	}
 }
 

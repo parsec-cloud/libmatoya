@@ -116,12 +116,17 @@ static MTY_Atomic32 LIBSSL_LOCK;
 static MTY_SO *LIBSSL_SO;
 static bool LIBSSL_INIT;
 
+static void libssl_global_destroy_lockfree(void)
+{
+	MTY_SOUnload(&LIBSSL_SO);
+	LIBSSL_INIT = false;
+}
+
 static void __attribute__((destructor)) libssl_global_destroy(void)
 {
 	MTY_GlobalLock(&LIBSSL_LOCK);
 
-	MTY_SOUnload(&LIBSSL_SO);
-	LIBSSL_INIT = false;
+	libssl_global_destroy_lockfree();
 
 	MTY_GlobalUnlock(&LIBSSL_LOCK);
 }
@@ -220,7 +225,7 @@ static bool libssl_global_init(void)
 		except:
 
 		if (!r)
-			libssl_global_destroy();
+			libssl_global_destroy_lockfree();
 
 		LIBSSL_INIT = r;
 	}

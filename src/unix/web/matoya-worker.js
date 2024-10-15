@@ -313,12 +313,12 @@ function mty_mutex_unlock(mutex, index, notify) {
 }
 
 const MTY_AUDIO_API = {
-	MTY_AudioCreate: function (sampleRate, minBuffer, maxBuffer, channels, deviceID, fallback) {
+	MTY_AudioCreate: function (format, minBuffer, maxBuffer, deviceID, fallback) {
 		MTY.audio = {
-			sampleRate,
+			sampleRate: format.sampleRate,
 			minBuffer,
 			maxBuffer,
-			channels,
+			channels: format.channels,
 		};
 
 		return 0xCDD;

@@ -10,9 +10,6 @@
 #define AUDIO_SAMPLE_SIZE(fmt) ((fmt) == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t))
 #define AUDIO_BUFS        64
 
-#define AUDIO_BUF_SIZE(ctx) \
-	((ctx)->sample_rate * (ctx)->channels * AUDIO_SAMPLE_SIZE((ctx)->sample_format))
-
 #define AUDIO_HW_ERROR(e) ((e) != kAudioHardwareNoError)
 #define AUDIO_SV_ERROR(e) ((e) != kAudioServicesNoError)
 
@@ -26,6 +23,8 @@ struct MTY_Audio {
 	uint32_t max_buffer;
 	uint8_t channels;
 	uint32_t channels_mask;
+	uint32_t frame_size;
+	uint32_t buffer_size;
 	bool playing;
 };
 
@@ -39,7 +38,6 @@ static void audio_queue_callback(void *opaque, AudioQueueRef q, AudioQueueBuffer
 
 static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPropertyScope prop_scope, AudioObjectPropertyElement prop_element, char **out_uid, CFStringRef *out_uid_cf)
 {
-	OSStatus e = kAudioHardwareNoError;
 	char *uid = NULL;
 	CFStringRef uid_cf = NULL;
 
@@ -50,7 +48,7 @@ static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPro
 		.mElement = prop_element,
 	};
 
-	e = AudioObjectGetPropertyData(device, &propAddr, 0, NULL, &data_size, &uid_cf);
+	OSStatus e = AudioObjectGetPropertyData(device, &propAddr, 0, NULL, &data_size, &uid_cf);
 	if (AUDIO_HW_ERROR(e))
 		goto except;
 
@@ -80,7 +78,6 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 {
 	AudioObjectID *selected_device = NULL;
 	CFStringRef selected_device_uid = NULL;
-	OSStatus e = kAudioHardwareNoError;
 
 	// Enumerate all output devices and identify the given device
 	AudioObjectID *device_ids = NULL;
@@ -94,7 +91,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	};
 
 	UInt32 data_size = 0;
-	e = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &propAddr, 0, NULL, &data_size);
+	OSStatus e = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &propAddr, 0, NULL, &data_size);
 	if (AUDIO_HW_ERROR(e))
 		goto except;
 
@@ -149,7 +146,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	format.mFramesPerPacket = 1;
 	format.mChannelsPerFrame = ctx->channels;
 	format.mBitsPerChannel = AUDIO_SAMPLE_SIZE(ctx->sample_format) * 8;
-	format.mBytesPerPacket = AUDIO_SAMPLE_SIZE(ctx->sample_format) * format.mChannelsPerFrame;
+	format.mBytesPerPacket = ctx->frame_size;
 	format.mBytesPerFrame = format.mBytesPerPacket;
 
 	// Create a new audio queue, which by default chooses the device's default device
@@ -183,7 +180,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	}
 
 	for (int32_t x = 0; x < AUDIO_BUFS; x++) {
-		e = AudioQueueAllocateBuffer(ctx->q, AUDIO_BUF_SIZE(ctx), &ctx->audio_buf[x]);
+		e = AudioQueueAllocateBuffer(ctx->q, ctx->buffer_size, &ctx->audio_buf[x]);
 		if (AUDIO_SV_ERROR(e)) {
 			MTY_Log("'AudioQueueAllocateBuffer' failed with error 0x%X", e);
 			goto except;
@@ -210,6 +207,8 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format_in, uint32_t minBuffer,
 	ctx->sample_rate = format_in->sampleRate;
 	ctx->channels = format_in->channels;
 	ctx->channels_mask = format_in->channelsMask;
+	ctx->frame_size = format_in->channels * AUDIO_SAMPLE_SIZE(format_in->sampleFormat);
+	ctx->buffer_size = format_in->sampleRate * ctx->frame_size;
 
 	uint32_t frames_per_ms = lrint((float) format_in->sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * frames_per_ms;
@@ -255,7 +254,7 @@ static uint32_t audio_get_queued_frames(MTY_Audio *ctx)
 		}
 	}
 
-	return queued / (ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format));
+	return queued / ctx->frame_size;
 }
 
 static void audio_play(MTY_Audio *ctx)
@@ -283,14 +282,14 @@ uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t size = count * ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format);
+	size_t size = count * ctx->frame_size;
 	uint32_t queued = audio_get_queued_frames(ctx);
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
 	if (ctx->playing && (queued > ctx->max_buffer || queued == 0))
 		MTY_AudioReset(ctx);
 
-	if (size <= AUDIO_BUF_SIZE(ctx)) {
+	if (size <= ctx->buffer_size) {
 		for (uint8_t x = 0; x < AUDIO_BUFS; x++) {
 			if (MTY_Atomic32Get(&ctx->in_use[x]) == 0) {
 				AudioQueueBufferRef buf = ctx->audio_buf[x];

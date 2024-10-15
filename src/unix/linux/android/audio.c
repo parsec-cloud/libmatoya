@@ -10,11 +10,6 @@
 
 #include <aaudio/AAudio.h>
 
-#define AUDIO_SAMPLE_SIZE(fmt) ((fmt) == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t))
-
-#define AUDIO_BUF_SIZE(ctx) \
-	((ctx)->sample_rate * (ctx)->channels * AUDIO_SAMPLE_SIZE((ctx)->sample_format))
-
 struct MTY_Audio {
 	AAudioStreamBuilder *builder;
 	AAudioStream *stream;
@@ -26,6 +21,8 @@ struct MTY_Audio {
 	uint32_t max_buffer;
 	uint8_t channels;
 	uint32_t channels_mask;
+	uint32_t frame_size;
+	uint32_t buffer_size;
 	bool flushing;
 	bool playing;
 
@@ -45,7 +42,7 @@ static aaudio_data_callback_result_t audio_callback(AAudioStream *stream, void *
 
 	MTY_MutexLock(ctx->mutex);
 
-	size_t want_size = numFrames * ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format);
+	size_t want_size = numFrames * ctx->frame_size;
 
 	if (ctx->playing && ctx->size >= want_size) {
 		memcpy(audioData, ctx->buffer, want_size);
@@ -70,12 +67,15 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
 	ctx->channels_mask = format->channelsMask;
 	ctx->sample_format = format->sampleFormat;
 	ctx->sample_rate = format->sampleRate;
+	ctx->frame_size = format->channels *
+		(format->sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t));
+	ctx->buffer_size = format->sampleRate * ctx->frame_size
 	ctx->mutex = MTY_MutexCreate();
-	ctx->buffer = MTY_Alloc(AUDIO_BUF_SIZE(ctx), 1);
+	ctx->buffer = MTY_Alloc(ctx->buffer_size, 1);
 
 	uint32_t frames_per_ms = lrint((float) format->sampleRate / 1000.0f);
-	ctx->min_buffer = minBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE(format->sampleFormat);
-	ctx->max_buffer = maxBuffer * frames_per_ms * ctx->channels * AUDIO_SAMPLE_SIZE(format->sampleFormat);
+	ctx->min_buffer = minBuffer * frames_per_ms * ctx->frame_size;
+	ctx->max_buffer = maxBuffer * frames_per_ms * ctx->frame_size;
 
 	return ctx;
 }
@@ -120,7 +120,7 @@ void MTY_AudioReset(MTY_Audio *ctx)
 
 uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 {
-	return (ctx->size / (ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format))) / ctx->sample_rate * 1000;
+	return (ctx->size / ctx->frame_size) / ctx->sample_rate * 1000;
 }
 
 static void audio_start(MTY_Audio *ctx)
@@ -146,7 +146,7 @@ static void audio_start(MTY_Audio *ctx)
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t data_size = count * ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format);
+	size_t data_size = count * ctx->frame_size;
 
 	audio_start(ctx);
 
@@ -155,7 +155,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	if (ctx->size + data_size >= ctx->max_buffer)
 		ctx->flushing = true;
 
-	size_t minimum_request = AAudioStream_getFramesPerBurst(ctx->stream) * ctx->channels * AUDIO_SAMPLE_SIZE(ctx->sample_format);
+	size_t minimum_request = AAudioStream_getFramesPerBurst(ctx->stream) * ctx->frame_size;
 	if (ctx->flushing && ctx->size < minimum_request) {
 		memset(ctx->buffer, 0, ctx->size);
 		ctx->size = 0;
@@ -166,7 +166,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		ctx->flushing = false;
 	}
 
-	if (!ctx->flushing && data_size + ctx->size <= AUDIO_BUF_SIZE(ctx)) {
+	if (!ctx->flushing && data_size + ctx->size <= ctx->buffer_size) {
 		memcpy(ctx->buffer + ctx->size, frames, data_size);
 		ctx->size += data_size;
 	}

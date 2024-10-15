@@ -318,7 +318,7 @@ const MTY_AUDIO_API = {
 			sampleRate: format.sampleRate,
 			minBuffer,
 			maxBuffer,
-			channels,
+			channels: format.channels,
 		};
 
 		return 0xCDD;

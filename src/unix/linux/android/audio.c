@@ -69,7 +69,7 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
 	ctx->sample_rate = format->sampleRate;
 	ctx->frame_size = format->channels *
 		(format->sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t));
-	ctx->buffer_size = format->sampleRate * ctx->frame_size
+	ctx->buffer_size = format->sampleRate * ctx->frame_size;
 	ctx->mutex = MTY_MutexCreate();
 	ctx->buffer = MTY_Alloc(ctx->buffer_size, 1);
 

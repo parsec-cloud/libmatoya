@@ -1494,7 +1494,8 @@ typedef struct {
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_Audio context must be destroyed with MTY_AudioDestroy.
 MTY_EXPORT MTY_Audio *
-MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer, uint32_t maxBuffer, const char *deviceID, bool fallback);
+MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer, uint32_t maxBuffer,
+	const char *deviceID, bool fallback);
 
 /// @brief Destroy an MTY_Audio context.
 /// @param audio Passed by reference and set to NULL after being destroyed.
@@ -1521,7 +1522,8 @@ MTY_AudioGetQueued(MTY_Audio *ctx);
 ///   For example, in the case of 2-channel/stereo audio, one audio frame is two samples, each
 ///   sample being one channel.
 /// @param count The number of frames contained in `frames`. The number of frames would
-///   be the size of `frames` in bytes divided by sample size * `channels` specified during MTY_AudioCreate.
+///   be the size of `frames` in bytes divided by sample size * `channels` specified
+///   during MTY_AudioCreate.
 MTY_EXPORT void
 MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count);
 

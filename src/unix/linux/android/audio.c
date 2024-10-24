@@ -130,9 +130,13 @@ static void audio_start(MTY_Audio *ctx)
 		AAudioStreamBuilder_setDeviceId(ctx->builder, AAUDIO_UNSPECIFIED);
 		AAudioStreamBuilder_setSampleRate(ctx->builder, ctx->sample_rate);
 		AAudioStreamBuilder_setChannelCount(ctx->builder, ctx->channels);
-		// XXX ATTN Ronald: Requires bumping up android platform from 28 to 32. If OK, let me know and I can uncomment this line. Otherwise, I'll get rid of it
-		// AAudioStreamBuilder_setChannelMask(ctx->builder, ctx->channels_mask ? (aaudio_channel_mask_t) ctx->channels_mask : AAUDIO_UNSPECIFIED);
-		AAudioStreamBuilder_setFormat(ctx->builder, ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? AAUDIO_FORMAT_PCM_FLOAT : AAUDIO_FORMAT_PCM_I16);
+		/* XXX ATTN Ronald: Requires bumping up android platform from 28 to 32.
+			If OK, let me know and I can uncomment this line. Otherwise, I'll get rid of it
+		AAudioStreamBuilder_setChannelMask(ctx->builder, ctx->channels_mask ?
+			(aaudio_channel_mask_t) ctx->channels_mask : AAUDIO_UNSPECIFIED);
+		*/
+		AAudioStreamBuilder_setFormat(ctx->builder, ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
+			? AAUDIO_FORMAT_PCM_FLOAT : AAUDIO_FORMAT_PCM_I16);
 		AAudioStreamBuilder_setPerformanceMode(ctx->builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
 		AAudioStreamBuilder_setErrorCallback(ctx->builder, audio_error, ctx);
 		AAudioStreamBuilder_setDataCallback(ctx->builder, audio_callback, ctx);

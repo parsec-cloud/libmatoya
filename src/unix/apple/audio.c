@@ -36,7 +36,8 @@ static void audio_queue_callback(void *opaque, AudioQueueRef q, AudioQueueBuffer
 	buf->mAudioDataByteSize = 0;
 }
 
-static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPropertyScope prop_scope, AudioObjectPropertyElement prop_element, char **out_uid, CFStringRef *out_uid_cf)
+static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPropertyScope prop_scope,
+	AudioObjectPropertyElement prop_element, char **out_uid, CFStringRef *out_uid_cf)
 {
 	char *uid = NULL;
 	CFStringRef uid_cf = NULL;
@@ -116,7 +117,8 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 			char *uid = NULL;
 			CFStringRef uid_cf = NULL;
 
-			if (AUDIO_HW_ERROR(audio_object_get_device_uid(device_ids[i], propAddr.mScope, propAddr.mElement, &uid, &uid_cf)))
+			if (AUDIO_HW_ERROR(audio_object_get_device_uid(device_ids[i],
+				propAddr.mScope, propAddr.mElement, &uid, &uid_cf)))
 				continue;
 
 			if (!strcmp(deviceID, uid)) {
@@ -142,7 +144,8 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	AudioStreamBasicDescription format = {0};
 	format.mSampleRate = ctx->sample_rate;
 	format.mFormatID = kAudioFormatLinearPCM;
-	format.mFormatFlags = (ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? kAudioFormatFlagIsFloat : kAudioFormatFlagIsSignedInteger) | kAudioFormatFlagIsPacked;
+	format.mFormatFlags = (ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ?
+		kAudioFormatFlagIsFloat : kAudioFormatFlagIsSignedInteger) | kAudioFormatFlagIsPacked;
 	format.mFramesPerPacket = 1;
 	format.mChannelsPerFrame = ctx->channels;
 	format.mBitsPerChannel = AUDIO_SAMPLE_SIZE(ctx->sample_format) * 8;
@@ -158,7 +161,8 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 	// Change the audio queue to be associated with the selected audio device
 	if (selected_device_uid) {
-		e = AudioQueueSetProperty(ctx->q, kAudioQueueProperty_CurrentDevice, (const void *) &selected_device_uid, sizeof(CFStringRef));
+		e = AudioQueueSetProperty(ctx->q, kAudioQueueProperty_CurrentDevice,
+			(const void *) &selected_device_uid, sizeof(CFStringRef));
 		if (AUDIO_SV_ERROR(e)) {
 			MTY_Log("'AudioQueueSetProperty(kAudioQueueProperty_CurrentDevice)' failed with error 0x%X", e);
 			goto except;
@@ -169,10 +173,12 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	if (ctx->channels_mask) {
 		AudioChannelLayout channel_layout = {
 			.mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelBitmap,
-			.mChannelBitmap = ctx->channels_mask, // Core Audio channel bitmap follows the spec that the WAVE format follows, so we can simply pass in the mask as-is
+			.mChannelBitmap = ctx->channels_mask, // Core Audio channel bitmap follows the spec that the WAVE format
+												  // follows, so we can simply pass in the mask as-is
 		};
 
-		e = AudioQueueSetProperty(ctx->q, kAudioQueueProperty_ChannelLayout, (const void *) &channel_layout, sizeof(AudioChannelLayout));
+		e = AudioQueueSetProperty(ctx->q, kAudioQueueProperty_ChannelLayout,
+			(const void *) &channel_layout, sizeof(AudioChannelLayout));
 		if (AUDIO_SV_ERROR(e)) {
 			MTY_Log("'AudioQueueSetProperty(kAudioQueueProperty_ChannelLayout)' failed with error 0x%X", e);
 			goto except;

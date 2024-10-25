@@ -112,15 +112,38 @@ const char *MTY_SprintfDL(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-
-	char *str = MTY_VsprintfD(fmt, args);
-
+	va_list args_copy;
+	va_copy(args_copy, args);
+	const size_t size = vsnprintf(NULL, 0, fmt, args_copy) + 1;
+	va_end(args_copy);
+	char *local = mty_tlocal(size);
+	vsnprintf(local, size, fmt, args);
 	va_end(args);
-
-	char *local = mty_tlocal_strcpy(str);
-	MTY_Free(str);
-
 	return local;
+}
+
+bool MTY_StrSearch(const char *s0, const char *s1, const char *delim)
+{
+	char *tmp = MTY_Strdup(s1);
+	char *ptr = NULL;
+
+	char *s = MTY_Strtok(tmp, delim, &ptr);
+	if (!s)
+		return true;
+
+	bool r = false;
+
+	while (s) {
+		r = strstr(s0, s);
+		if (r)
+			break;
+
+		s = MTY_Strtok(NULL, delim, &ptr);
+	}
+
+	MTY_Free(tmp);
+
+	return r;
 }
 
 

@@ -50,13 +50,16 @@ static void websocket_URLSession_webSocketTask_didOpenWithProtocol(id self, SEL 
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
 
-	MTY_WaitableSignal(ctx->conn);
+	if (ctx && ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static void websocket_URLSession_webSocketTask_didCloseWithCode_reason(id self, SEL _cmd, NSURLSession *session,
 	NSURLSessionWebSocketTask *webSocketTask, NSURLSessionWebSocketCloseCode closeCode, NSData *reason)
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
+	if (!ctx)
+		return;
 
 	ctx->closed = true;
 
@@ -68,7 +71,8 @@ static void websocket_URLSession_didBecomeInvalidWithError(id self, SEL _cmd, NS
 {
 	MTY_WebSocket *ctx = OBJC_CTX();
 
-	MTY_WaitableSignal(ctx->conn);
+	if (ctx && ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static Class websocket_class(void)
@@ -149,10 +153,14 @@ void MTY_WebSocketDestroy(MTY_WebSocket **webSocket)
 		[ctx->task cancelWithCloseCode:NSURLSessionWebSocketCloseCodeNormalClosure reason:nil];
 
 	if (ctx->session) {
+		id delegate = [ctx->session delegate];
 		[ctx->session finishTasksAndInvalidate];
 
 		if (ctx->conn)
 			MTY_WaitableWait(ctx->conn, INT32_MAX);
+
+		if (delegate)
+			OBJC_CTX_CLEAR(delegate);
 	}
 
 	ctx->session = nil;
@@ -207,23 +215,17 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, siz
 				MTY_Log("NSURLSessionWebSocketTask:receiveMessage failed: %s", [e.localizedDescription UTF8String]);
 				ctx->read_error = true;
 
-			} else {
+			} else if (ctx->read) {
 				if (ws_msg.type == NSURLSessionWebSocketMessageTypeString)
 					ctx->msg = MTY_Strdup([ws_msg.string UTF8String]);
-			}
-
-			if (ctx->read)
 				MTY_WaitableSignal(ctx->read);
+			}
 		}];
 	}
 
 	// Wait for a new message
 	if (MTY_WaitableWait(ctx->read, timeout)) {
 		ctx->read_started = false;
-
-		// Error
-		if (ctx->read_error)
-			return MTY_ASYNC_ERROR;
 
 		if (ctx->msg) {
 			size_t ws_msg_size = strlen(ctx->msg) + 1;
@@ -240,6 +242,12 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, siz
 		}
 	}
 
+	// Error
+	if (ctx->read_error) {
+		ctx->read_started = false;
+		return MTY_ASYNC_ERROR;
+	}
+
 	return MTY_ASYNC_CONTINUE;
 }
 
@@ -254,10 +262,10 @@ bool MTY_WebSocketWrite(MTY_WebSocket *ctx, const char *msg)
 		if (e) {
 			r = false;
 			MTY_Log("NSURLSessionWebSocketTask:sendMessage failed with error %ld", [e code]);
-		}
 
-		if (ctx->write)
+		} else if (ctx->write) {
 			MTY_WaitableSignal(ctx->write);
+		}
 	}];
 
 	if (!MTY_WaitableWait(ctx->write, 1000))

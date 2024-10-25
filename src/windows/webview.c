@@ -8,11 +8,22 @@
 
 #include <windows.h>
 #include <ole2.h>
+#include <shlwapi.h>
 
 #define COBJMACROS
 #include "webview2.h"
 
 #include "unix/web/keymap.h"
+
+// https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
+#define WEBVIEW_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\%s\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+
+#if defined(_WIN64)
+	#define WEBVIEW_DLL_PATH L"EBWebView\\x64\\EmbeddedBrowserWebView.dll"
+
+#else
+	#define WEBVIEW_DLL_PATH L"EBWebView\\x86\\EmbeddedBrowserWebView.dll"
+#endif
 
 typedef HRESULT (WINAPI *WEBVIEW_CREATE_FUNC)(uintptr_t _unknown0, uintptr_t _unknown1,
 	const WCHAR *wdir, ICoreWebView2EnvironmentOptions *opts,
@@ -33,6 +44,11 @@ struct webview_handler2 {
 	void *opaque;
 };
 
+struct webview_handler3 {
+	ICoreWebView2FocusChangedEventHandler handler;
+	void *opaque;
+};
+
 struct webview {
 	MTY_App *app;
 	MTY_Window window;
@@ -47,11 +63,14 @@ struct webview {
 	struct webview_handler0 handler0;
 	struct webview_handler1 handler1;
 	struct webview_handler2 handler2;
+	struct webview_handler3 handler3; // GotFocus
+	struct webview_handler3 handler4; // LostFocus
 	ICoreWebView2EnvironmentOptions opts;
 	WCHAR *source;
 	bool url;
 	bool debug;
 	bool passthrough;
+	bool focussed;
 	bool ready;
 };
 
@@ -71,6 +90,46 @@ static ULONG STDMETHODCALLTYPE com_AddRef(void *This)
 static ULONG STDMETHODCALLTYPE com_Release(void *This)
 {
 	return 0;
+}
+
+
+// ICoreWebView2FocusChangedEventHandler
+
+static HRESULT STDMETHODCALLTYPE h3_QueryInterface(void *This,
+	REFIID riid, _COM_Outptr_ void **ppvObject)
+{
+	if (com_check_riid(riid, &IID_ICoreWebView2FocusChangedEventHandler)) {
+		*ppvObject = This;
+		return S_OK;
+	}
+
+	return E_NOINTERFACE;
+}
+
+static HRESULT STDMETHODCALLTYPE h3_Invoke_GotFocus(ICoreWebView2FocusChangedEventHandler *This,
+	ICoreWebView2Controller *sender, IUnknown *args)
+{
+	struct webview_handler3 *handler = (struct webview_handler3 *) This;
+	struct webview *ctx = handler->opaque;
+
+	ctx->focussed = true;
+	if (mty_webview_is_visible(ctx))
+		PostMessage(MTY_WindowGetNative(ctx->app, ctx->window), WM_SETFOCUS, 0, 0);
+
+	return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE h3_Invoke_LostFocus(ICoreWebView2FocusChangedEventHandler *This,
+	ICoreWebView2Controller *sender, IUnknown *args)
+{
+	struct webview_handler3 *handler = (struct webview_handler3 *) This;
+	struct webview *ctx = handler->opaque;
+
+	ctx->focussed = false;
+	if (mty_webview_is_visible(ctx))
+		PostMessage(MTY_WindowGetNative(ctx->app, ctx->window), WM_KILLFOCUS, 0, 0);
+
+	return S_OK;
 }
 
 
@@ -214,6 +273,11 @@ static HRESULT STDMETHODCALLTYPE h1_Invoke(ICoreWebView2CreateCoreWebView2Contro
 	ICoreWebView2Settings_put_AreDefaultContextMenusEnabled(settings, ctx->debug);
 	ICoreWebView2Settings_put_IsZoomControlEnabled(settings, FALSE);
 	ICoreWebView2Settings_Release(settings);
+
+	ICoreWebView2Controller2_add_GotFocus(ctx->controller,
+		(ICoreWebView2FocusChangedEventHandler *) &ctx->handler3, NULL);
+	ICoreWebView2Controller2_add_LostFocus(ctx->controller,
+		(ICoreWebView2FocusChangedEventHandler *) &ctx->handler4, NULL);
 
 	EventRegistrationToken token = {0};
 	ICoreWebView2_add_WebMessageReceived(ctx->webview,
@@ -393,7 +457,21 @@ static ICoreWebView2WebMessageReceivedEventHandlerVtbl VTBL2 = {
 	.Invoke = h2_Invoke,
 };
 
-static ICoreWebView2EnvironmentOptionsVtbl VTBL3 = {
+static ICoreWebView2FocusChangedEventHandlerVtbl VTBL3 = {
+	.QueryInterface = h3_QueryInterface,
+	.AddRef = com_AddRef,
+	.Release = com_Release,
+	.Invoke = h3_Invoke_GotFocus,
+};
+
+static ICoreWebView2FocusChangedEventHandlerVtbl VTBL4 = {
+	.QueryInterface = h3_QueryInterface,
+	.AddRef = com_AddRef,
+	.Release = com_Release,
+	.Invoke = h3_Invoke_LostFocus,
+};
+
+static ICoreWebView2EnvironmentOptionsVtbl VTBL5 = {
 	.QueryInterface = opts_QueryInterface,
 	.AddRef = com_AddRef,
 	.Release = com_Release,
@@ -410,47 +488,106 @@ static ICoreWebView2EnvironmentOptionsVtbl VTBL3 = {
 
 // Public
 
-static HMODULE webview_load_dll(void)
+static bool webview_dll_path_clientstate(wchar_t *pathw, bool as_user)
 {
-	HKEY key = NULL;
-	WCHAR *dll = NULL;
-	HMODULE lib = NULL;
+	bool ok = false;
+	DWORD flags = KEY_READ;
 
-	LSTATUS r = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-		L"Software\\Microsoft\\EdgeUpdate\\ClientState\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
-		0, KEY_WOW64_32KEY | KEY_READ, &key);
+	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
+	if (!as_user)
+		flags |= KEY_WOW64_32KEY;
+
+	wchar_t reg_path[MAX_PATH] = {0};
+	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, WEBVIEW_REG_PATH, L"ClientState");
+
+	HKEY key = NULL;
+	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, flags, &key);
 	if (r != ERROR_SUCCESS)
 		goto except;
 
-	dll = MTY_Alloc(MAX_PATH, sizeof(WCHAR));
-	DWORD size = MAX_PATH * sizeof(WCHAR);
-
+	DWORD size = MAX_PATH * sizeof(wchar_t);
+	wchar_t dll[MAX_PATH] = {0};
 	r = RegQueryValueEx(key, L"EBWebView", 0, NULL, (BYTE *) dll, &size);
 	if (r != ERROR_SUCCESS)
 		goto except;
 
-	#if defined(_WIN64)
-		const WCHAR *path = L"\\EBWebView\\x64\\EmbeddedBrowserWebView.dll";
+	_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s\\%s", dll, WEBVIEW_DLL_PATH);
 
-	#else
-		const WCHAR *path = L"\\EBWebView\\x86\\EmbeddedBrowserWebView.dll";
-	#endif
-
-	if (wcscat_s(dll, MAX_PATH, path) != 0)
-		goto except;
-
-	lib = LoadLibrary(dll);
-	if (!lib)
-		goto except;
+	ok = PathFileExists(pathw);
 
 	except:
-
-	MTY_Free(dll);
 
 	if (key)
 		RegCloseKey(key);
 
-	return lib;
+	return ok;
+}
+
+static bool webview_dll_path_client(wchar_t *pathw, bool as_user)
+{
+	bool ok = false;
+	DWORD flags = KEY_READ;
+
+	HKEY hkey = as_user ? HKEY_CURRENT_USER : HKEY_LOCAL_MACHINE;
+	if (!as_user)
+		flags |= KEY_WOW64_32KEY;
+
+	wchar_t reg_path[MAX_PATH] = {0};
+	_snwprintf_s(reg_path, MAX_PATH, _TRUNCATE, WEBVIEW_REG_PATH, L"Clients");
+
+	HKEY key = NULL;
+	LSTATUS r = RegOpenKeyEx(hkey, reg_path, 0, flags, &key);
+	if (r != ERROR_SUCCESS)
+		goto except;
+
+	DWORD size = MAX_PATH * sizeof(wchar_t);
+	wchar_t dll[MAX_PATH] = {0};
+	r = RegQueryValueEx(key, L"location", 0, NULL, (BYTE *) dll, &size);
+	if (r != ERROR_SUCCESS)
+		goto except;
+
+	size = MAX_PATH * sizeof(wchar_t);
+	wchar_t version[MAX_PATH] = {0};
+	r = RegQueryValueEx(key, L"pv", 0, NULL, (BYTE *) version, &size);
+	if (r != ERROR_SUCCESS)
+		goto except;
+
+	_snwprintf_s(pathw, MTY_PATH_MAX, _TRUNCATE, L"%s\\%s\\%s", dll, version, WEBVIEW_DLL_PATH);
+
+	ok = PathFileExists(pathw);
+
+	except:
+
+	if (key)
+		RegCloseKey(key);
+
+	return ok;
+}
+
+static bool webview_dll_path(wchar_t *pathw, bool as_user)
+{
+	// Try convenient ClientState first
+	if (webview_dll_path_clientstate(pathw, as_user))
+		return true;
+
+	// Construct the base path manually if ClientState is not available
+	return webview_dll_path_client(pathw, as_user);
+}
+
+static HMODULE webview_load_dll(void)
+{
+	wchar_t path[MTY_PATH_MAX] = {0};
+	HMODULE ret = NULL;
+
+	// Try system WebView
+	if (webview_dll_path(path, false))
+		ret = LoadLibrary(path);
+
+	// Try user WebView
+	if (!ret && webview_dll_path(path, true))
+		ret = LoadLibrary(path);
+
+	return ret;
 }
 
 struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *dir,
@@ -474,9 +611,14 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 	ctx->handler1.opaque = ctx;
 	ctx->handler2.handler.lpVtbl = &VTBL2;
 	ctx->handler2.opaque = ctx;
-	ctx->opts.lpVtbl = &VTBL3;
+	ctx->handler3.handler.lpVtbl = &VTBL3;
+	ctx->handler3.opaque = ctx;
+	ctx->handler4.handler.lpVtbl = &VTBL4;
+	ctx->handler4.opaque = ctx;
+	ctx->opts.lpVtbl = &VTBL5;
 
-	const WCHAR *dirw = dir ? MTY_MultiToWideDL(dir) : L"webview-data";
+	WCHAR dirw[MTY_PATH_MAX] = {0};
+	MTY_MultiToWide(dir ? dir : "webview-data", dirw, MTY_PATH_MAX);
 
 	HRESULT e = E_FAIL;
 	ctx->lib = webview_load_dll();
@@ -551,7 +693,7 @@ void mty_webview_show(struct webview *ctx, bool show)
 
 bool mty_webview_is_visible(struct webview *ctx)
 {
-	if (!ctx->controller)
+	if (!ctx || !ctx->controller)
 		return false;
 
 	BOOL visible = FALSE;
@@ -601,7 +743,25 @@ void mty_webview_render(struct webview *ctx)
 {
 }
 
+bool mty_webview_is_focussed(struct webview *ctx)
+{
+	return ctx && ctx->focussed;
+}
+
 bool mty_webview_is_steam(void)
 {
 	return false;
+}
+
+bool mty_webview_is_available(void)
+{
+	wchar_t path[MTY_PATH_MAX] = {0};
+
+	bool have_path = webview_dll_path(path, false);
+	if (!have_path)
+		have_path = webview_dll_path(path, true);
+
+	// Loading the lib would be ideal to be sure, but repeated loads eventually cause issues from Windows not un-reserving memory.
+	// https://forums.codeguru.com/showthread.php?60548-Is-there-a-limit-on-how-many-times-one-can-load-(and-free)-the-same-DLL-in-a-process&p=156821#post156821
+	return have_path;
 }

@@ -48,6 +48,8 @@ jobs:
           path: libmatoya
       - name: Test
         run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev python3-setuptools glslang-tools
           cd libmatoya
           make
           cd test

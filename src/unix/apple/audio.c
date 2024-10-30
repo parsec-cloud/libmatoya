@@ -216,9 +216,9 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format_in, uint32_t minBuffer,
 	ctx->frame_size = format_in->channels * AUDIO_SAMPLE_SIZE(format_in->sampleFormat);
 	ctx->buffer_size = format_in->sampleRate * ctx->frame_size;
 
-	uint32_t frames_per_ms = lrint((float) format_in->sampleRate / 1000.0f);
-	ctx->min_buffer = minBuffer * frames_per_ms;
-	ctx->max_buffer = maxBuffer * frames_per_ms;
+	uint32_t samples_per_ms = lrint((float) format_in->sampleRate / 1000.0f);
+	ctx->min_buffer = minBuffer * samples_per_ms;
+	ctx->max_buffer = maxBuffer * samples_per_ms;
 
 	OSStatus e = audio_device_create(ctx, deviceID);
 

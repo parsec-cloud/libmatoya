@@ -59,21 +59,21 @@ static aaudio_data_callback_result_t audio_callback(AAudioStream *stream, void *
 	return AAUDIO_CALLBACK_RESULT_CONTINUE;
 }
 
-MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
+MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
 	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->channels = format->channels;
-	ctx->channels_mask = format->channelsMask;
-	ctx->sample_format = format->sampleFormat;
-	ctx->sample_rate = format->sampleRate;
-	ctx->frame_size = format->channels *
-		(format->sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t));
-	ctx->buffer_size = format->sampleRate * ctx->frame_size;
+	ctx->channels = format.channels;
+	ctx->channels_mask = format.channelsMask;
+	ctx->sample_format = format.sampleFormat;
+	ctx->sample_rate = format.sampleRate;
+	ctx->frame_size = format.channels *
+		(format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t));
+	ctx->buffer_size = format.sampleRate * ctx->frame_size;
 	ctx->mutex = MTY_MutexCreate();
 	ctx->buffer = MTY_Alloc(ctx->buffer_size, 1);
 
-	uint32_t samples_per_ms = lrint((float) format->sampleRate / 1000.0f);
+	uint32_t samples_per_ms = lrint((float) format.sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * samples_per_ms * ctx->frame_size;
 	ctx->max_buffer = maxBuffer * samples_per_ms * ctx->frame_size;
 

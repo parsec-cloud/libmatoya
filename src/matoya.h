@@ -1481,7 +1481,6 @@ typedef struct {
 /// @brief Create an MTY_Audio context for playback.
 /// @param format Format that the audio device will attempt to initialize. If the
 ///   provided format is not supported, the function will fail and return NULL.
-///   This parameter is a required argument and MUST NOT be NULL.
 /// @param minBuffer The minimum amount of audio in milliseconds that must be queued
 ///   before playback begins.
 /// @param maxBuffer The maximum amount of audio in milliseconds that can be queued
@@ -1494,7 +1493,7 @@ typedef struct {
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_Audio context must be destroyed with MTY_AudioDestroy.
 MTY_EXPORT MTY_Audio *
-MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer, uint32_t maxBuffer,
+MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer, uint32_t maxBuffer,
 	const char *deviceID, bool fallback);
 
 /// @brief Destroy an MTY_Audio context.

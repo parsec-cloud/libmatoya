@@ -203,20 +203,20 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	return e;
 }
 
-MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format_in, uint32_t minBuffer, uint32_t maxBuffer,
+MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format_in, uint32_t minBuffer, uint32_t maxBuffer,
 	const char *deviceID, bool fallback)
 {
 	// TODO Should this use the current run loop rather than internal threading?
 
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->sample_format = format_in->sampleFormat;
-	ctx->sample_rate = format_in->sampleRate;
-	ctx->channels = format_in->channels;
-	ctx->channels_mask = format_in->channelsMask;
-	ctx->frame_size = format_in->channels * AUDIO_SAMPLE_SIZE(format_in->sampleFormat);
-	ctx->buffer_size = format_in->sampleRate * ctx->frame_size;
+	ctx->sample_format = format_in.sampleFormat;
+	ctx->sample_rate = format_in.sampleRate;
+	ctx->channels = format_in.channels;
+	ctx->channels_mask = format_in.channelsMask;
+	ctx->frame_size = format_in.channels * AUDIO_SAMPLE_SIZE(format_in.sampleFormat);
+	ctx->buffer_size = format_in.sampleRate * ctx->frame_size;
 
-	uint32_t samples_per_ms = lrint((float) format_in->sampleRate / 1000.0f);
+	uint32_t samples_per_ms = lrint((float) format_in.sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * samples_per_ms;
 	ctx->max_buffer = maxBuffer * samples_per_ms;
 

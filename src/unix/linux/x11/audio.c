@@ -24,21 +24,21 @@ struct MTY_Audio {
 	size_t pos;
 };
 
-MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
+MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
 	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
 	if (!libasound_global_init())
 		return NULL;
 
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->sample_format = format->sampleFormat;
-	ctx->sample_rate = format->sampleRate;
-	ctx->channels = format->channels;
-	ctx->frame_size = format->channels *
-		(format->sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t));
-	ctx->buffer_size = format->sampleRate * ctx->frame_size;
+	ctx->sample_format = format.sampleFormat;
+	ctx->sample_rate = format.sampleRate;
+	ctx->channels = format.channels;
+	ctx->frame_size = format.channels *
+		(format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t));
+	ctx->buffer_size = format.sampleRate * ctx->frame_size;
 
-	uint32_t samples_per_ms = lrint((float) format->sampleRate / 1000.0f);
+	uint32_t samples_per_ms = lrint((float) format.sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * samples_per_ms;
 	ctx->max_buffer = maxBuffer * samples_per_ms;
 
@@ -56,15 +56,15 @@ MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
 	snd_pcm_hw_params_any(ctx->pcm, params);
 
 	snd_pcm_hw_params_set_access(ctx->pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-	snd_pcm_hw_params_set_format(ctx->pcm, params, format->sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
+	snd_pcm_hw_params_set_format(ctx->pcm, params, format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
 		? SND_PCM_FORMAT_FLOAT : SND_PCM_FORMAT_S16);
-	snd_pcm_hw_params_set_channels(ctx->pcm, params, format->channels);
-	// XXX: Channel config for ALSA can't be specified via the opaque `format->channelsMask`
+	snd_pcm_hw_params_set_channels(ctx->pcm, params, format.channels);
+	// XXX: Channel config for ALSA can't be specified via the opaque `format.channelsMask`
 	// Instead, an explicit channel mapping array is required. To be implemented in the future.
 	// See `snd_pcm_set_chmap`:
 	// 1. https://www.alsa-project.org/alsa-doc/alsa-lib/group___p_c_m.html#ga60ee7d2c2555e21dbc844a1b73839085
 	// 2. https://gist.github.com/raydudu/5590a196b9446c709c58a03eff1f38bc
-	snd_pcm_hw_params_set_rate(ctx->pcm, params, format->sampleRate, 0);
+	snd_pcm_hw_params_set_rate(ctx->pcm, params, format.sampleRate, 0);
 	snd_pcm_hw_params(ctx->pcm, params);
 	snd_pcm_nonblock(ctx->pcm, 1);
 

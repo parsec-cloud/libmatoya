@@ -181,26 +181,6 @@ static HRESULT audio_get_extended_format(IMMDevice *device, WAVEFORMATEXTENSIBLE
 	return e;
 }
 
-static HRESULT audio_get_extended_format2(IAudioClient *client, WAVEFORMATEXTENSIBLE *pwfx)
-{
-	WAVEFORMATEXTENSIBLE *ptfx = NULL;
-
-	HRESULT e = IAudioClient_GetMixFormat(client, (WAVEFORMATEX **) &ptfx);
-	if (e != S_OK || !ptfx) {
-		MTY_Log("IAudioClient_GetMixFormat failed with HRESULT 0x%X", e);
-		goto except;
-	}
-
-	*pwfx = *ptfx;
-
-	except:
-
-	if (ptfx)
-		CoTaskMemFree(ptfx);
-
-	return e;
-}
-
 static HRESULT audio_device_create(MTY_Audio *ctx)
 {
 	HRESULT e = S_OK;
@@ -291,17 +271,17 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	return e;
 }
 
-MTY_Audio *MTY_AudioCreate(const MTY_AudioFormat *format, uint32_t minBuffer,
+MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
 	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->sample_format = format->sampleFormat;
-	ctx->sample_rate = format->sampleRate;
-	ctx->channels_mask = format->channelsMask;
-	ctx->channels = format->channels;
+	ctx->sample_format = format.sampleFormat;
+	ctx->sample_rate = format.sampleRate;
+	ctx->channels_mask = format.channelsMask;
+	ctx->channels = format.channels;
 	ctx->fallback = fallback;
 
-	uint32_t frames_per_ms = lrint((float) format->sampleRate / 1000.0f);
+	uint32_t frames_per_ms = lrint((float) format.sampleRate / 1000.0f);
 	ctx->min_buffer = minBuffer * frames_per_ms;
 	ctx->max_buffer = maxBuffer * frames_per_ms;
 

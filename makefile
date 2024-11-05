@@ -41,6 +41,7 @@ OBJS = \
 	src\thread.obj \
 	src\tlocal.obj \
 	src\version.obj \
+	src\webview.obj \
 	src\gfx\vk\vk.obj \
 	src\gfx\vk\vk-ctx.obj \
 	src\gfx\vk\vk-ui.obj \

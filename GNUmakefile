@@ -38,6 +38,7 @@ OBJS = \
 	src/thread.o \
 	src/tlocal.o \
 	src/version.o \
+	src/webview.o \
 	src/hid/utils.o \
 	src/unix/compress.o \
 	src/unix/file.o \

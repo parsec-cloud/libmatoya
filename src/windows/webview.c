@@ -13,8 +13,6 @@
 #define COBJMACROS
 #include "webview2.h"
 
-#include "unix/web/keymap.h"
-
 // https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#detect-if-a-webview2-runtime-is-already-installed
 #define WEBVIEW_REG_PATH L"Software\\Microsoft\\EdgeUpdate\\%s\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
@@ -50,13 +48,8 @@ struct webview_handler3 {
 };
 
 struct webview {
-	MTY_App *app;
-	MTY_Window window;
-	MTY_Hash *keys;
-	WEBVIEW_READY ready_func;
-	WEBVIEW_TEXT text_func;
-	WEBVIEW_KEY key_func;
-	MTY_Queue *pushq;
+	struct webview_base base;
+
 	HMODULE lib;
 	ICoreWebView2Controller2 *controller;
 	ICoreWebView2 *webview;
@@ -68,10 +61,6 @@ struct webview {
 	ICoreWebView2EnvironmentOptions opts;
 	WCHAR *source;
 	bool url;
-	bool debug;
-	bool passthrough;
-	bool focussed;
-	bool ready;
 };
 
 
@@ -112,9 +101,9 @@ static HRESULT STDMETHODCALLTYPE h3_Invoke_GotFocus(ICoreWebView2FocusChangedEve
 	struct webview_handler3 *handler = (struct webview_handler3 *) This;
 	struct webview *ctx = handler->opaque;
 
-	ctx->focussed = true;
+	ctx->base.focussed = true;
 	if (mty_webview_is_visible(ctx))
-		PostMessage(MTY_WindowGetNative(ctx->app, ctx->window), WM_SETFOCUS, 0, 0);
+		PostMessage(MTY_WindowGetNative(ctx->base.app, ctx->base.window), WM_SETFOCUS, 0, 0);
 
 	return S_OK;
 }
@@ -125,9 +114,9 @@ static HRESULT STDMETHODCALLTYPE h3_Invoke_LostFocus(ICoreWebView2FocusChangedEv
 	struct webview_handler3 *handler = (struct webview_handler3 *) This;
 	struct webview *ctx = handler->opaque;
 
-	ctx->focussed = false;
+	ctx->base.focussed = false;
 	if (mty_webview_is_visible(ctx))
-		PostMessage(MTY_WindowGetNative(ctx->app, ctx->window), WM_KILLFOCUS, 0, 0);
+		PostMessage(MTY_WindowGetNative(ctx->base.app, ctx->base.window), WM_KILLFOCUS, 0, 0);
 
 	return S_OK;
 }
@@ -157,56 +146,7 @@ static HRESULT STDMETHODCALLTYPE h2_Invoke(ICoreWebView2WebMessageReceivedEventH
 
 	if (e == S_OK) {
 		char *str = MTY_WideToMultiD(wstr);
-		MTY_JSON *j = NULL;
-
-		switch (str[0]) {
-			// MTY_EVENT_WEBVIEW_READY
-			case 'R':
-				ctx->ready = true;
-
-				// Send any queued messages before the WebView became ready
-				for (WCHAR *wmsg = NULL; MTY_QueuePopPtr(ctx->pushq, 0, &wmsg, NULL);) {
-					ICoreWebView2_PostWebMessageAsString(ctx->webview, wmsg);
-					MTY_Free(wmsg);
-				}
-
-				ctx->ready_func(ctx->app, ctx->window);
-				break;
-
-			// MTY_EVENT_WEBVIEW_TEXT
-			case 'T':
-				ctx->text_func(ctx->app, ctx->window, str + 1);
-				break;
-
-			// MTY_EVENT_KEY
-			case 'D':
-			case 'U':
-				if (!ctx->passthrough)
-					break;
-
-				j = MTY_JSONParse(str + 1);
-				if (!j)
-					break;
-
-				const char *code = MTY_JSONObjGetStringPtr(j, "code");
-				if (!code)
-					break;
-
-				uint32_t jmods = 0;
-				if (!MTY_JSONObjGetInt(j, "mods", (int32_t *) &jmods))
-					break;
-
-				MTY_Key key = (MTY_Key) (uintptr_t) MTY_HashGet(ctx->keys, code) & 0xFFFF;
-				if (key == MTY_KEY_NONE)
-					break;
-
-				MTY_Mod mods = web_keymap_mods(jmods);
-
-				ctx->key_func(ctx->app, ctx->window, str[0] == 'D', key, mods);
-				break;
-		}
-
-		MTY_JSONDestroy(&j);
+		mty_webview_base_handle_event(&ctx->base, str);
 		MTY_Free(str);
 	}
 
@@ -229,7 +169,7 @@ static HRESULT STDMETHODCALLTYPE h1_query_interface(void *This,
 
 static void webview_update_size(struct webview *ctx)
 {
-	MTY_Size size = MTY_WindowGetSize(ctx->app, ctx->window);
+	MTY_Size size = MTY_WindowGetSize(ctx->base.app, ctx->base.window);
 
 	RECT bounds = {0};
 	bounds.right = size.w;
@@ -269,8 +209,8 @@ static HRESULT STDMETHODCALLTYPE h1_Invoke(ICoreWebView2CreateCoreWebView2Contro
 
 	ICoreWebView2Settings *settings = NULL;
 	ICoreWebView2_get_Settings(ctx->webview, &settings);
-	ICoreWebView2Settings_put_AreDevToolsEnabled(settings, ctx->debug);
-	ICoreWebView2Settings_put_AreDefaultContextMenusEnabled(settings, ctx->debug);
+	ICoreWebView2Settings_put_AreDevToolsEnabled(settings, ctx->base.debug);
+	ICoreWebView2Settings_put_AreDefaultContextMenusEnabled(settings, ctx->base.debug);
 	ICoreWebView2Settings_put_IsZoomControlEnabled(settings, FALSE);
 	ICoreWebView2Settings_Release(settings);
 
@@ -311,7 +251,7 @@ static HRESULT STDMETHODCALLTYPE h0_Invoke(ICoreWebView2CreateCoreWebView2Enviro
 	struct webview_handler0 *handler = (struct webview_handler0 *) This;
 	struct webview *ctx = handler->opaque;
 
-	HWND hwnd = MTY_WindowGetNative(ctx->app, ctx->window);
+	HWND hwnd = MTY_WindowGetNative(ctx->base.app, ctx->base.window);
 
 	return ICoreWebView2Environment_CreateCoreWebView2Controller(env, hwnd,
 		(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler *) &ctx->handler1);
@@ -548,15 +488,7 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 {
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
-	ctx->app = app;
-	ctx->window = window;
-	ctx->debug = debug;
-	ctx->ready_func = ready_func;
-	ctx->text_func = text_func;
-	ctx->key_func = key_func;
-
-	ctx->keys = web_keymap_hash();
-	ctx->pushq = MTY_QueueCreate(50, 0);
+	mty_webview_base_create(&ctx->base, app, window, dir, debug, ready_func, text_func, key_func);
 
 	ctx->handler0.handler.lpVtbl = &VTBL0;
 	ctx->handler0.opaque = ctx;
@@ -606,11 +538,7 @@ void mty_webview_destroy(struct webview **webview)
 	if (ctx->lib)
 		FreeLibrary(ctx->lib);
 
-	if (ctx->pushq)
-		MTY_QueueFlush(ctx->pushq, MTY_Free);
-
-	MTY_QueueDestroy(&ctx->pushq);
-	MTY_HashDestroy(&ctx->keys, NULL);
+	mty_webview_base_destroy(&ctx->base);
 
 	MTY_Free(ctx->source);
 
@@ -657,8 +585,8 @@ bool mty_webview_is_visible(struct webview *ctx)
 
 void mty_webview_send_text(struct webview *ctx, const char *msg)
 {
-	if (!ctx->ready) {
-		MTY_QueuePushPtr(ctx->pushq, MTY_MultiToWideD(msg), 0);
+	if (!ctx->base.ready) {
+		MTY_QueuePushPtr(ctx->base.pushq, MTY_Strdup(msg), 0);
 
 	} else {
 		WCHAR *wmsg = MTY_MultiToWideD(msg);
@@ -677,7 +605,7 @@ void mty_webview_reload(struct webview *ctx)
 
 void mty_webview_set_input_passthrough(struct webview *ctx, bool passthrough)
 {
-	ctx->passthrough = passthrough;
+	ctx->base.passthrough = passthrough;
 }
 
 bool mty_webview_event(struct webview *ctx, MTY_Event *evt)

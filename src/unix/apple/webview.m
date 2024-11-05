@@ -7,20 +7,12 @@
 #include <WebKit/WebKit.h>
 
 #include "objc.h"
-#include "web/keymap.h"
 
 struct webview {
-	MTY_App *app;
-	MTY_Window window;
-	MTY_Hash *keys;
-	MTY_Time ts;
-	WEBVIEW_READY ready_func;
-	WEBVIEW_TEXT text_func;
-	WEBVIEW_KEY key_func;
-	MTY_Queue *pushq;
+	struct webview_base base;
+
 	WKWebView *webview;
-	bool ready;
-	bool passthrough;
+	MTY_Time ts;
 };
 
 
@@ -55,56 +47,7 @@ static void msg_handler_userContentController_didReceiveScriptMessage(id self, S
 	struct webview *ctx = OBJC_CTX();
 
 	const char *str = [message.body UTF8String];
-	MTY_JSON *j = NULL;
-
-	switch (str[0]) {
-		// MTY_EVENT_WEBVIEW_READY
-		case 'R':
-			ctx->ready = true;
-
-			// Send any queued messages before the WebView became ready
-			for (char *msg = NULL; MTY_QueuePopPtr(ctx->pushq, 0, (void **) &msg, NULL);) {
-				mty_webview_send_text(ctx, msg);
-				MTY_Free(msg);
-			}
-
-			ctx->ready_func(ctx->app, ctx->window);
-			break;
-
-		// MTY_EVENT_WEBVIEW_TEXT
-		case 'T':
-			ctx->text_func(ctx->app, ctx->window, str + 1);
-			break;
-
-		// MTY_EVENT_KEY
-		case 'D':
-		case 'U':
-			if (!ctx->passthrough)
-				break;
-
-			j = MTY_JSONParse(str + 1);
-			if (!j)
-				break;
-
-			const char *code = MTY_JSONObjGetStringPtr(j, "code");
-			if (!code)
-				break;
-
-			uint32_t jmods = 0;
-			if (!MTY_JSONObjGetInt(j, "mods", (int32_t *) &jmods))
-				break;
-
-			MTY_Key key = (MTY_Key) (uintptr_t) MTY_HashGet(ctx->keys, code) & 0xFFFF;
-			if (key == MTY_KEY_NONE)
-				break;
-
-			MTY_Mod mods = web_keymap_mods(jmods);
-
-			ctx->key_func(ctx->app, ctx->window, str[0] == 'D', key, mods);
-			break;
-	}
-
-	MTY_JSONDestroy(&j);
+	mty_webview_base_handle_event(&ctx->base, str);
 }
 
 static Class msg_handler_class(void)
@@ -145,14 +88,7 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
-	ctx->app = app;
-	ctx->window = window;
-	ctx->ready_func = ready_func;
-	ctx->text_func = text_func;
-	ctx->key_func = key_func;
-
-	ctx->keys = web_keymap_hash();
-	ctx->pushq = MTY_QueueCreate(50, 0);
+	mty_webview_base_create(&ctx->base, app, window, dir, debug, ready_func, text_func, key_func);
 
 	// WKWebView creation, start hidden
 	#if TARGET_OS_OSX
@@ -207,11 +143,7 @@ void mty_webview_destroy(struct webview **webview)
 		ctx->webview = nil;
 	}
 
-	if (ctx->pushq)
-		MTY_QueueFlush(ctx->pushq, MTY_Free);
-
-	MTY_QueueDestroy(&ctx->pushq);
-	MTY_HashDestroy(&ctx->keys, NULL);
+	mty_webview_base_destroy(&ctx->base);
 
 	MTY_Free(ctx);
 	*webview = NULL;
@@ -261,8 +193,8 @@ bool mty_webview_is_visible(struct webview *ctx)
 
 void mty_webview_send_text(struct webview *ctx, const char *msg)
 {
-	if (!ctx->ready) {
-		MTY_QueuePushPtr(ctx->pushq, MTY_Strdup(msg), 0);
+	if (!ctx->base.ready) {
+		MTY_QueuePushPtr(ctx->base.pushq, MTY_Strdup(msg), 0);
 
 	} else {
 		MTY_JSON *json = MTY_JSONStringCreate(msg);
@@ -285,7 +217,7 @@ void mty_webview_reload(struct webview *ctx)
 
 void mty_webview_set_input_passthrough(struct webview *ctx, bool passthrough)
 {
-	ctx->passthrough = passthrough;
+	ctx->base.passthrough = passthrough;
 }
 
 bool mty_webview_event(struct webview *ctx, MTY_Event *evt)

@@ -11,21 +11,11 @@
 #include <webkit2/webkit2.h>
 
 #include "matoya.h"
-#include "web/keymap.h"
 
 #define DISPATCH(func, param, should_free) g_idle_add(G_SOURCE_FUNC(func), mty_webview_create_event(ctx, (void *) (param), should_free))
 
 struct webview {
-	MTY_App *app;
-	MTY_Window window;
-	WEBVIEW_READY ready_func;
-	WEBVIEW_TEXT text_func;
-	WEBVIEW_KEY key_func;
-	MTY_Hash *keys;
-	MTY_Queue *pushq;
-	bool ready;
-	bool passthrough;
-	bool debug;
+	struct webview_base base;
 
 	MTY_Thread *thread;
 	Display *display;
@@ -77,61 +67,11 @@ static void handle_script_message(WebKitUserContentManager *manager, WebKitJavas
 
 	JSCValue *value = webkit_javascript_result_get_js_value(result);
 	char *str = jsc_value_to_string(value);
-
-	MTY_JSON *j = NULL;
-
-	switch (str[0]) {
-		// MTY_EVENT_WEBVIEW_READY
-		case 'R':
-			ctx->ready = true;
-
-			// Send any queued messages before the WebView became ready
-			for (char *msg = NULL; MTY_QueuePopPtr(ctx->pushq, 0, (void **) &msg, NULL);) {
-				mty_webview_send_text(ctx, msg);
-				MTY_Free(msg);
-			}
-
-			ctx->ready_func(ctx->app, ctx->window);
-			break;
-
-		// MTY_EVENT_WEBVIEW_TEXT
-		case 'T':
-			ctx->text_func(ctx->app, ctx->window, str + 1);
-			break;
-
-		// MTY_EVENT_KEY
-		case 'D':
-		case 'U':
-			if (!ctx->passthrough)
-				break;
-
-			j = MTY_JSONParse(str + 1);
-			if (!j)
-				break;
-
-			const char *code = MTY_JSONObjGetStringPtr(j, "code");
-			if (!code)
-				break;
-
-			uint32_t jmods = 0;
-			if (!MTY_JSONObjGetInt(j, "mods", (int32_t *) &jmods))
-				break;
-
-			MTY_Key key = (MTY_Key) (uintptr_t) MTY_HashGet(ctx->keys, code) & 0xFFFF;
-			if (key == MTY_KEY_NONE)
-				break;
-
-			MTY_Mod mods = web_keymap_mods(jmods);
-
-			ctx->key_func(ctx->app, ctx->window, str[0] == 'D', key, mods);
-			break;
-	}
-
-	MTY_JSONDestroy(&j);
+	mty_webview_base_handle_event(&ctx->base, str);
 	MTY_Free(str);
 }
 
-static bool _mty_webview_resize(void *opaque)
+static int32_t _mty_webview_resize(void *opaque)
 {
 	struct webview *ctx = opaque;
 
@@ -174,7 +114,7 @@ static bool _mty_webview_create(struct mty_webview_event *event)
 	webkit_user_content_manager_add_script(manager, script);
 
 	WebKitSettings *settings = webkit_web_view_get_settings(event->context->webview);
-	webkit_settings_set_enable_developer_extras(settings, ctx->debug);
+	webkit_settings_set_enable_developer_extras(settings, ctx->base.debug);
 
 	g_idle_add(_mty_webview_resize, ctx);
 
@@ -200,18 +140,11 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 
 	g_setenv("GDK_BACKEND", "x11", true);
 
-	ctx->app = app;
-	ctx->window = window;
-	ctx->ready_func = ready_func;
-	ctx->text_func = text_func;
-	ctx->key_func = key_func;
-	ctx->debug = debug;
+	mty_webview_base_create(&ctx->base, app, window, dir, debug, ready_func, text_func, key_func);
 
-	ctx->keys = web_keymap_hash();
-	ctx->pushq = MTY_QueueCreate(50, 0);
 	ctx->thread = MTY_ThreadCreate(mty_webview_thread_func, NULL);
 
-	struct xinfo *info = MTY_WindowGetNative(ctx->app, ctx->window);
+	struct xinfo *info = MTY_WindowGetNative(ctx->base.app, ctx->base.window);
 	ctx->display = info->display;
 	ctx->x11_window = info->window;
 
@@ -251,11 +184,7 @@ void mty_webview_destroy(struct webview **webview)
 
 	MTY_ThreadDestroy(&ctx->thread);
 
-	if (ctx->pushq)
-		MTY_QueueFlush(ctx->pushq, MTY_Free);
-
-	MTY_QueueDestroy(&ctx->pushq);
-	MTY_HashDestroy(&ctx->keys, NULL);
+	mty_webview_base_destroy(&ctx->base);
 
 	MTY_Free(ctx);
 }
@@ -295,7 +224,7 @@ static bool _mty_webview_send_text(struct mty_webview_event *event)
 	MTY_JSON *json = MTY_JSONStringCreate(event->data);
 	char *text = MTY_JSONSerialize(json);
 	char *message = MTY_SprintfD("window.postMessage(%s, '*');", text);
-	webkit_web_view_run_javascript(event->context->webview, message, NULL, NULL, NULL);
+	webkit_web_view_evaluate_javascript(event->context->webview, message, -1, NULL, NULL, NULL, NULL, NULL);
 	MTY_Free(message);
 	MTY_Free(text);
 	MTY_JSONDestroy(&json);
@@ -342,7 +271,7 @@ void mty_webview_reload(struct webview *ctx)
 
 void mty_webview_set_input_passthrough(struct webview *ctx, bool passthrough)
 {
-	ctx->passthrough = passthrough;
+	ctx->base.passthrough = passthrough;
 }
 
 bool mty_webview_event(struct webview *ctx, MTY_Event *evt)

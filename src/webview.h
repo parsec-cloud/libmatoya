@@ -12,6 +12,26 @@ typedef void (*WEBVIEW_READY)(MTY_App *app, MTY_Window window);
 typedef void (*WEBVIEW_TEXT)(MTY_App *app, MTY_Window window, const char *text);
 typedef void (*WEBVIEW_KEY)(MTY_App *app, MTY_Window window, bool pressed, MTY_Key key, MTY_Mod mods);
 
+struct webview_base {
+	MTY_App *app;
+	MTY_Window window;
+	WEBVIEW_READY ready_func;
+	WEBVIEW_TEXT text_func;
+	WEBVIEW_KEY key_func;
+	MTY_Queue *pushq;
+	MTY_Hash *keys;
+	const char *dir;
+	bool ready;
+	bool passthrough;
+	bool focussed;
+	bool debug;
+};
+
+void mty_webview_base_create(struct webview_base *ctx, MTY_App *app, MTY_Window window, const char *dir,
+	bool debug, WEBVIEW_READY ready_func, WEBVIEW_TEXT text_func, WEBVIEW_KEY key_func);
+void mty_webview_base_destroy(struct webview_base *ctx);
+void mty_webview_base_handle_event(struct webview_base *ctx, const char *str);
+
 struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *dir,
 	bool debug, WEBVIEW_READY ready_func, WEBVIEW_TEXT text_func, WEBVIEW_KEY key_func);
 void mty_webview_destroy(struct webview **webview);

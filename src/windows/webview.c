@@ -626,7 +626,7 @@ void mty_webview_render(struct webview *ctx)
 
 bool mty_webview_is_focussed(struct webview *ctx)
 {
-	return ctx && ctx->focussed;
+	return ctx && ctx->base.focussed;
 }
 
 bool mty_webview_is_steam(void)

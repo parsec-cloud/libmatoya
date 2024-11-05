@@ -165,7 +165,7 @@ DEFS := $(DEFS) \
 INCLUDES := $(INCLUDES) \
 	-Isrc/unix/linux \
 	-Isrc/unix/linux/x11 \
-	$(shell pkg-config --cflags x11 gtk+-3.0 webkit2gtk-4.0)
+	$(sort $(shell pkg-config --cflags x11 gtk+-3.0 webkit2gtk-4.0))
 
 endif
 

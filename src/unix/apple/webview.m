@@ -186,52 +186,8 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 	[ctx->webview.configuration.userContentController addScriptMessageHandler:handler name:@"native"];
 
 	// MTY javascript shim
-	WKUserScript *script = [[WKUserScript alloc] initWithSource:
-		@"const __MTY_MSGS = [];"
-
-		@"let __MTY_WEBVIEW = b64 => {"
-			@"__MTY_MSGS.push(b64);"
-		@"};"
-
-		@"window.MTY_NativeSendText = text => {"
-			@"window.webkit.messageHandlers.native.postMessage('T' + text);"
-		@"};"
-
-		@"window.webkit.messageHandlers.native.postMessage('R');"
-
-		@"const __MTY_INTERVAL = setInterval(() => {"
-			@"if (window.MTY_NativeListener) {"
-				@"__MTY_WEBVIEW = b64 => {window.MTY_NativeListener(atob(b64));};"
-
-				@"for (let msg = __MTY_MSGS.shift(); msg; msg = __MTY_MSGS.shift())"
-					@"__MTY_WEBVIEW(msg);"
-
-				@"clearInterval(__MTY_INTERVAL);"
-			@"}"
-		@"}, 100);"
-
-		@"function __mty_key_to_json(evt) {"
-			@"let mods = 0;"
-
-			@"if (evt.shiftKey) mods |= 0x01;"
-			@"if (evt.ctrlKey)  mods |= 0x02;"
-			@"if (evt.altKey)   mods |= 0x04;"
-			@"if (evt.metaKey)  mods |= 0x08;"
-
-			@"if (evt.getModifierState('CapsLock')) mods |= 0x10;"
-			@"if (evt.getModifierState('NumLock')) mods |= 0x20;"
-
-			@"let cmd = evt.type == 'keydown' ? 'D' : 'U';"
-			@"let json = JSON.stringify({'code':evt.code,'mods':mods});"
-
-			@"window.webkit.messageHandlers.native.postMessage(cmd + json);"
-		@"}"
-
-		@"document.addEventListener('keydown', __mty_key_to_json);"
-		@"document.addEventListener('keyup', __mty_key_to_json);"
-
-		injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-		forMainFrameOnly:YES
+	WKUserScript *script = [[WKUserScript alloc] initWithSource:@"window.parent = window.webkit.messageHandlers.native;"
+		injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES
 	];
 
 	[ctx->webview.configuration.userContentController addUserScript:script];
@@ -309,14 +265,15 @@ void mty_webview_send_text(struct webview *ctx, const char *msg)
 		MTY_QueuePushPtr(ctx->pushq, MTY_Strdup(msg), 0);
 
 	} else {
-		__block NSString *omsg = [NSString stringWithUTF8String:msg];
-
-		NSString *b64 = [[omsg dataUsingEncoding:NSUTF8StringEncoding] base64EncodedStringWithOptions:0];
-		NSString *wrapped = [NSString stringWithFormat:@"__MTY_WEBVIEW('%@');", b64];
+		MTY_JSON *json = MTY_JSONStringCreate(msg);
+		char *text = MTY_JSONSerialize(json);
+		NSString *wrapped = [NSString stringWithFormat:@"window.postMessage(%@, '*');", [NSString stringWithUTF8String:text]];
+		MTY_Free(text);
+		MTY_JSONDestroy(&json);
 
 		[ctx->webview evaluateJavaScript:wrapped completionHandler:^(id object, NSError *error) {
 			if (error)
-				NSLog(@"'WKWebView:evaluateJavaScript' failed to evaluate string '%@'", omsg);
+				MTY_Log("'WKWebView:evaluateJavaScript' failed to evaluate string '%s'", text);
 		}];
 	}
 }

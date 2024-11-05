@@ -167,53 +167,7 @@ static bool _mty_webview_create(struct mty_webview_event *event)
 	g_signal_connect(manager, "script-message-received::native", G_CALLBACK(handle_script_message), ctx);
 	webkit_user_content_manager_register_script_message_handler(manager, "native");
 
-	const char *javascript =
-		"const __MTY_MSGS = [];"
-
-		"window.addEventListener('message', evt => {"
-			"if (window.MTY_NativeListener) {"
-				"window.MTY_NativeListener(evt.data);"
-
-			"} else {"
-				"__MTY_MSGS.push(evt.data);"
-			"}"
-		"});"
-
-		"window.MTY_NativeSendText = text => {"
-			"window.webkit.messageHandlers.native.postMessage('T' + text);"
-		"};"
-
-		"window.webkit.messageHandlers.native.postMessage('R');"
-
-		"const __MTY_INTERVAL = setInterval(() => {"
-			"if (window.MTY_NativeListener) {"
-				"for (let msg = __MTY_MSGS.shift(); msg; msg = __MTY_MSGS.shift())"
-					"window.MTY_NativeListener(msg);"
-
-				"clearInterval(__MTY_INTERVAL);"
-			"}"
-		"}, 100);"
-
-		"function __mty_key_to_json(evt) {"
-			"let mods = 0;"
-
-			"if (evt.shiftKey) mods |= 0x01;"
-			"if (evt.ctrlKey)  mods |= 0x02;"
-			"if (evt.altKey)   mods |= 0x04;"
-			"if (evt.metaKey)  mods |= 0x08;"
-
-			"if (evt.getModifierState('CapsLock')) mods |= 0x10;"
-			"if (evt.getModifierState('NumLock')) mods |= 0x20;"
-
-			"let cmd = evt.type == 'keydown' ? 'D' : 'U';"
-			"let json = JSON.stringify({'code':evt.code,'mods':mods});"
-
-			"window.webkit.messageHandlers.native.postMessage(cmd + json);"
-		"}"
-
-		"document.addEventListener('keydown', __mty_key_to_json);"
-		"document.addEventListener('keyup', __mty_key_to_json);";
-
+	const char *javascript = "window.parent = window.webkit.messageHandlers.native;";
 	WebKitUserContentInjectedFrames injected_frames = WEBKIT_USER_CONTENT_INJECT_TOP_FRAME;
 	WebKitUserScriptInjectionTime injection_time = WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START;
 	WebKitUserScript *script = webkit_user_script_new(javascript, injected_frames, injection_time, NULL, NULL);
@@ -338,7 +292,6 @@ static bool _mty_webview_show(struct mty_webview_event *event)
 
 static bool _mty_webview_send_text(struct mty_webview_event *event)
 {
-	// Need to escape backslash !
 	MTY_JSON *json = MTY_JSONStringCreate(event->data);
 	char *text = MTY_JSONSerialize(json);
 	char *message = MTY_SprintfD("window.postMessage(%s, '*');", text);

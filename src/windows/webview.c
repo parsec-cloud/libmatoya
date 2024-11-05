@@ -283,54 +283,7 @@ static HRESULT STDMETHODCALLTYPE h1_Invoke(ICoreWebView2CreateCoreWebView2Contro
 	ICoreWebView2_add_WebMessageReceived(ctx->webview,
 		(ICoreWebView2WebMessageReceivedEventHandler *) &ctx->handler2, &token);
 
-	const WCHAR *script =
-		L"const __MTY_MSGS = [];"
-
-		L"window.chrome.webview.addEventListener('message', evt => {"
-			L"if (window.MTY_NativeListener) {"
-				L"window.MTY_NativeListener(evt.data);"
-
-			L"} else {"
-				L"__MTY_MSGS.push(evt.data);"
-			L"}"
-		L"});"
-
-		L"window.MTY_NativeSendText = text => {"
-			L"window.chrome.webview.postMessage('T' + text);"
-		L"};"
-
-		L"window.chrome.webview.postMessage('R');"
-
-		L"const __MTY_INTERVAL = setInterval(() => {"
-			L"if (window.MTY_NativeListener) {"
-				L"for (let msg = __MTY_MSGS.shift(); msg; msg = __MTY_MSGS.shift())"
-					L"window.MTY_NativeListener(msg);"
-
-				L"clearInterval(__MTY_INTERVAL);"
-			L"}"
-		L"}, 100);"
-
-		L"function __mty_key_to_json(evt) {"
-			L"let mods = 0;"
-
-			L"if (evt.shiftKey) mods |= 0x01;"
-			L"if (evt.ctrlKey)  mods |= 0x02;"
-			L"if (evt.altKey)   mods |= 0x04;"
-			L"if (evt.metaKey)  mods |= 0x08;"
-
-			L"if (evt.getModifierState('CapsLock')) mods |= 0x10;"
-			L"if (evt.getModifierState('NumLock')) mods |= 0x20;"
-
-			L"let cmd = evt.type == 'keydown' ? 'D' : 'U';"
-			L"let json = JSON.stringify({'code':evt.code,'mods':mods});"
-
-			L"window.chrome.webview.postMessage(cmd + json);"
-		L"}"
-
-		L"document.addEventListener('keydown', __mty_key_to_json);"
-		L"document.addEventListener('keyup', __mty_key_to_json);";
-
-	ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, script, NULL);
+	ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, L"window.parent = window.chrome.webview;", NULL);
 
 	if (ctx->source)
 		webview_navigate(ctx, ctx->source, ctx->url);

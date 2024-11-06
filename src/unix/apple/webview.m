@@ -122,11 +122,11 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 	[ctx->webview.configuration.userContentController addScriptMessageHandler:handler name:@"native"];
 
 	// MTY javascript shim
-	const char *script = "window.native = {"
+	const char *javascript = "window.native = {"
 		"postMessage: (message) => window.webkit.messageHandlers.native.postMessage(message),"
 		"addEventListener: (listener) => window.addEventListener('message', listener),"
 	"}";
-	WKUserScript *script = [[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:script]
+	WKUserScript *script = [[WKUserScript alloc] initWithSource:[NSString stringWithUTF8String:javascript]
 		injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES
 	];
 

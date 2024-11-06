@@ -35,21 +35,14 @@ struct sbase {
 };
 
 struct webview {
-	MTY_App *app;
-	MTY_Window window;
-	WEBVIEW_READY ready_func;
-	WEBVIEW_TEXT text_func;
-	WEBVIEW_KEY key_func;
-	MTY_Queue *pushq;
+	struct webview_base base;
+
 	MTY_Mutex *mutex;
 	ISteamHTMLSurface *surface;
 	EHTMLKeyModifiers smods;
 	HHTMLBrowser browser;
 	char *source;
-	bool debug;
-	bool ready;
 	bool visible;
-	bool passthrough;
 
 	void *bgra;
 	bool bgra_dirty;
@@ -68,7 +61,7 @@ struct webview {
 
 static void webview_update_size(struct webview *ctx)
 {
-	MTY_Size size = MTY_WindowGetSize(ctx->app, ctx->window);
+	MTY_Size size = MTY_WindowGetSize(ctx->base.app, ctx->base.window);
 
 	SteamAPI_ISteamHTMLSurface_SetSize(ctx->surface, ctx->browser, size.w, size.h);
 }
@@ -87,7 +80,7 @@ static void webview_on_browser_ready(struct webview *ctx, HTML_BrowserReady_t *p
 	if (ctx->source)
 		SteamAPI_ISteamHTMLSurface_LoadURL(ctx->surface, ctx->browser, ctx->source, NULL);
 
-	if (ctx->debug)
+	if (ctx->base.debug)
 		SteamAPI_ISteamHTMLSurface_OpenDeveloperTools(ctx->surface, ctx->browser);
 }
 
@@ -180,30 +173,7 @@ static void finished_request_run0(void *This, void *pvParam)
 	struct webview *ctx = base->ctx;
 	HTML_FinishedRequest_t *params = pvParam;
 
-	const char *script =
-		"const __MTY_MSGS = [];"
-
-		"let __MTY_WEBVIEW = b64 => {"
-			"__MTY_MSGS.push(b64);"
-		"};"
-
-		"window.MTY_NativeSendText = text => {"
-			"alert('T' + text);"
-		"};"
-
-		"alert('R');"
-
-		"const __MTY_INTERVAL = setInterval(() => {"
-			"if (window.MTY_NativeListener) {"
-				"__MTY_WEBVIEW = b64 => {window.MTY_NativeListener(atob(b64));};"
-
-				"for (let msg = __MTY_MSGS.shift(); msg; msg = __MTY_MSGS.shift())"
-					"__MTY_WEBVIEW(msg);"
-
-				"clearInterval(__MTY_INTERVAL);"
-			"}"
-		"}, 100);";
-
+	const char *script = "window.parent = { postMessage: alert };";
 	SteamAPI_ISteamHTMLSurface_ExecuteJavascript(ctx->surface, params->unBrowserHandle, script);
 }
 
@@ -235,26 +205,7 @@ static void js_alert_run0(void *This, void *pvParam)
 	SteamAPI_ISteamHTMLSurface_JSDialogResponse(ctx->surface, ctx->browser, true);
 
 	const char *str = params->pchMessage;
-
-	switch (str[0]) {
-		// MTY_EVENT_WEBVIEW_READY
-		case 'R':
-			ctx->ready = true;
-
-			// Send any queued messages before the WebView became ready
-			for (char *msg = NULL; MTY_QueuePopPtr(ctx->pushq, 0, (void **) &msg, NULL);) {
-				mty_webview_send_text(ctx, msg);
-				MTY_Free(msg);
-			}
-
-			ctx->ready_func(ctx->app, ctx->window);
-			break;
-
-		// MTY_EVENT_WEBVIEW_TEXT
-		case 'T':
-			ctx->text_func(ctx->app, ctx->window, str + 1);
-			break;
-	}
+	mty_webview_base_handle_event(&ctx->base, str);
 }
 
 static void js_alert_run1(void *This, void *pvParam, bool _dummy0, SteamAPICall_t _dummy1)
@@ -283,10 +234,10 @@ static void set_cursor_run0(void *This, void *pvParam)
 	HTML_SetCursor_t *params = pvParam;
 
 	switch (params->eMouseCursor) {
-		case dc_hand:  MTY_AppSetCursor(ctx->app, MTY_CURSOR_HAND);  break;
-		case dc_ibeam: MTY_AppSetCursor(ctx->app, MTY_CURSOR_IBEAM); break;
+		case dc_hand:  MTY_AppSetCursor(ctx->base.app, MTY_CURSOR_HAND);  break;
+		case dc_ibeam: MTY_AppSetCursor(ctx->base.app, MTY_CURSOR_IBEAM); break;
 		default:
-			MTY_AppSetCursor(ctx->app, MTY_CURSOR_ARROW);
+			MTY_AppSetCursor(ctx->base.app, MTY_CURSOR_ARROW);
 			break;
 	}
 }
@@ -330,17 +281,12 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 	bool debug, WEBVIEW_READY ready_func, WEBVIEW_TEXT text_func, WEBVIEW_KEY key_func)
 {
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
-	ctx->app = app;
-	ctx->window = window;
-	ctx->mutex = MTY_MutexCreate();
-	ctx->ready_func = ready_func;
-	ctx->text_func = text_func;
-	ctx->key_func = key_func;
-	ctx->debug = debug;
+
+	mty_webview_base_create(&ctx->base, app, window, dir, debug, ready_func, text_func, key_func);
 
 	steam_global_init(dir ? dir : ".");
 
-	ctx->pushq = MTY_QueueCreate(50, 0);
+	ctx->mutex = MTY_MutexCreate();
 
 	bool r = SteamAPI_InitSafe();
 	if (!r) {
@@ -393,15 +339,13 @@ void mty_webview_destroy(struct webview **webview)
 
 	SteamAPI_Shutdown();
 
-	if (ctx->pushq)
-		MTY_QueueFlush(ctx->pushq, MTY_Free);
-
-	MTY_QueueDestroy(&ctx->pushq);
 	MTY_MutexDestroy(&ctx->mutex);
 	MTY_Free(ctx->source);
 	MTY_Free(ctx->bgra);
 
 	steam_global_destroy();
+
+	mty_webview_base_destroy(&ctx->base);
 
 	MTY_Free(ctx);
 	*webview = NULL;
@@ -426,10 +370,10 @@ void mty_webview_show(struct webview *ctx, bool show)
 	ctx->visible = show;
 
 	if (show) {
-		MTY_AppShowCursor(ctx->app, true);
+		MTY_AppShowCursor(ctx->base.app, true);
 
 	} else {
-		MTY_AppSetCursor(ctx->app, MTY_CURSOR_NONE);
+		MTY_AppSetCursor(ctx->base.app, MTY_CURSOR_NONE);
 	}
 
 	SteamAPI_ISteamHTMLSurface_SetKeyFocus(ctx->surface, ctx->browser, show);
@@ -443,8 +387,8 @@ bool mty_webview_is_visible(struct webview *ctx)
 
 void mty_webview_send_text(struct webview *ctx, const char *msg)
 {
-	if (!ctx->ready) {
-		MTY_QueuePushPtr(ctx->pushq, MTY_Strdup(msg), 0);
+	if (!ctx->base.ready) {
+		MTY_QueuePushPtr(ctx->base.pushq, MTY_Strdup(msg), 0);
 
 	} else {
 		if (ctx->browser == 0)
@@ -476,7 +420,7 @@ void mty_webview_reload(struct webview *ctx)
 
 void mty_webview_set_input_passthrough(struct webview *ctx, bool passthrough)
 {
-	ctx->passthrough = passthrough;
+	ctx->base.passthrough = passthrough;
 }
 
 static EHTMLKeyModifiers webview_mods(MTY_Mod mods)
@@ -547,10 +491,10 @@ bool mty_webview_event(struct webview *ctx, MTY_Event *evt)
 					evt->key.vkey, ctx->smods);
 			}
 
-			if (ctx->passthrough)
+			if (ctx->base.passthrough)
 				evt->type = MTY_EVENT_WEBVIEW_KEY;
 
-			return !ctx->passthrough;
+			return !ctx->base.passthrough;
 		}
 		case MTY_EVENT_TEXT: {
 			wchar_t codepoint[8] = {0};
@@ -568,7 +512,7 @@ bool mty_webview_event(struct webview *ctx, MTY_Event *evt)
 
 void mty_webview_run(struct webview *ctx)
 {
-	if (!ctx->ready || ctx->visible)
+	if (!ctx->base.ready || ctx->visible)
 		SteamAPI_RunCallbacks();
 }
 
@@ -585,7 +529,7 @@ void mty_webview_render(struct webview *ctx)
 			ctx->desc.format = MTY_COLOR_FORMAT_UNKNOWN;
 		}
 
-		MTY_WindowDrawQuad(ctx->app, ctx->window, ctx->bgra, &ctx->desc);
+		MTY_WindowDrawQuad(ctx->base.app, ctx->base.window, ctx->bgra, &ctx->desc);
 
 		MTY_MutexUnlock(ctx->mutex);
 	}

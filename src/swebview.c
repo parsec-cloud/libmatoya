@@ -173,7 +173,10 @@ static void finished_request_run0(void *This, void *pvParam)
 	struct webview *ctx = base->ctx;
 	HTML_FinishedRequest_t *params = pvParam;
 
-	const char *script = "window.parent = { postMessage: alert };";
+	const char *script = "window.native = {"
+		"postMessage: (message) => alert(message),"
+		"addEventListener: (listener) => window.addEventListener('message', listener),"
+	"}";
 	SteamAPI_ISteamHTMLSurface_ExecuteJavascript(ctx->surface, params->unBrowserHandle, script);
 }
 

@@ -223,7 +223,11 @@ static HRESULT STDMETHODCALLTYPE h1_Invoke(ICoreWebView2CreateCoreWebView2Contro
 	ICoreWebView2_add_WebMessageReceived(ctx->webview,
 		(ICoreWebView2WebMessageReceivedEventHandler *) &ctx->handler2, &token);
 
-	ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, L"window.parent = window.chrome.webview;", NULL);
+	const WCHAR *script = L"window.native = {"
+		L"postMessage: (message) => window.chrome.webview.postMessage(message),"
+		L"addEventListener: (listener) => window.chrome.webview.addEventListener('message', listener),"
+	L"};";
+	ICoreWebView2_AddScriptToExecuteOnDocumentCreated(ctx->webview, script, NULL);
 
 	if (ctx->source)
 		webview_navigate(ctx, ctx->source, ctx->url);

@@ -107,7 +107,10 @@ static bool _mty_webview_create(struct mty_webview_event *event)
 	g_signal_connect(manager, "script-message-received::native", G_CALLBACK(handle_script_message), ctx);
 	webkit_user_content_manager_register_script_message_handler(manager, "native");
 
-	const char *javascript = "window.parent = window.webkit.messageHandlers.native;";
+	const char *javascript = "window.native = {"
+		"postMessage: (message) => window.webkit.messageHandlers.native.postMessage(message),"
+		"addEventListener: (listener) => window.addEventListener('message', listener),"
+	"}";
 	WebKitUserContentInjectedFrames injected_frames = WEBKIT_USER_CONTENT_INJECT_TOP_FRAME;
 	WebKitUserScriptInjectionTime injection_time = WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START;
 	WebKitUserScript *script = webkit_user_script_new(javascript, injected_frames, injection_time, NULL, NULL);

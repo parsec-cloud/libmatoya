@@ -8,24 +8,22 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "audio-common.h"
+
 #include <aaudio/AAudio.h>
 
 struct MTY_Audio {
+	struct audio_common cmn;
+
 	AAudioStreamBuilder *builder;
 	AAudioStream *stream;
 
 	MTY_Mutex *mutex;
-	MTY_AudioSampleFormat sample_format;
-	uint32_t sample_rate;
-	uint32_t min_buffer;
-	uint32_t max_buffer;
-	uint8_t channels;
-	uint32_t channels_mask;
-	uint32_t frame_size;
-	uint32_t buffer_size;
 	bool flushing;
 	bool playing;
 
+	uint32_t min_buffer_size;
+	uint32_t max_buffer_size;
 	uint8_t *buffer;
 	size_t size;
 };
@@ -42,7 +40,7 @@ static aaudio_data_callback_result_t audio_callback(AAudioStream *stream, void *
 
 	MTY_MutexLock(ctx->mutex);
 
-	size_t want_size = numFrames * ctx->frame_size;
+	size_t want_size = numFrames * ctx->cmn.stats.frame_size;
 
 	if (ctx->playing && ctx->size >= want_size) {
 		memcpy(audioData, ctx->buffer, want_size);
@@ -63,19 +61,12 @@ MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
 	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->channels = format.channels;
-	ctx->channels_mask = format.channelsMask;
-	ctx->sample_format = format.sampleFormat;
-	ctx->sample_rate = format.sampleRate;
-	ctx->frame_size = format.channels *
-		(format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ? sizeof(float) : sizeof(int16_t));
-	ctx->buffer_size = format.sampleRate * ctx->frame_size;
-	ctx->mutex = MTY_MutexCreate();
-	ctx->buffer = MTY_Alloc(ctx->buffer_size, 1);
+	audio_common_init(&ctx->cmn, format, minBuffer, maxBuffer);
+	ctx->min_buffer_size = ctx->cmn.stats.min_buffer * ctx->cmn.stats.frame_size;
+	ctx->max_buffer_size = ctx->cmn.stats.max_buffer * ctx->cmn.stats.frame_size;
 
-	uint32_t samples_per_ms = lrint((float) format.sampleRate / 1000.0f);
-	ctx->min_buffer = minBuffer * samples_per_ms * ctx->frame_size;
-	ctx->max_buffer = maxBuffer * samples_per_ms * ctx->frame_size;
+	ctx->mutex = MTY_MutexCreate();
+	ctx->buffer = MTY_Alloc(ctx->cmn.stats.buffer_size, 1);
 
 	return ctx;
 }
@@ -120,7 +111,7 @@ void MTY_AudioReset(MTY_Audio *ctx)
 
 uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 {
-	return (ctx->size / ctx->frame_size) / ctx->sample_rate * 1000;
+	return (ctx->size / ctx->cmn.stats.frame_size) / ctx->cmn.format.sampleRate * 1000;
 }
 
 static void audio_start(MTY_Audio *ctx)
@@ -128,14 +119,11 @@ static void audio_start(MTY_Audio *ctx)
 	if (!ctx->builder) {
 		AAudio_createStreamBuilder(&ctx->builder);
 		AAudioStreamBuilder_setDeviceId(ctx->builder, AAUDIO_UNSPECIFIED);
-		AAudioStreamBuilder_setSampleRate(ctx->builder, ctx->sample_rate);
-		AAudioStreamBuilder_setChannelCount(ctx->builder, ctx->channels);
-		/* XXX ATTN Ronald: Requires bumping up android platform from 28 to 32.
-			If OK, let me know and I can uncomment this line. Otherwise, I'll get rid of it
-		AAudioStreamBuilder_setChannelMask(ctx->builder, ctx->channels_mask ?
-			(aaudio_channel_mask_t) ctx->channels_mask : AAUDIO_UNSPECIFIED);
-		*/
-		AAudioStreamBuilder_setFormat(ctx->builder, ctx->sample_format == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
+		AAudioStreamBuilder_setSampleRate(ctx->builder, ctx->cmn.format.sampleRate);
+		AAudioStreamBuilder_setChannelCount(ctx->builder, ctx->cmn.format.channels);
+		// XXX: Setting channel mask via AAudioStreamBuilder_setChannelMask requires bumping up android platform from 28 to 32.
+		//      We have decided not to do this as of 11/06/2024 so as not to exclude a significant portion of users.
+		AAudioStreamBuilder_setFormat(ctx->builder, ctx->cmn.format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
 			? AAUDIO_FORMAT_PCM_FLOAT : AAUDIO_FORMAT_PCM_I16);
 		AAudioStreamBuilder_setPerformanceMode(ctx->builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
 		AAudioStreamBuilder_setErrorCallback(ctx->builder, audio_error, ctx);
@@ -150,16 +138,16 @@ static void audio_start(MTY_Audio *ctx)
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t data_size = count * ctx->frame_size;
+	size_t data_size = count * ctx->cmn.stats.frame_size;
 
 	audio_start(ctx);
 
 	MTY_MutexLock(ctx->mutex);
 
-	if (ctx->size + data_size >= ctx->max_buffer)
+	if (ctx->size + data_size >= ctx->max_buffer_size)
 		ctx->flushing = true;
 
-	size_t minimum_request = AAudioStream_getFramesPerBurst(ctx->stream) * ctx->frame_size;
+	size_t minimum_request = AAudioStream_getFramesPerBurst(ctx->stream) * ctx->cmn.stats.frame_size;
 	if (ctx->flushing && ctx->size < minimum_request) {
 		memset(ctx->buffer, 0, ctx->size);
 		ctx->size = 0;
@@ -170,12 +158,12 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		ctx->flushing = false;
 	}
 
-	if (!ctx->flushing && data_size + ctx->size <= ctx->buffer_size) {
+	if (!ctx->flushing && data_size + ctx->size <= ctx->cmn.stats.buffer_size) {
 		memcpy(ctx->buffer + ctx->size, frames, data_size);
 		ctx->size += data_size;
 	}
 
-	if (ctx->size >= ctx->min_buffer)
+	if (ctx->size >= ctx->min_buffer_size)
 		ctx->playing = true;
 
 	MTY_MutexUnlock(ctx->mutex);

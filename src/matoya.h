@@ -1471,7 +1471,7 @@ typedef struct {
 	MTY_AudioSampleFormat sampleFormat; ///< Format of audio samples.
 	uint32_t sampleRate;                ///< Number of audio samples per second. Usually set to 48000.
 	uint32_t channels;                  ///< Number of audio channels.
-	uint32_t channelsMask;              ///< Opaque bitmask that defines which channels are present in the audio data.
+	uint32_t channelMask;               ///< Opaque bitmask that defines which channels are present in the audio data.
 	                                    ///< Follows standard surround sound speaker ids (see
 	                                    ///<   https://en.wikipedia.org/wiki/Surround_sound#Standard_speaker_channels).
 	                                    ///<   For `channels` > 2, specify this value correctly in order

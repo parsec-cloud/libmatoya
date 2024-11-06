@@ -164,10 +164,10 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	}
 
 	// Specify channel configuration
-	if (ctx->cmn.format.channelsMask) {
+	if (ctx->cmn.format.channelMask) {
 		AudioChannelLayout channel_layout = {
 			.mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelBitmap,
-			.mChannelBitmap = ctx->cmn.format.channelsMask, // Core Audio channel bitmap follows the spec that the WAVE format
+			.mChannelBitmap = ctx->cmn.format.channelMask, // Core Audio channel bitmap follows the spec that the WAVE format
 			                                                // follows, so we can simply pass in the mask as-is
 		};
 

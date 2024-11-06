@@ -45,7 +45,7 @@ MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
 	snd_pcm_hw_params_set_format(ctx->pcm, params, format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
 		? SND_PCM_FORMAT_FLOAT : SND_PCM_FORMAT_S16);
 	snd_pcm_hw_params_set_channels(ctx->pcm, params, format.channels);
-	// XXX: Channel config for ALSA can't be specified via the opaque `format.channelsMask`
+	// XXX: Channel config for ALSA can't be specified via the opaque `format.channelMask`
 	// Instead, an explicit channel mapping array is required. To be implemented in the future.
 	// See `snd_pcm_set_chmap`:
 	// 1. https://www.alsa-project.org/alsa-doc/alsa-lib/group___p_c_m.html#ga60ee7d2c2555e21dbc844a1b73839085

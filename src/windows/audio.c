@@ -215,7 +215,7 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	};
 
 	if (ctx->cmn.format.channels > 2) {
-		if (!ctx->cmn.format.channelsMask) {
+		if (!ctx->cmn.format.channelMask) {
 			e = audio_get_extended_format(device, &pwfx);
 			if (e != S_OK)
 				goto except;
@@ -225,7 +225,7 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 			pwfx.Format.cbSize = 22;
 
 			pwfx.Samples.wValidBitsPerSample = pwfx.Format.wBitsPerSample;
-			pwfx.dwChannelMask = ctx->cmn.format.channelsMask;
+			pwfx.dwChannelMask = ctx->cmn.format.channelMask;
 			pwfx.SubFormat = ctx->cmn.format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
 				? OWN_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT : OWN_KSDATAFORMAT_SUBTYPE_PCM;
 		}

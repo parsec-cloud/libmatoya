@@ -574,14 +574,14 @@ public class Matoya extends SurfaceView implements
 					public void postMessage(String text) {
 						webview_handle_event(ctx, text);
 					}
-				}, "native");
+				}, "webview");
 
 				webview.setWebViewClient(new WebViewClient() {
 					@Override
 					public void onPageStarted(WebView webview, String url, Bitmap favicon) {
 						String script = String.join("\n",
 							"window.native = {",
-								"postMessage: (message) => native.postMessage(message),",
+								"postMessage: (message) => webview.postMessage(message),",
 								"addEventListener: (listener) => window.addEventListener('message', listener),",
 							"}"
 						);

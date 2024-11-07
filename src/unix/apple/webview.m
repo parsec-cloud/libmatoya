@@ -201,16 +201,12 @@ void mty_webview_send_text(struct webview *ctx, const char *msg)
 		MTY_QueuePushPtr(ctx->base.pushq, MTY_Strdup(msg), 0);
 
 	} else {
-		MTY_JSON *json = MTY_JSONStringCreate(msg);
-		char *text = MTY_JSONSerialize(json);
-		NSString *wrapped = [NSString stringWithFormat:@"window.postMessage(%@, '*');", [NSString stringWithUTF8String:text]];
-		MTY_Free(text);
-		MTY_JSONDestroy(&json);
-
-		[ctx->webview evaluateJavaScript:wrapped completionHandler:^(id object, NSError *error) {
+		char *script = mty_webview_base_format_text(msg);
+		[ctx->webview evaluateJavaScript:[NSString stringWithUTF8String:script] completionHandler:^(id object, NSError *error) {
 			if (error)
 				MTY_Log("'WKWebView:evaluateJavaScript' failed to evaluate string '%s'", text);
 		}];
+		MTY_Free(script);
 	}
 }
 

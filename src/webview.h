@@ -31,6 +31,7 @@ void mty_webview_base_create(struct webview_base *ctx, MTY_App *app, MTY_Window 
 	bool debug, WEBVIEW_READY ready_func, WEBVIEW_TEXT text_func, WEBVIEW_KEY key_func);
 void mty_webview_base_destroy(struct webview_base *ctx);
 void mty_webview_base_handle_event(struct webview_base *ctx, const char *str);
+char *mty_webview_base_format_text(const char *msg);
 
 struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *dir,
 	bool debug, WEBVIEW_READY ready_func, WEBVIEW_TEXT text_func, WEBVIEW_KEY key_func);

@@ -1,5 +1,8 @@
 #include "webview.h"
 
+#include <stdio.h>
+#include <string.h>
+
 #include "unix/web/keymap.h"
 
 void mty_webview_base_create(struct webview_base *ctx, MTY_App *app, MTY_Window window, const char *dir,
@@ -77,4 +80,19 @@ void mty_webview_base_handle_event(struct webview_base *ctx, const char *str)
 	}
 
 	MTY_JSONDestroy(&j);
+}
+
+char *mty_webview_base_format_text(const char *msg)
+{
+	uint32_t msg_len = strlen(msg);
+	uint32_t b64_len = msg_len * 4;
+	char *b64 = MTY_Alloc(b64_len, 1);
+
+	MTY_BytesToBase64(msg, msg_len, b64, b64_len);
+
+	char *script = MTY_SprintfD("window.postMessage(atob('%s'));", b64);
+
+	MTY_Free(b64);
+
+	return script;
 }

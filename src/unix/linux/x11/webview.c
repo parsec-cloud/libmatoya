@@ -222,13 +222,9 @@ static bool _mty_webview_show(struct mty_webview_event *event)
 
 static bool _mty_webview_send_text(struct mty_webview_event *event)
 {
-	MTY_JSON *json = MTY_JSONStringCreate(event->data);
-	char *text = MTY_JSONSerialize(json);
-	char *message = MTY_SprintfD("window.postMessage(%s, '*');", text);
-	webkit_web_view_evaluate_javascript(event->context->webview, message, -1, NULL, NULL, NULL, NULL, NULL);
-	MTY_Free(message);
-	MTY_Free(text);
-	MTY_JSONDestroy(&json);
+	char *script = mty_webview_base_format_text(event->data);
+	webkit_web_view_evaluate_javascript(event->context->webview, script, -1, NULL, NULL, NULL, NULL, NULL);
+	MTY_Free(script);
 
 	return false;
 }

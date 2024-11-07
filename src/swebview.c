@@ -397,17 +397,7 @@ void mty_webview_send_text(struct webview *ctx, const char *msg)
 		if (ctx->browser == 0)
 			return;
 
-		size_t msg_size = strlen(msg);
-		size_t size = msg_size * 4 + 64;
-		char *script = MTY_Alloc(size, 1);
-
-		memcpy(script, "__MTY_WEBVIEW('", 15);
-
-		MTY_BytesToBase64(msg, msg_size, script + 15, size - 15);
-
-		size_t end = strlen(script);
-		memcpy(script + end, "');", 3);
-
+		char *script = mty_webview_base_format_text(msg);
 		SteamAPI_ISteamHTMLSurface_ExecuteJavascript(ctx->surface, ctx->browser, script);
 		MTY_Free(script);
 	}

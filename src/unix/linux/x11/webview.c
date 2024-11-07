@@ -168,8 +168,6 @@ static bool _mty_webview_destroy(struct mty_webview_event *event)
 	gtk_widget_destroy(GTK_WIDGET(ctx->gtk_window));
 	gtk_main_quit();
 
-	MTY_Free(ctx);
-
 	mty_webview_destroy_event(&event);
 
 	return false;

@@ -4,6 +4,52 @@
 
 #pragma once
 
+struct xboxw_state {
+	bool rumble;
+	uint16_t low;
+	uint16_t high;
+};
+
+// Rumble
+
+static void xboxw_rumble(struct hid_dev *device, uint16_t low, uint16_t high)
+{
+    struct xbox_state *ctx = mty_hid_device_get_state(device);
+
+		printf("Got here 1");
+		uint8_t rumble_packet[12] = {0x00, 0x01, 0x0F, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        rumble_packet[5] = ctx->low >> 8;
+        rumble_packet[6] = ctx->high >> 8;
+		printf("Got here 2");
+
+        mty_hid_device_write(device, rumble_packet, sizeof(rumble_packet));
+		printf("Got here 3");
+
+}
+
+static void xboxw_do_rumble(struct hid_dev *device)
+{
+    struct xbox_state *ctx = mty_hid_device_get_state(device);
+
+    if (ctx->rumble) {
+        uint8_t rumble_packet[12] = {0x00, 0x01, 0x0F, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        rumble_packet[5] = ctx->low >> 8;
+        rumble_packet[6] = ctx->high >> 8;
+		printf("Got here 2");
+
+        mty_hid_device_write(device, rumble_packet, sizeof(rumble_packet));
+		printf("Got here 3");
+        ctx->rumble = false;
+    }
+}
+
+static void xboxw_init(struct hid_dev *device)
+{
+	printf("Got to xboxw_init");
+	struct xboxw_state *ctx = mty_hid_device_get_state(device);
+	ctx->rumble = true;
+}
+
 static bool xboxw_state(struct hid_dev *device, const void *data, size_t size, MTY_ControllerEvent *c)
 {
 	const uint8_t *d = data;
@@ -65,6 +111,7 @@ static bool xboxw_state(struct hid_dev *device, const void *data, size_t size, M
 
 	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = c->axes[MTY_CAXIS_TRIGGER_L].value > 0;
 	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = c->axes[MTY_CAXIS_TRIGGER_R].value > 0;
+	xboxw_do_rumble(device);
 
 	return true;
 }

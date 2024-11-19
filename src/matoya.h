@@ -603,9 +603,8 @@ typedef struct {
 
 /// @brief File drop event.
 typedef struct {
-	const char *name; ///< The name of file.
-	const void *buf;  ///< A buffer containing the contents of the file.
-	size_t size;      ///< The size of `buf`.
+	size_t count; ///< Number of files.
+	char **name;  ///< The names of each file. Event receiver is responsible for freeing via MTY_Free.
 } MTY_DropEvent;
 
 /// @brief Controller axis.
@@ -1796,6 +1795,15 @@ MTY_ReadFile(const char *path, size_t *size);
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_WriteFile(const char *path, const void *buf, size_t size);
+
+/// @brief Append a buffer to a file.
+/// @details This function appends to the file in binary mode.
+/// @param path Path to the file.
+/// @param buf Input buffer to append.
+/// @param size Size in bytes of `buf`.
+/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
+MTY_EXPORT bool
+MTY_AppendToFile(const char *path, const void *buf, size_t size);
 
 /// @brief Write formatted text to a file.
 /// @details This function writes to the file in text mode.\n\n

@@ -354,25 +354,19 @@ function mty_add_input_events(thread) {
 		if (!ev.dataTransfer.items)
 			return;
 
-		for (let x = 0; x < ev.dataTransfer.items.length; x++) {
-			if (ev.dataTransfer.items[x].kind == 'file') {
-				let file = ev.dataTransfer.items[x].getAsFile();
+		const names = [...ev.dataTransfer.items
+			.filter(item => item.kind === 'file')
+			.map(item => item.getAsFile().name)
+			.filter(x => x)];
 
-				const reader = new FileReader();
-				reader.addEventListener('loadend', (fev) => {
-					if (reader.readyState == 2) {
-						thread.postMessage({
-							type: 'drop',
-							name: file.name,
-							data: reader.result,
-						}, [reader.result]);
-					}
-				});
+		if (names.length == 0)
+			return;
 
-				reader.readAsArrayBuffer(file);
-				break;
-			}
-		}
+		thread.postMessage({
+			type: 'drop',
+			count: names.length,
+			names
+		});
 	});
 }
 

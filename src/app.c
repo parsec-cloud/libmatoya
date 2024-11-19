@@ -577,9 +577,11 @@ void MTY_PrintEvent(const MTY_Event *evt)
 			"x: %d, y: %d, button: %u, pressed: %u",
 			evt->button.x, evt->button.y, evt->button.button, evt->button.pressed);
 
-		PEVENT(MTY_EVENT_DROP, evt,
-			"name: %s, buf: %p, size: %zu",
-			evt->drop.name, evt->drop.buf, evt->drop.size);
+		case MTY_EVENT_DROP: {
+			for (size_t i = 0; i < evt->drop.count; i++)
+				PFMT(MTY_EVENT_DROP, evt, "name: %s", evt->drop.name[i]);
+			break;
+		}
 
 		PEVENT(MTY_EVENT_TRAY, evt,
 			"id: %u",

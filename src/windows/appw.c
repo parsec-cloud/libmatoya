@@ -599,7 +599,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	bool defreturn = false;
 	bool pen_active = app->pen_enabled && app->pen_in_range;
-	char drop_name[MTY_PATH_MAX];
 
 	switch (msg) {
 		case WM_CLOSE:
@@ -809,22 +808,60 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			}
 			break;
 		}
-		case WM_DROPFILES:
-			wchar_t namew[MTY_PATH_MAX];
+		case WM_DROPFILES: {
+			const HDROP hdrop = (HDROP) wparam;
 
-			if (DragQueryFile((HDROP) wparam, 0, namew, MTY_PATH_MAX)) {
-				SetForegroundWindow(hwnd);
+			size_t count = DragQueryFile(hdrop, 0xFFFFFFFF, NULL, 0);
+			if (count == 0)
+				goto except;
 
-				MTY_WideToMulti(namew, drop_name, MTY_PATH_MAX);
-				evt.drop.name = drop_name;
-				evt.drop.buf = MTY_ReadFile(drop_name, &evt.drop.size);
+			SetForegroundWindow(hwnd);
 
-				if (evt.drop.buf)
-					evt.type = MTY_EVENT_DROP;
+			MTY_DropEvent drop = {
+				.count = count,
+				.name = MTY_Alloc(count, sizeof(char *)),
+			};
+
+			size_t success_count = 0;
+			size_t *success_idx = MTY_Alloc(count, sizeof(size_t));
+
+			for (size_t i = 0; i < count; i++) {
+				wchar_t namew[MTY_PATH_MAX] = {0};
+
+				if (DragQueryFile(hdrop, (UINT) i, namew, MTY_PATH_MAX)) {
+					drop.name[i] = MTY_Alloc(1, MTY_PATH_MAX);
+
+					if (MTY_WideToMulti(namew, drop.name[i], MTY_PATH_MAX))
+						success_idx[success_count++] = i;
+					else
+						MTY_Free(drop.name[i]);
+				}
 			}
+
+			if (success_count > 0) {
+				evt.type = MTY_EVENT_DROP;
+
+				evt.drop.count = success_count;
+				evt.drop.name = MTY_Alloc(success_count, sizeof(char *));
+
+				for (size_t i = 0; i < success_count; i++) {
+					const size_t j = success_idx[i];
+
+					evt.drop.name[i] = MTY_Alloc(1, MTY_PATH_MAX);
+					snprintf(evt.drop.name[i], MTY_PATH_MAX, "%s", drop.name[j]);
+
+					MTY_Free(drop.name[j]);
+				}
+			}
+
+			MTY_Free(success_idx);
+			MTY_Free(drop.name);
+
+			except:
 
 			DragFinish((HDROP) wparam);
 			break;
+		}
 		case WM_INPUT:
 			UINT rsize = APP_RI_MAX;
 			UINT e = GetRawInputData((HRAWINPUT) lparam, RID_INPUT, ctx->ri, &rsize, sizeof(RAWINPUTHEADER));
@@ -879,9 +916,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	if (evt.type != MTY_EVENT_NONE) {
 		if (!ctx->cmn.webview || !mty_webview_event(ctx->cmn.webview, &evt))
 			app->event_func(&evt, app->opaque);
-
-		if (evt.type == MTY_EVENT_DROP)
-			MTY_Free((void *) evt.drop.buf);
 
 		if (!defreturn)
 			return creturn ? r : 0;

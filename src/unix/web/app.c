@@ -190,15 +190,18 @@ void mty_window_focus(MTY_App *ctx, bool focus)
 }
 
 __attribute__((export_name("mty_window_drop")))
-void mty_window_drop(MTY_App *ctx, const char *name, const void *data, size_t size)
+void mty_window_drop(MTY_App *ctx, const char **name, size_t count)
 {
 	MTY_Event evt = {0};
 	evt.type = MTY_EVENT_DROP;
+	evt.drop.count = count;
 	evt.drop.name = name;
-	evt.drop.buf = data;
-	evt.drop.size = size;
 
 	ctx->event_func(&evt, ctx->opaque);
+
+	for (size_t i = 0; i < count; i++)
+		MTY_Free(evt.drop.name[i]);
+	MTY_Free(evt.drop.name);
 }
 
 __attribute__((export_name("mty_window_controller")))

@@ -1226,10 +1226,9 @@ onmessage = async (ev) => {
 			if (!MTY.app)
 				return;
 
-			const cmem = mty_dup_c(new Uint8Array(msg.data));
-			const cname = mty_dup_c(mty_encode(msg.name));
+			const cnames = msg.names.map(x => mty_dup_c(mty_encode(x)));
 
-			MTY.exports.mty_window_drop(MTY.app, cname, cmem, buf.length);
+			MTY.exports.mty_window_drop(MTY.app, cnames, msg.count);
 
 			mty_free(cname);
 			mty_free(cmem);

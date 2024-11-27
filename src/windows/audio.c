@@ -209,9 +209,9 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 		.Format.wFormatTag = WAVE_FORMAT_PCM,
 		.Format.nChannels = (WORD) ctx->cmn.format.channels,
 		.Format.nSamplesPerSec = ctx->cmn.format.sampleRate,
-		.Format.wBitsPerSample = (WORD) ctx->cmn.stats.sample_size * 8,
-		.Format.nBlockAlign = (WORD) ctx->cmn.stats.frame_size,
-		.Format.nAvgBytesPerSec = (DWORD) ctx->cmn.stats.buffer_size,
+		.Format.wBitsPerSample = (WORD) ctx->cmn.computed.sample_size * 8,
+		.Format.nBlockAlign = (WORD) ctx->cmn.computed.frame_size,
+		.Format.nAvgBytesPerSec = (DWORD) ctx->cmn.computed.buffer_size,
 	};
 
 	if (ctx->cmn.format.channels > 2) {
@@ -453,7 +453,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	}
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
-	if (ctx->playing && (queued > ctx->cmn.stats.max_buffer || queued == 0))
+	if (ctx->playing && (queued > ctx->cmn.computed.max_buffer || queued == 0))
 		MTY_AudioReset(ctx);
 
 	if (ctx->buffer_size - queued >= count) {
@@ -466,7 +466,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		}
 
 		// Begin playing again when the minimum buffer has been reached
-		if (!ctx->playing && queued + count >= ctx->cmn.stats.min_buffer)
+		if (!ctx->playing && queued + count >= ctx->cmn.computed.min_buffer)
 			audio_play(ctx);
 	}
 }

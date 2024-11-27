@@ -40,7 +40,7 @@ static aaudio_data_callback_result_t audio_callback(AAudioStream *stream, void *
 
 	MTY_MutexLock(ctx->mutex);
 
-	size_t want_size = numFrames * ctx->cmn.stats.frame_size;
+	size_t want_size = numFrames * ctx->cmn.computed.frame_size;
 
 	if (ctx->playing && ctx->size >= want_size) {
 		memcpy(audioData, ctx->buffer, want_size);
@@ -62,11 +62,11 @@ MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 	audio_common_init(&ctx->cmn, format, minBuffer, maxBuffer);
-	ctx->min_buffer_size = ctx->cmn.stats.min_buffer * ctx->cmn.stats.frame_size;
-	ctx->max_buffer_size = ctx->cmn.stats.max_buffer * ctx->cmn.stats.frame_size;
+	ctx->min_buffer_size = ctx->cmn.computed.min_buffer * ctx->cmn.computed.frame_size;
+	ctx->max_buffer_size = ctx->cmn.computed.max_buffer * ctx->cmn.computed.frame_size;
 
 	ctx->mutex = MTY_MutexCreate();
-	ctx->buffer = MTY_Alloc(ctx->cmn.stats.buffer_size, 1);
+	ctx->buffer = MTY_Alloc(ctx->cmn.computed.buffer_size, 1);
 
 	return ctx;
 }
@@ -111,7 +111,7 @@ void MTY_AudioReset(MTY_Audio *ctx)
 
 uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 {
-	return (ctx->size / ctx->cmn.stats.frame_size) / ctx->cmn.format.sampleRate * 1000;
+	return (ctx->size / ctx->cmn.computed.frame_size) / ctx->cmn.format.sampleRate * 1000;
 }
 
 static void audio_start(MTY_Audio *ctx)
@@ -138,7 +138,7 @@ static void audio_start(MTY_Audio *ctx)
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t data_size = count * ctx->cmn.stats.frame_size;
+	size_t data_size = count * ctx->cmn.computed.frame_size;
 
 	audio_start(ctx);
 
@@ -147,7 +147,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	if (ctx->size + data_size >= ctx->max_buffer_size)
 		ctx->flushing = true;
 
-	size_t minimum_request = AAudioStream_getFramesPerBurst(ctx->stream) * ctx->cmn.stats.frame_size;
+	size_t minimum_request = AAudioStream_getFramesPerBurst(ctx->stream) * ctx->cmn.computed.frame_size;
 	if (ctx->flushing && ctx->size < minimum_request) {
 		memset(ctx->buffer, 0, ctx->size);
 		ctx->size = 0;
@@ -158,7 +158,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		ctx->flushing = false;
 	}
 
-	if (!ctx->flushing && data_size + ctx->size <= ctx->cmn.stats.buffer_size) {
+	if (!ctx->flushing && data_size + ctx->size <= ctx->cmn.computed.buffer_size) {
 		memcpy(ctx->buffer + ctx->size, frames, data_size);
 		ctx->size += data_size;
 	}

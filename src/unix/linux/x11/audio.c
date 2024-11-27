@@ -54,7 +54,7 @@ MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
 	snd_pcm_hw_params(ctx->pcm, params);
 	snd_pcm_nonblock(ctx->pcm, 1);
 
-	ctx->buf = MTY_Alloc(ctx->cmn.stats.buffer_size, 1);
+	ctx->buf = MTY_Alloc(ctx->cmn.computed.buffer_size, 1);
 
 	except:
 
@@ -81,7 +81,7 @@ void MTY_AudioDestroy(MTY_Audio **audio)
 
 static uint32_t audio_get_queued_frames(MTY_Audio *ctx)
 {
-	uint32_t queued = ctx->pos / ctx->cmn.stats.frame_size;
+	uint32_t queued = ctx->pos / ctx->cmn.computed.frame_size;
 
 	if (ctx->playing) {
 		snd_pcm_status_t *status = NULL;
@@ -120,25 +120,25 @@ uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t size = count * ctx->cmn.stats.frame_size;
+	size_t size = count * ctx->cmn.computed.frame_size;
 
 	uint32_t queued = audio_get_queued_frames(ctx);
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
-	if (ctx->playing && (queued > ctx->cmn.stats.max_buffer || queued == 0))
+	if (ctx->playing && (queued > ctx->cmn.computed.max_buffer || queued == 0))
 		MTY_AudioReset(ctx);
 
-	if (ctx->pos + size <= ctx->cmn.stats.buffer_size) {
-		memcpy(ctx->buf + ctx->pos, frames, count * ctx->cmn.stats.frame_size);
+	if (ctx->pos + size <= ctx->cmn.computed.buffer_size) {
+		memcpy(ctx->buf + ctx->pos, frames, count * ctx->cmn.computed.frame_size);
 		ctx->pos += size;
 	}
 
 	// Begin playing again when the minimum buffer has been reached
-	if (!ctx->playing && queued + count >= ctx->cmn.stats.min_buffer)
+	if (!ctx->playing && queued + count >= ctx->cmn.computed.min_buffer)
 		audio_play(ctx);
 
 	if (ctx->playing) {
-		int32_t e = snd_pcm_writei(ctx->pcm, ctx->buf, ctx->pos / ctx->cmn.stats.frame_size);
+		int32_t e = snd_pcm_writei(ctx->pcm, ctx->buf, ctx->pos / ctx->cmn.computed.frame_size);
 
 		if (e >= 0) {
 			ctx->pos = 0;

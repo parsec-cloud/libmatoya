@@ -15,7 +15,7 @@ struct audio_common {
 		uint32_t buffer_size; ///< Size in bytes of a 1-second buffer
 		uint32_t min_buffer;  ///< Minimum number of frames of audio that must be enqueued before playback
 		uint32_t max_buffer;  ///< Maximum number of frames of audio that can be enqueued for playback
-	} stats;
+	} computed;
 };
 
 static void audio_common_init(struct audio_common *ctx, MTY_AudioFormat fmt, uint32_t min_buffer_ms,
@@ -23,12 +23,12 @@ static void audio_common_init(struct audio_common *ctx, MTY_AudioFormat fmt, uin
 {
 	ctx->format = fmt;
 
-	ctx->stats.sample_size = fmt.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
+	ctx->computed.sample_size = fmt.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
 		? sizeof(float) : sizeof(int16_t);
-	ctx->stats.frame_size = fmt.channels * ctx->stats.sample_size;
-	ctx->stats.buffer_size = fmt.sampleRate * ctx->stats.frame_size;
+	ctx->computed.frame_size = fmt.channels * ctx->computed.sample_size;
+	ctx->computed.buffer_size = fmt.sampleRate * ctx->computed.frame_size;
 
 	uint32_t samples_per_ms = lrintf(fmt.sampleRate / 1000.0f);
-	ctx->stats.min_buffer = min_buffer_ms * samples_per_ms;
-	ctx->stats.max_buffer = max_buffer_ms * samples_per_ms;
+	ctx->computed.min_buffer = min_buffer_ms * samples_per_ms;
+	ctx->computed.max_buffer = max_buffer_ms * samples_per_ms;
 }

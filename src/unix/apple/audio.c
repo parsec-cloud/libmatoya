@@ -147,8 +147,8 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 		kAudioFormatFlagIsFloat : kAudioFormatFlagIsSignedInteger) | kAudioFormatFlagIsPacked;
 	format.mFramesPerPacket = 1;
 	format.mChannelsPerFrame = ctx->cmn.format.channels;
-	format.mBitsPerChannel = ctx->cmn.stats.sample_size * 8;
-	format.mBytesPerPacket = ctx->cmn.stats.frame_size;
+	format.mBitsPerChannel = ctx->cmn.computed.sample_size * 8;
+	format.mBytesPerPacket = ctx->cmn.computed.frame_size;
 	format.mBytesPerFrame = format.mBytesPerPacket;
 
 	// Create a new audio queue, which by default chooses the device's default device
@@ -185,7 +185,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	}
 
 	for (int32_t x = 0; x < AUDIO_BUFS; x++) {
-		e = AudioQueueAllocateBuffer(ctx->q, ctx->cmn.stats.buffer_size, &ctx->audio_buf[x]);
+		e = AudioQueueAllocateBuffer(ctx->q, ctx->cmn.computed.buffer_size, &ctx->audio_buf[x]);
 		if (AUDIO_SV_ERROR(e)) {
 			MTY_Log("'AudioQueueAllocateBuffer' failed with error 0x%X", e);
 			goto except;
@@ -250,7 +250,7 @@ static uint32_t audio_get_queued_frames(MTY_Audio *ctx)
 		}
 	}
 
-	return queued / ctx->cmn.stats.frame_size;
+	return queued / ctx->cmn.computed.frame_size;
 }
 
 static void audio_play(MTY_Audio *ctx)
@@ -278,14 +278,14 @@ uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t size = count * ctx->cmn.stats.frame_size;
+	size_t size = count * ctx->cmn.computed.frame_size;
 	uint32_t queued = audio_get_queued_frames(ctx);
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
-	if (ctx->playing && (queued > ctx->cmn.stats.max_buffer || queued == 0))
+	if (ctx->playing && (queued > ctx->cmn.computed.max_buffer || queued == 0))
 		MTY_AudioReset(ctx);
 
-	if (size <= ctx->cmn.stats.buffer_size) {
+	if (size <= ctx->cmn.computed.buffer_size) {
 		for (uint8_t x = 0; x < AUDIO_BUFS; x++) {
 			if (MTY_Atomic32Get(&ctx->in_use[x]) == 0) {
 				AudioQueueBufferRef buf = ctx->audio_buf[x];
@@ -306,7 +306,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		}
 
 		// Begin playing again when the minimum buffer has been reached
-		if (!ctx->playing && queued + count >= ctx->cmn.stats.min_buffer)
+		if (!ctx->playing && queued + count >= ctx->cmn.computed.min_buffer)
 			audio_play(ctx);
 	}
 }

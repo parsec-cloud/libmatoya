@@ -6,8 +6,6 @@
 
 #include <math.h>
 
-#include "audio-common.h"
-
 #include <windows.h>
 
 #include <initguid.h>
@@ -22,6 +20,8 @@ DEFINE_GUID(OWN_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, 0x00000003, 0x0000, 0x0010, 0x8
 #define COBJMACROS
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+
+#include "audio-common.h"
 
 #define AUDIO_BUFFER_SIZE ((1 * 1000 * 1000 * 1000) / 100) // 1 second
 

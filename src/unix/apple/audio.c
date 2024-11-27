@@ -4,10 +4,10 @@
 
 #include "matoya.h"
 
-#include "audio-common.h"
-
 #include <CoreAudio/CoreAudio.h>
 #include <AudioToolbox/AudioToolbox.h>
+
+#include "audio-common.h"
 
 #define AUDIO_BUFS        64
 

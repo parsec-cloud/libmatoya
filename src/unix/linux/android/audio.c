@@ -8,9 +8,9 @@
 #include <stdio.h>
 #include <math.h>
 
-#include "audio-common.h"
-
 #include <aaudio/AAudio.h>
+
+#include "audio-common.h"
 
 struct MTY_Audio {
 	struct audio_common cmn;

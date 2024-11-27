@@ -90,6 +90,11 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	if (AUDIO_HW_ERROR(e))
 		goto except;
 
+	if (data_size == 0) {
+		e = kAudioHardwareBadDeviceError;
+		goto except;
+	}
+
 	device_ids = calloc(1, data_size);
 	e = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propAddr, 0, NULL, &data_size, device_ids);
 	if (AUDIO_HW_ERROR(e))

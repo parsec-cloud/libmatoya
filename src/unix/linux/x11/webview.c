@@ -5,14 +5,14 @@
 #include "webview.h"
 
 #include <string.h>
-#include <math.h>
-#include <gtk/gtk.h>
-#include <gtk/gtkx.h>
-#include <webkit2/webkit2.h>
+// #include <gtk/gtkx.h>
+// #include <webkit2/webkit2.h>
 
 #include "matoya.h"
 
-#define DISPATCH(func, param, should_free) g_idle_add(G_SOURCE_FUNC(func), mty_webview_create_event(ctx, (void *) (param), should_free))
+#include "dl/libgtk.h"
+
+#define DISPATCH(func, param, should_free) g_idle_add((GSourceFunc) func, mty_webview_create_event(ctx, (void *) (param), should_free))
 
 struct webview {
 	struct webview_base base;
@@ -28,12 +28,6 @@ struct mty_webview_event {
 	struct webview *context;
 	void *data;
 	bool should_free;
-};
-
-struct xinfo {
-	Display *display;
-	XVisualInfo *vis;
-	Window window;
 };
 
 static struct mty_webview_event *mty_webview_create_event(struct webview *ctx, void *data, bool should_free)
@@ -71,7 +65,7 @@ static void handle_script_message(WebKitUserContentManager *manager, WebKitJavas
 	MTY_Free(str);
 }
 
-static int32_t _mty_webview_resize(void *opaque)
+static bool _mty_webview_resize(void *opaque)
 {
 	struct webview *ctx = opaque;
 
@@ -91,20 +85,21 @@ static bool _mty_webview_create(struct mty_webview_event *event)
 {
 	struct webview *ctx = event->context;
 
-	ctx->gtk_window = GTK_WINDOW(gtk_window_new(GTK_WINDOW_POPUP));
-	gtk_widget_realize(GTK_WIDGET(ctx->gtk_window));
+	ctx->gtk_window = (GtkWindow *) gtk_window_new(GTK_WINDOW_POPUP);
+	gtk_widget_realize((GtkWidget *) ctx->gtk_window);
 
-	GdkWindow *gdk_window = gtk_widget_get_window(GTK_WIDGET(ctx->gtk_window));
-	XReparentWindow(GDK_WINDOW_XDISPLAY(gdk_window), GDK_WINDOW_XID(gdk_window), ctx->x11_window, 0, 0);
+	GdkWindow *gdk_window = gtk_widget_get_window((GtkWidget *) ctx->gtk_window);
+	Display *display = gdk_x11_display_get_xdisplay(gdk_window_get_display(gdk_window));
+	XReparentWindow(display, gdk_x11_window_get_xid(gdk_window), ctx->x11_window, 0, 0);
 
-	ctx->webview = WEBKIT_WEB_VIEW(webkit_web_view_new());
-	gtk_container_add(GTK_CONTAINER(ctx->gtk_window), GTK_WIDGET(ctx->webview));
+	ctx->webview = (WebKitWebView *) webkit_web_view_new();
+	gtk_container_add((GtkContainer *) ctx->gtk_window, (GtkWidget *) ctx->webview);
 
-	gtk_widget_set_app_paintable(GTK_WIDGET(ctx->gtk_window), TRUE);
+	gtk_widget_set_app_paintable((GtkWidget *) ctx->gtk_window, true);
 	webkit_web_view_set_background_color(ctx->webview, & (GdkRGBA) {0});
 
 	WebKitUserContentManager *manager = webkit_web_view_get_user_content_manager(ctx->webview);
-	g_signal_connect(manager, "script-message-received::native", G_CALLBACK(handle_script_message), ctx);
+	g_signal_connect_data(manager, "script-message-received::native", (GCallback) handle_script_message, (ctx), NULL, 0);
 	webkit_user_content_manager_register_script_message_handler(manager, "native");
 
 	const char *javascript = "window.native = {"
@@ -119,9 +114,9 @@ static bool _mty_webview_create(struct mty_webview_event *event)
 	WebKitSettings *settings = webkit_web_view_get_settings(event->context->webview);
 	webkit_settings_set_enable_developer_extras(settings, ctx->base.debug);
 
-	g_idle_add(_mty_webview_resize, ctx);
+	g_idle_add((GSourceFunc) _mty_webview_resize, ctx);
 
-	gtk_widget_show_all(GTK_WIDGET(ctx->gtk_window));
+	gtk_widget_show_all((GtkWidget *) ctx->gtk_window);
 
 	mty_webview_destroy_event(&event);
 
@@ -139,6 +134,9 @@ static void *mty_webview_thread_func(void *opaque)
 struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *dir,
 	bool debug, WEBVIEW_READY ready_func, WEBVIEW_TEXT text_func, WEBVIEW_KEY key_func)
 {
+	if (!libX11_global_init() || !libgtk_global_init())
+		return NULL;
+
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
 	g_setenv("GDK_BACKEND", "x11", true);
@@ -164,8 +162,8 @@ static bool _mty_webview_destroy(struct mty_webview_event *event)
 		return false;
 
 	gtk_window_close(ctx->gtk_window);
-	gtk_widget_destroy(GTK_WIDGET(ctx->webview));
-	gtk_widget_destroy(GTK_WIDGET(ctx->gtk_window));
+	gtk_widget_destroy((GtkWidget *) ctx->webview);
+	gtk_widget_destroy((GtkWidget *) ctx->gtk_window);
 	gtk_main_quit();
 
 	mty_webview_destroy_event(&event);
@@ -187,6 +185,9 @@ void mty_webview_destroy(struct webview **webview)
 
 	mty_webview_base_destroy(&ctx->base);
 
+	libX11_global_destroy();
+	libgtk_global_destroy();
+	
 	MTY_Free(ctx);
 }
 
@@ -208,7 +209,7 @@ static bool _mty_webview_navigate_html(struct mty_webview_event *event)
 
 static bool _mty_webview_show(struct mty_webview_event *event)
 {
-	GdkWindow *window = gtk_widget_get_window(GTK_WIDGET(event->context->gtk_window));
+	GdkWindow *window = gtk_widget_get_window((GtkWidget *) event->context->gtk_window);
 
 	if (event->data) {
 		gdk_window_show(window);
@@ -253,7 +254,7 @@ void mty_webview_show(struct webview *ctx, bool show)
 
 bool mty_webview_is_visible(struct webview *ctx)
 {
-	return gdk_window_is_visible(gtk_widget_get_window(GTK_WIDGET(ctx->gtk_window)));
+	return gdk_window_is_visible(gtk_widget_get_window((GtkWidget *) ctx->gtk_window));
 }
 
 void mty_webview_send_text(struct webview *ctx, const char *msg)

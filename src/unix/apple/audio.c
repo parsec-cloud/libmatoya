@@ -4,8 +4,8 @@
 
 #include "matoya.h"
 
-#include <CoreAudio/CoreAudio.h>
 #include <AudioToolbox/AudioToolbox.h>
+#include <CoreAudio/CoreAudio.h>
 
 #include "audio-common.h"
 
@@ -36,13 +36,13 @@ static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPro
 	char *uid = NULL;
 	CFStringRef uid_cf = NULL;
 
-	UInt32 data_size = sizeof(CFStringRef);
 	AudioObjectPropertyAddress propAddr = {
 		.mSelector = kAudioDevicePropertyDeviceUID,
 		.mScope = prop_scope,
 		.mElement = prop_element,
 	};
 
+	UInt32 data_size = sizeof(CFStringRef);
 	OSStatus e = AudioObjectGetPropertyData(device, &propAddr, 0, NULL, &data_size, &uid_cf);
 	if (AUDIO_HW_ERROR(e))
 		goto except;

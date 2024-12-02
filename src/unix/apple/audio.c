@@ -60,7 +60,7 @@ static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPro
 
 	except:
 
-	if (AUDIO_HW_ERROR(e)) {
+	if (e != 0) {
 		if (uid_cf)
 			CFRelease(uid_cf);
 		free(uid);
@@ -116,8 +116,9 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 			char *uid = NULL;
 			CFStringRef uid_cf = NULL;
 
-			if (AUDIO_HW_ERROR(audio_object_get_device_uid(device_ids[i],
-				propAddr.mScope, propAddr.mElement, &uid, &uid_cf)))
+			OSStatus e_uid = audio_object_get_device_uid(device_ids[i], propAddr.mScope,
+				propAddr.mElement, &uid, &uid_cf);
+			if (AUDIO_HW_ERROR(e_uid))
 				continue;
 
 			if (!strcmp(deviceID, uid)) {
@@ -140,11 +141,18 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 	// Initialize the selected device
 
+	AudioFormatFlags format_flags = kAudioFormatFlagIsPacked;
+	if (ctx->cmn.format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT) {
+		format_flags |= kAudioFormatFlagIsFloat;
+
+	} else {
+		format_flags |= kAudioFormatFlagIsSignedInteger;
+	}
+
 	AudioStreamBasicDescription format = {0};
 	format.mSampleRate = ctx->cmn.format.sampleRate;
 	format.mFormatID = kAudioFormatLinearPCM;
-	format.mFormatFlags = (ctx->cmn.format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT ?
-		kAudioFormatFlagIsFloat : kAudioFormatFlagIsSignedInteger) | kAudioFormatFlagIsPacked;
+	format.mFormatFlags = format_flags;
 	format.mFramesPerPacket = 1;
 	format.mChannelsPerFrame = ctx->cmn.format.channels;
 	format.mBitsPerChannel = ctx->cmn.computed.sample_size * 8;
@@ -169,11 +177,12 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	}
 
 	// Specify channel configuration
-	if (ctx->cmn.format.channelMask) {
+	if (ctx->cmn.format.channelMask != 0) {
 		AudioChannelLayout channel_layout = {
 			.mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelBitmap,
-			.mChannelBitmap = ctx->cmn.format.channelMask, // Core Audio channel bitmap follows the spec that the WAVE format
-			                                                // follows, so we can simply pass in the mask as-is
+
+			// Core Audio channel bitmap follows the same spec as WAVE format so we can pass in the mask as-is
+			.mChannelBitmap = ctx->cmn.format.channelMask,
 		};
 
 		e = AudioQueueSetProperty(ctx->q, kAudioQueueProperty_ChannelLayout,
@@ -213,7 +222,7 @@ MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format_in, uint32_t minBuffer, uint32
 	OSStatus e = audio_device_create(ctx, deviceID);
 
 	// Upon failure initializing the given device, try again with the system default device
-	if (AUDIO_SV_ERROR(e) && deviceID && deviceID[0])
+	if (AUDIO_SV_ERROR(e) && deviceID && deviceID[0] != 0)
 		e = audio_device_create(ctx, NULL);
 
 	if (AUDIO_SV_ERROR(e))

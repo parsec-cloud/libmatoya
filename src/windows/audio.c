@@ -215,7 +215,7 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	};
 
 	if (ctx->cmn.format.channels > 2) {
-		if (!ctx->cmn.format.channelMask) {
+		if (ctx->cmn.format.channelMask == 0) {
 			e = audio_get_extended_format(device, &pwfx);
 			if (e != S_OK)
 				goto except;
@@ -233,7 +233,7 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 
 	e = IAudioClient_Initialize(ctx->client, AUDCLNT_SHAREMODE_SHARED,
 		AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
-		AUDIO_BUFFER_SIZE, 0, (const WAVEFORMATEX *) &pwfx, NULL);
+		AUDIO_BUFFER_SIZE, 0, &pwfx.Format, NULL);
 
 	if (e != S_OK) {
 		MTY_Log("'IAudioClient_Initialize' failed with HRESULT 0x%X", e);

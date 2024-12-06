@@ -240,7 +240,7 @@ void MTY_AudioDestroy(MTY_Audio **audio)
 
 	if (ctx->q) {
 		OSStatus e = AudioQueueDispose(ctx->q, true);
-		if (AUDIO_SV_ERROR(e))
+		if (e != kAudioServicesNoError)
 			MTY_Log("'AudioQueueDispose' failed with error 0x%X", e);
 	}
 
@@ -267,7 +267,7 @@ static void audio_play(MTY_Audio *ctx)
 	if (ctx->playing)
 		return;
 
-	if (!AUDIO_SV_ERROR(AudioQueueStart(ctx->q, NULL)))
+	if (AudioQueueStart(ctx->q, NULL) == kAudioServicesNoError)
 		ctx->playing = true;
 }
 
@@ -276,7 +276,7 @@ void MTY_AudioReset(MTY_Audio *ctx)
 	if (!ctx->playing)
 		return;
 
-	if (!AUDIO_SV_ERROR(AudioQueueStop(ctx->q, true)))
+	if (AudioQueueStop(ctx->q, true) == kAudioServicesNoError)
 		ctx->playing = false;
 }
 
@@ -304,7 +304,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 				buf->mUserData = (void *) (uintptr_t) x;
 
 				OSStatus e = AudioQueueEnqueueBuffer(ctx->q, buf, 0, NULL);
-				if (!AUDIO_SV_ERROR(kAudioServicesNoError)) {
+				if (e == kAudioServicesNoError) {
 					MTY_Atomic32Set(&ctx->in_use[x], 1);
 
 				} else {

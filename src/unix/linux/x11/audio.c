@@ -2,12 +2,12 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
+#include "matoya.h"
+
 #include <string.h>
 #include <math.h>
 
 #include "dl/libasound.h"
-
-#include "matoya.h"
 
 #include "audio-common.h"
 

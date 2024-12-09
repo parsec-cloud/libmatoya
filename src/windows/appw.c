@@ -634,10 +634,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				evt.focus = mty_webview_is_focussed(ctx->cmn.webview);
 
 			// This block effectively coalesces focus events between the normal and webview windows
-			bool focus_unchanged = ctx->was_focussed == evt.focus;
-			ctx->was_focussed = evt.focus;
-			if (focus_unchanged)
-				break;
+			// bool focus_unchanged = ctx->was_focussed == evt.focus;
+			// ctx->was_focussed = evt.focus;
+			// if (focus_unchanged)
+			// 	break;
 
 			evt.type = MTY_EVENT_FOCUS;
 			app->state++;

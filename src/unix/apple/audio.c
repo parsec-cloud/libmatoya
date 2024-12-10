@@ -11,9 +11,6 @@
 
 #define AUDIO_BUFS        64
 
-#define AUDIO_HW_ERROR(e) ((e) != kAudioHardwareNoError)
-#define AUDIO_SV_ERROR(e) ((e) != kAudioServicesNoError)
-
 struct MTY_Audio {
 	struct audio_common cmn;
 	AudioQueueRef q;
@@ -44,7 +41,7 @@ static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPro
 
 	UInt32 data_size = sizeof(CFStringRef);
 	OSStatus e = AudioObjectGetPropertyData(device, &propAddr, 0, NULL, &data_size, &uid_cf);
-	if (AUDIO_HW_ERROR(e))
+	if (e != kAudioHardwareNoError)
 		goto except;
 
 	UInt32 prop_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(uid_cf), kCFStringEncodingUTF8);
@@ -87,7 +84,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 	UInt32 data_size = 0;
 	OSStatus e = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &propAddr, 0, NULL, &data_size);
-	if (AUDIO_HW_ERROR(e))
+	if (e != kAudioHardwareNoError)
 		goto except;
 
 	if (data_size == 0) {
@@ -97,7 +94,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 	device_ids = calloc(1, data_size);
 	e = AudioObjectGetPropertyData(kAudioObjectSystemObject, &propAddr, 0, NULL, &data_size, device_ids);
-	if (AUDIO_HW_ERROR(e))
+	if (e != kAudioHardwareNoError)
 		goto except;
 
 	uint32_t n = (uint32_t) (data_size / sizeof(AudioObjectID));
@@ -118,7 +115,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 			OSStatus e_uid = audio_object_get_device_uid(device_ids[i], propAddr.mScope,
 				propAddr.mElement, &uid, &uid_cf);
-			if (AUDIO_HW_ERROR(e_uid))
+			if (e_uid != kAudioHardwareNoError)
 				continue;
 
 			if (!strcmp(deviceID, uid)) {
@@ -161,7 +158,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 	// Create a new audio queue, which by default chooses the device's default device
 	e = AudioQueueNewOutput(&format, audio_queue_callback, ctx, NULL, NULL, 0, &ctx->q);
-	if (AUDIO_SV_ERROR(e)) {
+	if (e != kAudioServicesNoError) {
 		MTY_Log("'AudioQueueNewOutput' failed with error 0x%X", e);
 		goto except;
 	}
@@ -170,7 +167,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	if (selected_device_uid) {
 		e = AudioQueueSetProperty(ctx->q, kAudioQueueProperty_CurrentDevice,
 			(const void *) &selected_device_uid, sizeof(CFStringRef));
-		if (AUDIO_SV_ERROR(e)) {
+		if (e != kAudioServicesNoError) {
 			MTY_Log("'AudioQueueSetProperty(kAudioQueueProperty_CurrentDevice)' failed with error 0x%X", e);
 			goto except;
 		}
@@ -187,7 +184,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 		e = AudioQueueSetProperty(ctx->q, kAudioQueueProperty_ChannelLayout,
 			(const void *) &channel_layout, sizeof(AudioChannelLayout));
-		if (AUDIO_SV_ERROR(e)) {
+		if (e != kAudioServicesNoError) {
 			MTY_Log("'AudioQueueSetProperty(kAudioQueueProperty_ChannelLayout)' failed with error 0x%X", e);
 			goto except;
 		}
@@ -195,7 +192,7 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 
 	for (int32_t x = 0; x < AUDIO_BUFS; x++) {
 		e = AudioQueueAllocateBuffer(ctx->q, ctx->cmn.computed.buffer_size, &ctx->audio_buf[x]);
-		if (AUDIO_SV_ERROR(e)) {
+		if (e != kAudioServicesNoError) {
 			MTY_Log("'AudioQueueAllocateBuffer' failed with error 0x%X", e);
 			goto except;
 		}
@@ -222,10 +219,10 @@ MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format_in, uint32_t minBuffer, uint32
 	OSStatus e = audio_device_create(ctx, deviceID);
 
 	// Upon failure initializing the given device, try again with the system default device
-	if (AUDIO_SV_ERROR(e) && deviceID && deviceID[0] != 0)
+	if (e != kAudioServicesNoError && deviceID && deviceID[0] != 0)
 		e = audio_device_create(ctx, NULL);
 
-	if (AUDIO_SV_ERROR(e))
+	if (e != kAudioServicesNoError)
 		MTY_AudioDestroy(&ctx);
 
 	return ctx;

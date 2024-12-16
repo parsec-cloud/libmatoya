@@ -204,7 +204,7 @@ void mty_webview_send_text(struct webview *ctx, const char *msg)
 		char *script = mty_webview_base_format_text(msg);
 		[ctx->webview evaluateJavaScript:[NSString stringWithUTF8String:script] completionHandler:^(id object, NSError *error) {
 			if (error)
-				MTY_Log("'WKWebView:evaluateJavaScript' failed to evaluate string '%s'", text);
+				MTY_Log("'WKWebView:evaluateJavaScript' failed to evaluate string '%s'", script);
 		}];
 		MTY_Free(script);
 	}

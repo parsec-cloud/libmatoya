@@ -597,7 +597,7 @@ static void app_push_controller_event(MTY_App *ctx, const MTY_ControllerEvent *c
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1button(JNIEnv *env, jobject obj,
-	jint deviceId, jboolean pressed, jint button)
+	jint deviceId, jboolean pressed, jint button, jboolean axis_triggers)
 {
 	MTY_MutexLock(CTX.ctrl_mutex);
 
@@ -632,6 +632,13 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1button(JNIEnv *env, job
 			c->buttons[MTY_CBUTTON_DPAD_LEFT] = pressed && (button == AKEYCODE_DPAD_LEFT || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_DOWN_LEFT);
 			c->buttons[MTY_CBUTTON_DPAD_RIGHT] = pressed && (button == AKEYCODE_DPAD_RIGHT || button == AKEYCODE_DPAD_UP_RIGHT || button == AKEYCODE_DPAD_DOWN_RIGHT);
 			break;
+		}
+	}
+
+	if (!axis_triggers) {
+		switch (button) {
+			case AKEYCODE_BUTTON_L2: c->axes[MTY_CAXIS_TRIGGER_L].value = (pressed ? UINT8_MAX : 0); break;
+			case AKEYCODE_BUTTON_R2: c->axes[MTY_CAXIS_TRIGGER_R].value = (pressed ? UINT8_MAX : 0); break;
 		}
 	}
 

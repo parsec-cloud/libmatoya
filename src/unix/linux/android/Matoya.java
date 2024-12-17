@@ -74,7 +74,7 @@ public class Matoya extends SurfaceView implements
 	native void app_mouse_motion(boolean relative, float x, float y);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_generic_scroll(float x, float y);
-	native void app_button(int deviceId, boolean pressed, int code);
+	native void app_button(int deviceId, boolean pressed, int code, boolean axis_triggers);
 	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY,
 		float lT, float rT, float lTalt, float rTalt);
 	native void app_unhandled_touch(int action, float x, float y, int fingers);
@@ -195,8 +195,7 @@ public class Matoya extends SurfaceView implements
 	// Events
 
 	static boolean isKeyboardEvent(InputEvent event) {
-		return
-			(event.getSource() & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD;
+		return event.getDevice().getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
 	}
 
 	static boolean isMouseEvent(InputEvent event) {
@@ -206,16 +205,24 @@ public class Matoya extends SurfaceView implements
 	}
 
 	static boolean isGamepadEvent(InputEvent event) {
-		return
-			(event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-			(event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
-			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
+		return event.getDevice().getControllerNumber() != 0;
+	}
+
+	static boolean hasAxisTriggers(InputDevice device) {
+		for (InputDevice.MotionRange range : device.getMotionRanges()) {
+			if (range.getAxis() == MotionEvent.AXIS_LTRIGGER || range.getAxis() == MotionEvent.AXIS_RTRIGGER)
+				return true;
+		}
+
+		return false;
 	}
 
 	boolean keyEvent(int keyCode, KeyEvent event, boolean down) {
 		// Button events fire here (sometimes dpad)
-		if (isGamepadEvent(event))
-			app_button(event.getDeviceId(), down, keyCode);
+		if (isGamepadEvent(event)) {
+			boolean axis_triggers = hasAxisTriggers(event.getDevice());
+			app_button(event.getDeviceId(), down, keyCode, axis_triggers);
+		}
 
 		// Prevents back buttons etc. from being generated from mice
 		if (isKeyboardEvent(event) && !isMouseEvent(event)) {

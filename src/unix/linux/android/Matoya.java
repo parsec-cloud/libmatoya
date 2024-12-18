@@ -195,7 +195,14 @@ public class Matoya extends SurfaceView implements
 	// Events
 
 	static boolean isKeyboardEvent(InputEvent event) {
-		return event.getDevice().getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+		InputDevice device = event.getDevice();
+
+		if (device != null)
+			return device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+
+		// If the device is unknown here, we still try our best to process the event
+		return
+			(event.getSource() & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD;
 	}
 
 	static boolean isMouseEvent(InputEvent event) {
@@ -205,7 +212,16 @@ public class Matoya extends SurfaceView implements
 	}
 
 	static boolean isGamepadEvent(InputEvent event) {
-		return event.getDevice().getControllerNumber() != 0;
+		InputDevice device = event.getDevice();
+
+		if (device != null)
+			return device.getControllerNumber() != 0;
+
+		// If the device is unknown here, we still try our best to process the event
+		return
+			(event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+			(event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
 	}
 
 	static boolean hasAxisTriggers(InputDevice device) {

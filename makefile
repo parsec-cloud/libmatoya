@@ -103,10 +103,12 @@ FLAGS = \
 	/wd4100 \
 	/wd4152 \
 	/wd4201 \
-	/nologo
+	/nologo \
+	/arm64EC
 
 LIB_FLAGS = \
-	/nologo
+	/nologo \
+	/machine:arm64ec
 
 !IFDEF DEBUG
 FLAGS = $(FLAGS) /Ob0 /Zi /Oy-
@@ -118,8 +120,8 @@ FLAGS = $(FLAGS) /O2 /GS- /Gw
 CFLAGS = $(INCLUDES) $(DEFS) $(FLAGS)
 
 all: clean-build clear $(SHADERS) $(OBJS)
-	mkdir bin\$(TARGET)\$(ARCH)
-	lib /out:bin\$(TARGET)\$(ARCH)\$(NAME).lib $(LIB_FLAGS) *.obj
+	mkdir bin\$(TARGET)\x64
+	lib /out:bin\$(TARGET)\x64\$(NAME).lib $(LIB_FLAGS) *.obj
 
 clean: clean-build
 	@-del /q $(SHADERS) 2>nul

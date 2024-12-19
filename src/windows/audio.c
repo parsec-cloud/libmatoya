@@ -222,7 +222,7 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 
 		} else {
 			pwfx.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-			pwfx.Format.cbSize = 22;
+			pwfx.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
 
 			pwfx.Samples.wValidBitsPerSample = pwfx.Format.wBitsPerSample;
 			pwfx.dwChannelMask = ctx->cmn.format.channelMask;

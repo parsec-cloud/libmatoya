@@ -487,10 +487,13 @@ public class Matoya extends SurfaceView implements
 	}
 
 	void setCursorBitmap(Bitmap _bm, float _hotX, float _hotY) {
+		if (_bm == null)
+			return;
+
 		final Matoya self = this;
 		final Bitmap bm = _bm;
-		final float hotX = _hotX;
-		final float hotY = _hotY;
+		final float hotX = Math.max(0, Math.min(_bm.getWidth() - 1, _hotX));
+		final float hotY = Math.max(0, Math.min(_bm.getHeight() - 1, _hotY));
 
 		this.activity.runOnUiThread(new Runnable() {
 			@Override

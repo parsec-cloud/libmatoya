@@ -487,19 +487,19 @@ public class Matoya extends SurfaceView implements
 	}
 
 	void setCursorBitmap(Bitmap _bm, float _hotX, float _hotY) {
-		if (_bm == null)
-			return;
-
 		final Matoya self = this;
 		final Bitmap bm = _bm;
-		final float hotX = Math.max(0, Math.min(_bm.getWidth() - 1, _hotX));
-		final float hotY = Math.max(0, Math.min(_bm.getHeight() - 1, _hotY));
+		final float hotX = _hotX;
+		final float hotY = _hotY;
 
 		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
 				if (bm != null) {
-					self.cursor = PointerIcon.create(bm, hotX, hotY);
+					self.cursor = PointerIcon.create(bm, 
+						Math.max(0, Math.min(_bm.getWidth() - 1, hotX)),
+						Math.max(0, Math.min(_bm.getHeight() - 1, hotY))
+					);
 
 				} else {
 					self.cursor = null;
@@ -511,12 +511,18 @@ public class Matoya extends SurfaceView implements
 	}
 
 	public void setCursorRGBA(int[] data, int width, int height, float hotX, float hotY) {
-		Bitmap bm = data == null ? null : Bitmap.createBitmap(data, width, height, Bitmap.Config.ARGB_8888);
+		Bitmap bm = null;
+		if (data != null && data.length > 0 && width > 0 && height > 0)
+			bm = Bitmap.createBitmap(data, width, height, Bitmap.Config.ARGB_8888)
+
 		this.setCursorBitmap(bm, hotX, hotY);
 	}
 
 	public void setCursor(byte[] data, float hotX, float hotY) {
-		Bitmap bm = data == null ? null : BitmapFactory.decodeByteArray(data, 0, data.length, null);
+		Bitmap bm = null;
+		if (data != null && data.length > 0)
+			bm = BitmapFactory.decodeByteArray(data, 0, data.length, null)
+
 		this.setCursorBitmap(bm, hotX, hotY);
 	}
 

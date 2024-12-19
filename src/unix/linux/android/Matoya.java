@@ -513,7 +513,7 @@ public class Matoya extends SurfaceView implements
 	public void setCursorRGBA(int[] data, int width, int height, float hotX, float hotY) {
 		Bitmap bm = null;
 		if (data != null && data.length > 0 && width > 0 && height > 0)
-			bm = Bitmap.createBitmap(data, width, height, Bitmap.Config.ARGB_8888)
+			bm = Bitmap.createBitmap(data, width, height, Bitmap.Config.ARGB_8888);
 
 		this.setCursorBitmap(bm, hotX, hotY);
 	}
@@ -521,7 +521,7 @@ public class Matoya extends SurfaceView implements
 	public void setCursor(byte[] data, float hotX, float hotY) {
 		Bitmap bm = null;
 		if (data != null && data.length > 0)
-			bm = BitmapFactory.decodeByteArray(data, 0, data.length, null)
+			bm = BitmapFactory.decodeByteArray(data, 0, data.length, null);
 
 		this.setCursorBitmap(bm, hotX, hotY);
 	}

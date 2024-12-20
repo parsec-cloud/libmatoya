@@ -1,5 +1,6 @@
 package group.matoya.lib;
 
+import java.util.List;
 import android.app.Activity;
 import android.view.View;
 import android.view.Surface;
@@ -224,8 +225,16 @@ public class Matoya extends SurfaceView implements
 			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
 	}
 
-	static boolean hasAxisTriggers(InputDevice device) {
-		for (InputDevice.MotionRange range : device.getMotionRanges()) {
+	static boolean hasAxisTriggers(InputEvent event) {
+		InputDevice device = event.getDevice();
+		if (device == null)
+			return false;
+
+		List<InputDevice.MotionRange> ranges = device.getMotionRanges();
+		if (ranges == null)
+			return false;
+
+		for (InputDevice.MotionRange range : ranges) {
 			if (range.getAxis() == MotionEvent.AXIS_LTRIGGER || range.getAxis() == MotionEvent.AXIS_RTRIGGER)
 				return true;
 		}
@@ -236,14 +245,14 @@ public class Matoya extends SurfaceView implements
 	boolean keyEvent(int keyCode, KeyEvent event, boolean down) {
 		// Button events fire here (sometimes dpad)
 		if (isGamepadEvent(event)) {
-			boolean axis_triggers = hasAxisTriggers(event.getDevice());
+			boolean axis_triggers = hasAxisTriggers(event);
 			app_button(event.getDeviceId(), down, keyCode, axis_triggers);
 		}
 
 		// Prevents back buttons etc. from being generated from mice
 		if (isKeyboardEvent(event) && !isMouseEvent(event)) {
 			int uc = event.getUnicodeChar();
-			String text = uc != 0 ? String.format("%c", uc) : null;
+			String text = uc != 0 && Character.isDefined(uc) ? String.format("%c", uc) : null;
 			return app_key(down, keyCode, text, event.getMetaState(), event.getDeviceId() <= 0) || isGamepadEvent(event);
 		}
 

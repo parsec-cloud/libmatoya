@@ -4,7 +4,28 @@
 
 #include "matoya.h"
 
+#include <assert.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "jnih.h"
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
+	#include <emmintrin.h>
+
+#elif defined(__aarch64__)
+	#define STBI_NEON
+	#include <arm_neon.h>
+#endif
+
+#define STBI_MALLOC(size)        MTY_Alloc(size, 1)
+#define STBI_REALLOC(ptr, size)  MTY_Realloc(ptr, size, 1)
+#define STBI_FREE(ptr)           MTY_Free(ptr)
+#define STBI_ASSERT(x)
+
+#include "stb_image.h"
 
 void *MTY_CompressImage(MTY_ImageCompression method, const void *input, uint32_t width,
 	uint32_t height, size_t *outputSize)
@@ -12,6 +33,21 @@ void *MTY_CompressImage(MTY_ImageCompression method, const void *input, uint32_t
 	*outputSize = 0;
 
 	return NULL;
+}
+
+void *decompress_image_fallback(const void *input, size_t size, uint32_t *width, uint32_t *height)
+{
+	int32_t channels = 0;
+	void *output = stbi_load_from_memory(input, (int32_t) size, (int32_t *) width, (int32_t *) height, &channels, 4);
+
+	if (!output) {
+		if (stbi__g_failure_reason)
+			MTY_Log("%s", stbi__g_failure_reason);
+
+		MTY_Log("'stbi_load_from_memory' failed");
+	}
+
+	return output;
 }
 
 void *MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint32_t *height)
@@ -24,6 +60,10 @@ void *MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint3
 	jbyteArray jinput = mty_jni_dup(env, input, size);
 	jobject source = mty_jni_static_obj(env, "android/graphics/ImageDecoder", "createSource",
 		"([B)Landroid/graphics/ImageDecoder$Source;", jinput);
+	if (source == NULL) {
+		image = decompress_image_fallback(input, size, width, height);
+		goto except;
+	}
 	if (!mty_jni_ok(env))
 		goto except;
 

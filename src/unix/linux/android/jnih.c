@@ -183,10 +183,16 @@ jobject mty_jni_new(JNIEnv *env, const char *name, const char *sig, ...)
 	va_list args;
 	va_start(args, sig);
 
+	jobject obj = NULL;
 	jclass cls = (*env)->FindClass(env, name);
+	if (cls == NULL)
+		goto finally;
 	jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", sig);
-	jobject obj = (*env)->NewObjectV(env, cls, mid, args);
+	if (mid == NULL)
+		goto finally;
+	obj = (*env)->NewObjectV(env, cls, mid, args);
 
+	finally:
 	va_end(args);
 
 	mty_jni_free(env, cls);
@@ -205,10 +211,16 @@ jobject mty_jni_static_obj(JNIEnv *env, const char *name, const char *func, cons
 	va_list args;
 	va_start(args, sig);
 
+	jobject obj = NULL;
 	jclass cls = (*env)->FindClass(env, name);
+	if (cls == NULL)
+		goto finally;
 	jmethodID mid = (*env)->GetStaticMethodID(env, cls, func, sig);
-	jobject obj = (*env)->CallStaticObjectMethodV(env, cls, mid, args);
+	if (mid == NULL)
+		goto finally;
+	obj = (*env)->CallStaticObjectMethodV(env, cls, mid, args);
 
+	finally:
 	va_end(args);
 
 	mty_jni_free(env, cls);

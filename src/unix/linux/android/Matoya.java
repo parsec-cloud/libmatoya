@@ -1,5 +1,6 @@
 package group.matoya.lib;
 
+import java.util.List;
 import android.app.Activity;
 import android.view.View;
 import android.view.Surface;
@@ -207,7 +208,14 @@ public class Matoya extends SurfaceView implements
 	// Events
 
 	static boolean isKeyboardEvent(InputEvent event) {
-		return event.getDevice().getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+		InputDevice device = event.getDevice();
+
+		if (device != null)
+			return device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+
+		// If the device is unknown here, we still try our best to process the event
+		return
+			(event.getSource() & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD;
 	}
 
 	static boolean isMouseEvent(InputEvent event) {
@@ -217,11 +225,28 @@ public class Matoya extends SurfaceView implements
 	}
 
 	static boolean isGamepadEvent(InputEvent event) {
-		return event.getDevice().getControllerNumber() != 0;
+		InputDevice device = event.getDevice();
+
+		if (device != null)
+			return device.getControllerNumber() != 0;
+
+		// If the device is unknown here, we still try our best to process the event
+		return
+			(event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+			(event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
 	}
 
-	static boolean hasAxisTriggers(InputDevice device) {
-		for (InputDevice.MotionRange range : device.getMotionRanges()) {
+	static boolean hasAxisTriggers(InputEvent event) {
+		InputDevice device = event.getDevice();
+		if (device == null)
+			return false;
+
+		List<InputDevice.MotionRange> ranges = device.getMotionRanges();
+		if (ranges == null)
+			return false;
+
+		for (InputDevice.MotionRange range : ranges) {
 			if (range.getAxis() == MotionEvent.AXIS_LTRIGGER || range.getAxis() == MotionEvent.AXIS_RTRIGGER)
 				return true;
 		}
@@ -232,14 +257,14 @@ public class Matoya extends SurfaceView implements
 	boolean keyEvent(int keyCode, KeyEvent event, boolean down) {
 		// Button events fire here (sometimes dpad)
 		if (isGamepadEvent(event)) {
-			boolean axis_triggers = hasAxisTriggers(event.getDevice());
+			boolean axis_triggers = hasAxisTriggers(event);
 			app_button(event.getDeviceId(), down, keyCode, axis_triggers);
 		}
 
 		// Prevents back buttons etc. from being generated from mice
 		if (isKeyboardEvent(event) && !isMouseEvent(event)) {
 			int uc = event.getUnicodeChar();
-			String text = uc != 0 ? String.format("%c", uc) : null;
+			String text = uc != 0 && Character.isDefined(uc) ? String.format("%c", uc) : null;
 			return app_key(down, keyCode, text, event.getMetaState(), event.getDeviceId() <= 0) || isGamepadEvent(event);
 		}
 
@@ -492,7 +517,10 @@ public class Matoya extends SurfaceView implements
 			@Override
 			public void run() {
 				if (bm != null) {
-					self.cursor = PointerIcon.create(bm, hotX, hotY);
+					self.cursor = PointerIcon.create(bm, 
+						Math.max(0, Math.min(_bm.getWidth() - 1, hotX)),
+						Math.max(0, Math.min(_bm.getHeight() - 1, hotY))
+					);
 
 				} else {
 					self.cursor = null;
@@ -504,12 +532,18 @@ public class Matoya extends SurfaceView implements
 	}
 
 	public void setCursorRGBA(int[] data, int width, int height, float hotX, float hotY) {
-		Bitmap bm = data == null ? null : Bitmap.createBitmap(data, width, height, Bitmap.Config.ARGB_8888);
+		Bitmap bm = null;
+		if (data != null && data.length > 0 && width > 0 && height > 0)
+			bm = Bitmap.createBitmap(data, width, height, Bitmap.Config.ARGB_8888);
+
 		this.setCursorBitmap(bm, hotX, hotY);
 	}
 
 	public void setCursor(byte[] data, float hotX, float hotY) {
-		Bitmap bm = data == null ? null : BitmapFactory.decodeByteArray(data, 0, data.length, null);
+		Bitmap bm = null;
+		if (data != null && data.length > 0)
+			bm = BitmapFactory.decodeByteArray(data, 0, data.length, null);
+
 		this.setCursorBitmap(bm, hotX, hotY);
 	}
 

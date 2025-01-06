@@ -1,4 +1,4 @@
-ARCH = %%Platform%%
+ARCH = %%VSCMD_ARG_TGT_ARCH%%
 
 BIN = \
 	mty.exe

@@ -21,12 +21,7 @@ void *MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint3
 	uint32_t *image = NULL;
 
 	// Compressed input
-	jbyteArray jinput = mty_jni_dup(env, input, size);
-	jobject buffer = mty_jni_static_obj(env, "java/nio/ByteBuffer", "wrap",
-		"([B)Ljava/nio/ByteBuffer;", jinput);
-	if (!mty_jni_ok(env))
-		goto except;
-
+	jobject buffer = mty_jni_wrap(env, (void *) input, size);
 	jobject source = mty_jni_static_obj(env, "android/graphics/ImageDecoder", "createSource",
 		"(Ljava/nio/ByteBuffer;)Landroid/graphics/ImageDecoder$Source;", buffer);
 	if (!mty_jni_ok(env))
@@ -69,7 +64,7 @@ void *MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint3
 
 	except:
 
-	mty_jni_free(env, jinput);
+	mty_jni_free(env, buffer);
 
 	return image;
 }

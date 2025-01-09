@@ -1,5 +1,5 @@
 TARGET = windows
-ARCH = %%VSCMD_ARG_TGT_ARCH%%
+ARCH = $(VSCMD_ARG_TGT_ARCH)
 NAME = matoya
 
 .SUFFIXES : .ps .vs .fragvk .vertvk

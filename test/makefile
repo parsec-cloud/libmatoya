@@ -1,4 +1,4 @@
-ARCH = %%VSCMD_ARG_TGT_ARCH%%
+ARCH = $(VSCMD_ARG_TGT_ARCH)
 
 BIN = \
 	mty.exe

@@ -1988,6 +1988,10 @@ MTY_Size MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window)
 		return (MTY_Size) {0};
 
 	NSSize size = ctx->nsw.screen.frame.size;
+	if (@available(macOS 12.0, *)) {
+		CGFloat notch_height = ctx->nsw.screen.safeAreaInsets.top;
+		size.height -= notch_height;
+	}
 	CGFloat scale = mty_screen_scale(ctx->nsw.screen);
 
 	return (MTY_Size) {

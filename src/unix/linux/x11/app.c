@@ -11,6 +11,7 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
+#include <dlfcn.h>
 
 #include <unistd.h>
 
@@ -624,12 +625,79 @@ static Cursor app_create_empty_cursor(Display *display)
 	return cursor;
 }
 
+static void app_configure_xwayland()
+{
+	typedef void *GSettings;
+	typedef void *GVariant;
+
+	typedef GSettings *(*g_settings_new_func)(const char *);
+	typedef bool (*g_settings_set_boolean_func)(GSettings *, const char *, bool);
+	typedef bool (*g_settings_set_value_func)(GSettings *, const char *, GVariant *);
+	typedef GVariant *(*g_variant_new_strv_func)(const char **, size_t);
+	typedef void (*g_object_unref_func)(void *);
+
+	GSettings *settings = NULL;
+	GVariant *value = NULL;
+
+	void *handle = dlopen("libgio-2.0.so", RTLD_LAZY);
+    if (!handle) {
+        MTY_Log("Failed to load libgio-2.0.so: %s", dlerror());
+        goto end;
+    }
+
+	#define G_LOAD(name) \
+		name##_func name = dlsym(handle, #name); \
+		if (name == NULL) { MTY_Log("Failed to resolve symbol: " #name); goto end; }
+
+	G_LOAD(g_settings_new);
+	G_LOAD(g_settings_set_boolean);
+	G_LOAD(g_settings_set_value);
+	G_LOAD(g_variant_new_strv);
+	G_LOAD(g_object_unref);
+
+	#undef G_LOAD
+
+    settings = g_settings_new("org.gnome.mutter.wayland");
+    if (!settings) {
+        MTY_Log("Failed to create GSettings object: org.gnome.mutter.wayland");
+        goto end;
+    }
+
+    if (!g_settings_set_boolean(settings, "xwayland-allow-grabs", true)) {
+        MTY_Log("Failed to set 'xwayland-allow-grabs' to true");
+		goto end;
+    }
+
+	const char *rules[] = {"parsecd", NULL};
+    value = g_variant_new_strv(rules, -1);
+    if (!value) {
+        MTY_Log("Failed to create GVariant for 'xwayland-grab-access-rules'");
+		goto end;
+    }
+
+	if (!g_settings_set_value(settings, "xwayland-grab-access-rules", value)) {
+        MTY_Log("Failed to set 'xwayland-grab-access-rules'");
+		goto end;
+    }
+
+	end:
+
+	if (value != NULL)
+	    g_object_unref(value);
+	if (settings != NULL)
+	    g_object_unref(settings);
+	if (handle != NULL)
+	    dlclose(handle);
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFlag flags, MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaque)
 {
 	if (!libX11_global_init())
 		return NULL;
 
 	XInitThreads();
+
+    app_configure_xwayland();
 
 	bool r = true;
 	MTY_App *ctx = MTY_Alloc(1, sizeof(MTY_App));

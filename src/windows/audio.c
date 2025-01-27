@@ -9,30 +9,31 @@
 #include <windows.h>
 
 #include <initguid.h>
-DEFINE_GUID(CLSID_MMDeviceEnumerator,  0xBCDE0395, 0xE52F, 0x467C, 0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E);
-DEFINE_GUID(IID_IMMDeviceEnumerator,   0xA95664D2, 0x9614, 0x4F35, 0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6);
-DEFINE_GUID(IID_IAudioClient,          0x1CB9AD4C, 0xDBFA, 0x4C32, 0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2);
-DEFINE_GUID(IID_IAudioRenderClient,    0xF294ACFC, 0x3146, 0x4483, 0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60, 0xE2);
-DEFINE_GUID(IID_IMMNotificationClient, 0x7991EEC9, 0x7E89, 0x4D85, 0x83, 0x90, 0x6C, 0x70, 0x3C, 0xEC, 0x60, 0xC0);
+DEFINE_GUID(CLSID_MMDeviceEnumerator,            0xBCDE0395, 0xE52F, 0x467C, 0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E);
+DEFINE_GUID(IID_IMMDeviceEnumerator,             0xA95664D2, 0x9614, 0x4F35, 0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6);
+DEFINE_GUID(IID_IAudioClient,                    0x1CB9AD4C, 0xDBFA, 0x4C32, 0xB1, 0x78, 0xC2, 0xF5, 0x68, 0xA7, 0x03, 0xB2);
+DEFINE_GUID(IID_IAudioRenderClient,              0xF294ACFC, 0x3146, 0x4483, 0xA7, 0xBF, 0xAD, 0xDC, 0xA7, 0xC2, 0x60, 0xE2);
+DEFINE_GUID(IID_IMMNotificationClient,           0x7991EEC9, 0x7E89, 0x4D85, 0x83, 0x90, 0x6C, 0x70, 0x3C, 0xEC, 0x60, 0xC0);
+DEFINE_GUID(OWN_KSDATAFORMAT_SUBTYPE_PCM,        0x00000001, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
+DEFINE_GUID(OWN_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, 0x00000003, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
 
 #define COBJMACROS
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 
-#define AUDIO_SAMPLE_SIZE sizeof(int16_t)
+#include "audio-common.h"
+
 #define AUDIO_BUFFER_SIZE ((1 * 1000 * 1000 * 1000) / 100) // 1 second
 
 #define AUDIO_REINIT_MAX_TRIES   5
 #define AUDIO_REINIT_DELAY_MS  100
 
 struct MTY_Audio {
+	struct audio_common cmn;
 	bool playing;
 	bool notification_init;
 	bool fallback;
-	uint32_t sample_rate;
-	uint32_t min_buffer;
-	uint32_t max_buffer;
-	uint8_t channels;
+	WORD bytes_per_frame;
 	WCHAR *device_id;
 	UINT32 buffer_size;
 	IMMDeviceEnumerator *enumerator;
@@ -181,7 +182,7 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	HRESULT e = S_OK;
 	IMMDevice *device = NULL;
 
-	if (ctx->device_id) {
+	if (ctx->device_id && ctx->device_id[0]) {
 		e = IMMDeviceEnumerator_GetDevice(ctx->enumerator, ctx->device_id, &device);
 
 		if (e != S_OK && !ctx->fallback) {
@@ -206,18 +207,28 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 
 	WAVEFORMATEXTENSIBLE pwfx = {
 		.Format.wFormatTag = WAVE_FORMAT_PCM,
-		.Format.nChannels = ctx->channels,
-		.Format.nSamplesPerSec = ctx->sample_rate,
-		.Format.wBitsPerSample = AUDIO_SAMPLE_SIZE * 8,
-		.Format.nBlockAlign = ctx->channels * AUDIO_SAMPLE_SIZE,
-		.Format.nAvgBytesPerSec = ctx->sample_rate * ctx->channels * AUDIO_SAMPLE_SIZE,
+		.Format.nChannels = (WORD) ctx->cmn.format.channels,
+		.Format.nSamplesPerSec = ctx->cmn.format.sampleRate,
+		.Format.wBitsPerSample = (WORD) ctx->cmn.computed.sample_size * 8,
+		.Format.nBlockAlign = (WORD) ctx->cmn.computed.frame_size,
+		.Format.nAvgBytesPerSec = (DWORD) ctx->cmn.computed.buffer_size,
 	};
 
-	// We must query extended data for greater than two channels
-	if (ctx->channels > 2) {
-		e = audio_get_extended_format(device, &pwfx);
-		if (e != S_OK)
-			goto except;
+	if (ctx->cmn.format.channels > 2) {
+		if (ctx->cmn.format.channelMask == 0) {
+			e = audio_get_extended_format(device, &pwfx);
+			if (e != S_OK)
+				goto except;
+
+		} else {
+			pwfx.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+			pwfx.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+
+			pwfx.Samples.wValidBitsPerSample = pwfx.Format.wBitsPerSample;
+			pwfx.dwChannelMask = ctx->cmn.format.channelMask;
+			pwfx.SubFormat = ctx->cmn.format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
+				? OWN_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT : OWN_KSDATAFORMAT_SUBTYPE_PCM;
+		}
 	}
 
 	e = IAudioClient_Initialize(ctx->client, AUDCLNT_SHAREMODE_SHARED,
@@ -228,6 +239,8 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 		MTY_Log("'IAudioClient_Initialize' failed with HRESULT 0x%X", e);
 		goto except;
 	}
+
+	ctx->bytes_per_frame = pwfx.Format.nBlockAlign;
 
 	e = IAudioClient_GetBufferSize(ctx->client, &ctx->buffer_size);
 	if (e != S_OK) {
@@ -252,17 +265,12 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	return e;
 }
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	const char *deviceID, bool fallback)
+MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
+	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->sample_rate = sampleRate;
-	ctx->channels = channels;
+	audio_common_init(&ctx->cmn, format, minBuffer, maxBuffer);
 	ctx->fallback = fallback;
-
-	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
-	ctx->min_buffer = minBuffer * frames_per_ms;
-	ctx->max_buffer = maxBuffer * frames_per_ms;
 
 	if (deviceID)
 		ctx->device_id = MTY_MultiToWideD(deviceID);
@@ -422,7 +430,7 @@ uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 {
 	uint32_t queued = 0;
 	audio_get_queued_frames(ctx, &queued);
-	return lrint((float) queued / ((float) ctx->sample_rate / 1000.0f));
+	return lrint((float) queued / ((float) ctx->cmn.format.sampleRate / 1000.0f));
 }
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
@@ -445,7 +453,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	}
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
-	if (ctx->playing && (queued > ctx->max_buffer || queued == 0))
+	if (ctx->playing && (queued > ctx->cmn.computed.max_buffer || queued == 0))
 		MTY_AudioReset(ctx);
 
 	if (ctx->buffer_size - queued >= count) {
@@ -453,12 +461,12 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		e = IAudioRenderClient_GetBuffer(ctx->render, count, &buffer);
 
 		if (e == S_OK) {
-			memcpy(buffer, frames, count * ctx->channels * AUDIO_SAMPLE_SIZE);
+			memcpy(buffer, frames, count * ctx->bytes_per_frame);
 			IAudioRenderClient_ReleaseBuffer(ctx->render, count, 0);
 		}
 
 		// Begin playing again when the minimum buffer has been reached
-		if (!ctx->playing && queued + count >= ctx->min_buffer)
+		if (!ctx->playing && queued + count >= ctx->cmn.computed.min_buffer)
 			audio_play(ctx);
 	}
 }

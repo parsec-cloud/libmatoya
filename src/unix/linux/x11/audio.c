@@ -9,36 +9,24 @@
 
 #include "dl/libasound.h"
 
-#define AUDIO_SAMPLE_SIZE sizeof(int16_t)
-
-#define AUDIO_BUF_SIZE(ctx) \
-	((ctx)->sample_rate * (ctx)->channels * AUDIO_SAMPLE_SIZE)
+#include "audio-common.h"
 
 struct MTY_Audio {
+	struct audio_common cmn;
 	snd_pcm_t *pcm;
-
 	bool playing;
-	uint32_t sample_rate;
-	uint32_t min_buffer;
-	uint32_t max_buffer;
-	uint8_t channels;
 	uint8_t *buf;
 	size_t pos;
 };
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
-	const char *deviceID, bool fallback)
+MTY_Audio *MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer,
+	uint32_t maxBuffer, const char *deviceID, bool fallback)
 {
 	if (!libasound_global_init())
 		return NULL;
 
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
-	ctx->sample_rate = sampleRate;
-	ctx->channels = channels;
-
-	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
-	ctx->min_buffer = minBuffer * frames_per_ms;
-	ctx->max_buffer = maxBuffer * frames_per_ms;
+	audio_common_init(&ctx->cmn, format, minBuffer, maxBuffer);
 
 	bool r = true;
 
@@ -54,13 +42,19 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 	snd_pcm_hw_params_any(ctx->pcm, params);
 
 	snd_pcm_hw_params_set_access(ctx->pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-	snd_pcm_hw_params_set_format(ctx->pcm, params, SND_PCM_FORMAT_S16);
-	snd_pcm_hw_params_set_channels(ctx->pcm, params, channels);
-	snd_pcm_hw_params_set_rate(ctx->pcm, params, sampleRate, 0);
+	snd_pcm_hw_params_set_format(ctx->pcm, params, format.sampleFormat == MTY_AUDIO_SAMPLE_FORMAT_FLOAT
+		? SND_PCM_FORMAT_FLOAT : SND_PCM_FORMAT_S16);
+	snd_pcm_hw_params_set_channels(ctx->pcm, params, format.channels);
+	// XXX: Channel config for ALSA can't be specified via the opaque `format.channelMask`
+	// Instead, an explicit channel mapping array is required. To be implemented in the future.
+	// See `snd_pcm_set_chmap`:
+	// 1. https://www.alsa-project.org/alsa-doc/alsa-lib/group___p_c_m.html#ga60ee7d2c2555e21dbc844a1b73839085
+	// 2. https://gist.github.com/raydudu/5590a196b9446c709c58a03eff1f38bc
+	snd_pcm_hw_params_set_rate(ctx->pcm, params, format.sampleRate, 0);
 	snd_pcm_hw_params(ctx->pcm, params);
 	snd_pcm_nonblock(ctx->pcm, 1);
 
-	ctx->buf = MTY_Alloc(AUDIO_BUF_SIZE(ctx), 1);
+	ctx->buf = MTY_Alloc(ctx->cmn.computed.buffer_size, 1);
 
 	except:
 
@@ -87,7 +81,7 @@ void MTY_AudioDestroy(MTY_Audio **audio)
 
 static uint32_t audio_get_queued_frames(MTY_Audio *ctx)
 {
-	uint32_t queued = ctx->pos / (ctx->channels * AUDIO_SAMPLE_SIZE);
+	uint32_t queued = ctx->pos / ctx->cmn.computed.frame_size;
 
 	if (ctx->playing) {
 		snd_pcm_status_t *status = NULL;
@@ -121,30 +115,30 @@ void MTY_AudioReset(MTY_Audio *ctx)
 
 uint32_t MTY_AudioGetQueued(MTY_Audio *ctx)
 {
-	return lrint((float) audio_get_queued_frames(ctx) / ((float) ctx->sample_rate / 1000.0f));
+	return lrint((float) audio_get_queued_frames(ctx) / ((float) ctx->cmn.format.sampleRate / 1000.0f));
 }
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	size_t size = count * ctx->channels * AUDIO_SAMPLE_SIZE;
+	size_t size = count * ctx->cmn.computed.frame_size;
 
 	uint32_t queued = audio_get_queued_frames(ctx);
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
-	if (ctx->playing && (queued > ctx->max_buffer || queued == 0))
+	if (ctx->playing && (queued > ctx->cmn.computed.max_buffer || queued == 0))
 		MTY_AudioReset(ctx);
 
-	if (ctx->pos + size <= AUDIO_BUF_SIZE(ctx)) {
-		memcpy(ctx->buf + ctx->pos, frames, count * ctx->channels * AUDIO_SAMPLE_SIZE);
+	if (ctx->pos + size <= ctx->cmn.computed.buffer_size) {
+		memcpy(ctx->buf + ctx->pos, frames, count * ctx->cmn.computed.frame_size);
 		ctx->pos += size;
 	}
 
 	// Begin playing again when the minimum buffer has been reached
-	if (!ctx->playing && queued + count >= ctx->min_buffer)
+	if (!ctx->playing && queued + count >= ctx->cmn.computed.min_buffer)
 		audio_play(ctx);
 
 	if (ctx->playing) {
-		int32_t e = snd_pcm_writei(ctx->pcm, ctx->buf, ctx->pos / (ctx->channels * AUDIO_SAMPLE_SIZE));
+		int32_t e = snd_pcm_writei(ctx->pcm, ctx->buf, ctx->pos / ctx->cmn.computed.frame_size);
 
 		if (e >= 0) {
 			ctx->pos = 0;

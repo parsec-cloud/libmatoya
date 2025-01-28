@@ -700,16 +700,21 @@ static MTY_SO *LIBXCURSOR_SO;
 static MTY_SO *LIBGL_SO;
 static bool LIBX11_INIT;
 
-static void __attribute__((destructor)) libX11_global_destroy(void)
+static void libX11_global_destroy_lockfree(void)
 {
-	MTY_GlobalLock(&LIBX11_LOCK);
-
 	MTY_SOUnload(&LIBGL_SO);
 	MTY_SOUnload(&LIBXCURSOR_SO);
 	MTY_SOUnload(&LIBXI_SO);
 	MTY_SOUnload(&LIBXFIXES_SO);
 	MTY_SOUnload(&LIBX11_SO);
 	LIBX11_INIT = false;
+}
+
+static void __attribute__((destructor)) libX11_global_destroy(void)
+{
+	MTY_GlobalLock(&LIBX11_LOCK);
+
+	libX11_global_destroy_lockfree();
 
 	MTY_GlobalUnlock(&LIBX11_LOCK);
 }
@@ -819,7 +824,7 @@ static bool libX11_global_init(void)
 		except:
 
 		if (!r)
-			libX11_global_destroy();
+			libX11_global_destroy_lockfree();
 
 		LIBX11_INIT = r;
 	}

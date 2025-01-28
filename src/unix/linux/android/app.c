@@ -789,8 +789,11 @@ void MTY_AppSendNotification(MTY_App *ctx, const char *title, const char *msg)
 char *MTY_AppGetClipboard(MTY_App *ctx)
 {
 	JNIEnv *env = MTY_GetJNIEnv();
+	jstring str = mty_jni_obj(env, ctx->obj,  "getClipboard", "()Ljava/lang/String;");
+	if (str == NULL)
+		return NULL;
 
-	return mty_jni_cstrmov(env, mty_jni_obj(env, ctx->obj,  "getClipboard", "()Ljava/lang/String;"));
+	return mty_jni_cstrmov(env, str);
 }
 
 void MTY_AppSetClipboard(MTY_App *ctx, const char *text)

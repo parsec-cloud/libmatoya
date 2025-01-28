@@ -163,8 +163,15 @@ static bool libgtk_global_init(void) {
 		LIBGLIB_SO = MTY_SOLoad("libglib-2.0.so");
 		LIBDGK_SO = MTY_SOLoad("libgdk-3.so");
 		LIBGTK_SO = MTY_SOLoad("libgtk-3.so");
-		LIBJAVASCRIPT_SO = MTY_SOLoad("libjavascriptcoregtk-4.1.so");
-		LIBWEBKIT2_SO = MTY_SOLoad("libwebkit2gtk-4.1.so");
+
+		LIBJAVASCRIPT_SO = MTY_SOLoad("libjavascriptcoregtk-4.0.so");
+		if (LIBJAVASCRIPT_SO == NULL)
+			LIBJAVASCRIPT_SO = MTY_SOLoad("libjavascriptcoregtk-4.1.so");
+
+		LIBWEBKIT2_SO = MTY_SOLoad("libwebkit2gtk-4.0.so");
+		if (LIBWEBKIT2_SO == NULL)
+			LIBWEBKIT2_SO = MTY_SOLoad("libwebkit2gtk-4.1.so");
+
 		if (!LIBGOBJECT_SO || !LIBGLIB_SO || !LIBDGK_SO || !LIBGTK_SO || !LIBJAVASCRIPT_SO || !LIBWEBKIT2_SO) {
 			r = false;
 			goto except;

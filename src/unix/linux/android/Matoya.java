@@ -1,5 +1,6 @@
 package group.matoya.lib;
 
+import java.util.List;
 import android.app.Activity;
 import android.view.View;
 import android.view.Surface;
@@ -74,7 +75,7 @@ public class Matoya extends SurfaceView implements
 	native void app_mouse_motion(boolean relative, float x, float y);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_generic_scroll(float x, float y);
-	native void app_button(int deviceId, boolean pressed, int code);
+	native void app_button(int deviceId, boolean pressed, int code, boolean axis_triggers);
 	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY,
 		float lT, float rT, float lTalt, float rTalt);
 	native void app_unhandled_touch(int action, float x, float y, int fingers);
@@ -195,6 +196,12 @@ public class Matoya extends SurfaceView implements
 	// Events
 
 	static boolean isKeyboardEvent(InputEvent event) {
+		InputDevice device = event.getDevice();
+
+		if (device != null)
+			return device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC;
+
+		// If the device is unknown here, we still try our best to process the event
 		return
 			(event.getSource() & InputDevice.SOURCE_KEYBOARD) == InputDevice.SOURCE_KEYBOARD;
 	}
@@ -206,30 +213,47 @@ public class Matoya extends SurfaceView implements
 	}
 
 	static boolean isGamepadEvent(InputEvent event) {
+		InputDevice device = event.getDevice();
+
+		if (device != null)
+			return device.getControllerNumber() != 0;
+
+		// If the device is unknown here, we still try our best to process the event
 		return
 			(event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
 			(event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
 			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
 	}
 
-	boolean keyEvent(int keyCode, KeyEvent event, boolean down) {
-		// For mixed source InputDevice, we prefer Keyboard event handling to Gamepad event handling
-		if (isKeyboardEvent(event)) {
-			int uc = event.getUnicodeChar();
+	static boolean hasAxisTriggers(InputEvent event) {
+		InputDevice device = event.getDevice();
+		if (device == null)
+			return false;
 
-			return app_key(down, keyCode, uc != 0 ? String.format("%c", uc) : null,
-				event.getMetaState(), event.getDeviceId() <= 0);
+		List<InputDevice.MotionRange> ranges = device.getMotionRanges();
+		if (ranges == null)
+			return false;
+
+		for (InputDevice.MotionRange range : ranges) {
+			if (range.getAxis() == MotionEvent.AXIS_LTRIGGER || range.getAxis() == MotionEvent.AXIS_RTRIGGER)
+				return true;
 		}
+
+		return false;
+	}
+
+	boolean keyEvent(int keyCode, KeyEvent event, boolean down) {
 		// Button events fire here (sometimes dpad)
 		if (isGamepadEvent(event)) {
-			app_button(event.getDeviceId(), down, keyCode);
+			boolean axis_triggers = hasAxisTriggers(event);
+			app_button(event.getDeviceId(), down, keyCode, axis_triggers);
+		}
 
 		// Prevents back buttons etc. from being generated from mice
-		} else if (!isMouseEvent(event)) {
+		if (isKeyboardEvent(event) && !isMouseEvent(event)) {
 			int uc = event.getUnicodeChar();
-
-			return app_key(down, keyCode, uc != 0 ? String.format("%c", uc) : null,
-				event.getMetaState(), event.getDeviceId() <= 0);
+			String text = uc != 0 && Character.isDefined(uc) ? String.format("%c", uc) : null;
+			return app_key(down, keyCode, text, event.getMetaState(), event.getDeviceId() <= 0) || isGamepadEvent(event);
 		}
 
 		return true;
@@ -481,7 +505,10 @@ public class Matoya extends SurfaceView implements
 			@Override
 			public void run() {
 				if (bm != null) {
-					self.cursor = PointerIcon.create(bm, hotX, hotY);
+					self.cursor = PointerIcon.create(bm, 
+						Math.max(0, Math.min(_bm.getWidth() - 1, hotX)),
+						Math.max(0, Math.min(_bm.getHeight() - 1, hotY))
+					);
 
 				} else {
 					self.cursor = null;
@@ -493,12 +520,18 @@ public class Matoya extends SurfaceView implements
 	}
 
 	public void setCursorRGBA(int[] data, int width, int height, float hotX, float hotY) {
-		Bitmap bm = data == null ? null : Bitmap.createBitmap(data, width, height, Bitmap.Config.ARGB_8888);
+		Bitmap bm = null;
+		if (data != null && data.length > 0 && width > 0 && height > 0)
+			bm = Bitmap.createBitmap(data, width, height, Bitmap.Config.ARGB_8888);
+
 		this.setCursorBitmap(bm, hotX, hotY);
 	}
 
 	public void setCursor(byte[] data, float hotX, float hotY) {
-		Bitmap bm = data == null ? null : BitmapFactory.decodeByteArray(data, 0, data.length, null);
+		Bitmap bm = null;
+		if (data != null && data.length > 0)
+			bm = BitmapFactory.decodeByteArray(data, 0, data.length, null);
+
 		this.setCursorBitmap(bm, hotX, hotY);
 	}
 

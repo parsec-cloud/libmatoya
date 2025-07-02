@@ -68,6 +68,9 @@ uint32_t MTY_CRC32(uint32_t crc, const void *buf, size_t size)
 
 uint32_t MTY_DJB2(const char *str)
 {
+	if (!str)
+		return 0;
+
 	uint32_t hash = 5381;
 
 	while (*str)

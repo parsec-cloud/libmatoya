@@ -258,6 +258,7 @@ static void app_appFunc(id self, SEL _cmd, NSTimer *timer)
 
 	app_poll_clipboard(ctx);
 	app_fix_mouse_buttons(ctx);
+	app_apply_keyboard_state(ctx);
 
 	ctx->cont = ctx->app_func(ctx->opaque);
 

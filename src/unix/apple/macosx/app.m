@@ -129,13 +129,11 @@ static void app_apply_cursor(MTY_App *ctx)
 
 static void app_apply_keyboard_state(MTY_App *ctx)
 {
-	if (ctx->grab_kb && ctx->detach == MTY_DETACH_STATE_NONE) {
+	if (!ctx->kb_mode && ctx->grab_kb && ctx->detach == MTY_DETACH_STATE_NONE && MTY_AppIsActive(ctx)) {
 		// Requires "Enable access for assistive devices" checkbox is checked
 		// in the Universal Access preference pane
-		if (!ctx->kb_mode) {
-			ctx->kb_mode = PushSymbolicHotKeyMode(kHIHotKeyModeAllDisabled);
-			CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyDisable);
-		}
+		ctx->kb_mode = PushSymbolicHotKeyMode(kHIHotKeyModeAllDisabled);
+		CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyDisable);
 
 	} else if (ctx->kb_mode) {
 		CGSSetGlobalHotKeyOperatingMode(CGSMainConnectionID(), CGSGlobalHotKeyEnable);
@@ -260,6 +258,7 @@ static void app_appFunc(id self, SEL _cmd, NSTimer *timer)
 
 	app_poll_clipboard(ctx);
 	app_fix_mouse_buttons(ctx);
+	app_apply_keyboard_state(ctx);
 
 	ctx->cont = ctx->app_func(ctx->opaque);
 

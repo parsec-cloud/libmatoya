@@ -1557,7 +1557,6 @@ void MTY_AppSetDetachState(MTY_App *ctx, MTY_DetachState state)
 
 	app_apply_cursor(ctx);
 	app_apply_relative(ctx);
-	app_apply_keyboard_state(ctx);
 }
 
 bool MTY_AppIsMouseGrabbed(MTY_App *ctx)
@@ -1664,7 +1663,6 @@ bool MTY_AppGrabKeyboard(MTY_App *ctx, bool grab)
 		return false;
 
 	ctx->grab_kb = grab;
-	app_apply_keyboard_state(ctx);
 
 	return ctx->grab_kb;
 }

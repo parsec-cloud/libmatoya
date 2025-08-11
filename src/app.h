@@ -22,6 +22,8 @@ struct window_common {
 	struct gfx *gfx[APP_GFX_LAYERS];
 	struct gfx_ui *gfx_ui;
 	struct gfx_ctx *gfx_ctx;
+
+	bool device_changed;
 };
 
 // App

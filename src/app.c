@@ -73,6 +73,7 @@ static void gfx_set_device(struct window_common *cmn, MTY_Device *device)
 		GFX_UI_API[cmn->api].destroy(&cmn->gfx_ui, cmn->device);
 
 		cmn->device = device;
+		cmn->device_changed = true;
 	}
 }
 
@@ -96,8 +97,12 @@ static bool gfx_begin_ui(struct window_common *cmn, MTY_Device *device)
 	if (!cmn->gfx_ui)
 		cmn->gfx_ui = GFX_UI_API[cmn->api].create(device);
 
-	if (!cmn->ui_textures)
+	if (!cmn->gfx_ui) {
+		MTY_HashDestroy(&cmn->ui_textures, NULL);
+
+	} else 	if (!cmn->ui_textures) {
 		cmn->ui_textures = MTY_HashCreate(0);
+	}
 
 	return cmn->gfx_ui != NULL;
 }
@@ -222,18 +227,28 @@ bool MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const 
 		return false;
 
 	MTY_Device *device = gfx_ctx_get_device(cmn);
+	if (!device)
+		return false;
 
 	bool r = gfx_begin_ui(cmn, device);
 
 	if (r) {
-		void *texture = MTY_HashPopInt(cmn->ui_textures, id);
-		GFX_UI_API[cmn->api].destroy_texture(cmn->gfx_ui, &texture, device);
+		void *texture = MTY_HashGetInt(cmn->ui_textures, id);
 
-		if (rgba)
-			texture = GFX_UI_API[cmn->api].create_texture(cmn->gfx_ui, device, rgba, width, height);
+		if (rgba) {
+			void *texture_new = GFX_UI_API[cmn->api].create_texture(cmn->gfx_ui, device, rgba, width, height);
 
-		if (texture)
-			MTY_HashSetInt(cmn->ui_textures, id, texture);
+			if (texture_new) {
+				GFX_UI_API[cmn->api].destroy_texture(cmn->gfx_ui, &texture, device);
+
+				texture = texture_new;
+				MTY_HashSetInt(cmn->ui_textures, id, texture_new);
+			}
+
+		} else {
+			GFX_UI_API[cmn->api].destroy_texture(cmn->gfx_ui, &texture, device);
+			MTY_HashPopInt(cmn->ui_textures, id);
+		}
 
 		r = texture != NULL;
 	}

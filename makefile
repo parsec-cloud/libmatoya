@@ -1,5 +1,5 @@
 TARGET = windows
-ARCH = %%Platform%%
+ARCH = $(VSCMD_ARG_TGT_ARCH)
 NAME = matoya
 
 .SUFFIXES : .ps .vs .fragvk .vertvk
@@ -113,6 +113,12 @@ FLAGS = $(FLAGS) /Ob0 /Zi /Oy-
 DEFS = $(DEFS) -DMTY_VK_DEBUG
 !ELSE
 FLAGS = $(FLAGS) /O2 /GS- /Gw
+!ENDIF
+
+!IFDEF ARM64EC
+FLAGS = $(FLAGS) /arm64EC
+LIB_FLAGS = $(LIB_FLAGS) /MACHINE:arm64ec
+ARCH = arm64ec # ARM64 and ARM64EC are not the same
 !ENDIF
 
 CFLAGS = $(INCLUDES) $(DEFS) $(FLAGS)

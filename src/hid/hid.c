@@ -89,7 +89,7 @@ void mty_hid_driver_init(struct hid_dev *device)
 			xbox_init(device);
 			break;
 		case MTY_CTYPE_XBOXW:
-			printf("Got to initing MTY_CTYPE_XBOXW");
+			printf("Got to initing MTY_CTYPE_XBOXW\n");
 			xboxw_init(device);
 			break;
 	}
@@ -139,7 +139,7 @@ void mty_hid_driver_rumble(struct hid *hid, uint32_t id, uint16_t low, uint16_t 
 			xbox_rumble(device, low, high);
 			break;
 		case MTY_CTYPE_XBOXW:
-			printf("IT IS AN XBOXW!");
+			printf("IT IS AN XBOXW!\n");
 			xboxw_rumble(device, low, high);
 			break;
 		case MTY_CTYPE_DEFAULT:

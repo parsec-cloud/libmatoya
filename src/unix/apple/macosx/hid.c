@@ -3,9 +3,11 @@
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "hid/hid.h"
+#include <stdio.h>
 
 #include <IOKit/hid/IOHIDManager.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include "hid_gc.h"
 
 #define HID_DEV_GET_USAGE(dev) \
 	hid_device_get_prop_int(dev, CFSTR(kIOHIDPrimaryUsageKey))
@@ -62,6 +64,11 @@ static void hid_device_destroy(void *hdevice)
 		return;
 
 	struct hid_dev *ctx = hdevice;
+
+	// Clean up GCController rumble context if it exists
+	if (ctx->device) {
+		mty_hid_gc_cleanup(ctx->device);
+	}
 
 	MTY_Free(ctx->state);
 	MTY_Free(ctx);
@@ -223,17 +230,44 @@ void mty_hid_destroy(struct hid **hid)
 void mty_hid_device_write(struct hid_dev *ctx, const void *buf, size_t size)
 {
 	const uint8_t *buf8 = buf;
-
+	
+	// Check if this is an Xbox controller rumble packet
+	if (ctx->vid == 0x045E && size >= 8 && buf8[0] == 0x00 && buf8[1] == 0x08) {
+		// This is an Xbox rumble packet, use GCController instead
+		uint8_t low_intensity = buf8[3];
+		uint8_t high_intensity = buf8[4];
+		// Convert 8-bit (0-255) to 16-bit (0-65535) range
+		uint16_t low = ((uint16_t)low_intensity << 8) | low_intensity;
+		uint16_t high = ((uint16_t)high_intensity << 8) | high_intensity;
+		
+		printf("Xbox rumble: low=%u, high=%u\n", low, high);
+		
+		if (mty_hid_gc_rumble(ctx->device, low, high)) {
+			return; // Successfully sent rumble via GCController
+		}
+		// Fall through to try IOHIDDeviceSetReport if GCController fails
+	}
+	
+	printf("buf8[0]: %d\n", buf8[0]);
+	printf("size: %zu\n", size);
+	printf("ctx->device: %p\n", ctx->device);
+	
 	if (buf8[0] == 0) {
 		buf += 1;
 		size -= 1;
 	}
 
-	IOReturn e = IOHIDDeviceSetReport(ctx->device, kIOHIDReportTypeOutput, buf8[0], buf, size);
-	if (e != kIOReturnSuccess)
-		MTY_Log("'IOHIDDeviceSetReport' failed with error 0x%X", e);
-}
+	printf("buf after adjustment: %p\n", buf);
+	printf("size after adjustment: %zu\n", size);
 
+	IOReturn e = IOHIDDeviceSetReport(ctx->device, kIOHIDReportTypeOutput, buf8[0], buf, size);
+	printf("Return from IOHIDDeviceSetReport (e): 0x%X\n", e);
+	
+	if (e != kIOReturnSuccess) {
+		printf("'IOHIDDeviceSetReport' failed with error 0x%X\n", e);
+		MTY_Log("'IOHIDDeviceSetReport' failed with error 0x%X", e);
+	}
+}
 bool mty_hid_device_feature(struct hid_dev *ctx, void *buf, size_t size, size_t *size_out)
 {
 	const uint8_t *buf8 = buf;

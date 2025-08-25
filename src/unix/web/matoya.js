@@ -1082,5 +1082,51 @@ async function mty_thread_message(ev) {
 
 			mty_signal(msg.sync);
 			break;
+		case 'wv-create':
+			MTY.webview = document.createElement('iframe');
+
+			MTY.webview.style.visibility = 'hidden';
+			MTY.webview.style.position = 'fixed';
+			MTY.webview.style.border = 'none';
+			MTY.webview.style.width = '100%';
+			MTY.webview.style.height = '100%';
+			MTY.webview.style.inset = '0';
+
+			MTY.webview.onload = () => {
+				setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
+			};
+
+			window.addEventListener('message', function (message) {
+				MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message.data});
+			});
+
+			document.body.appendChild(MTY.webview);
+			break;
+		case 'wv-destroy':
+			document.removeChild(MTY.webview);
+			delete MTY.webview;
+			break;
+		case 'wv-navigate':
+			if (msg.url) {
+				MTY.webview.src = msg.source;
+
+			} else {
+				const blob = new Blob([msg.source], { type: 'text/html' });
+				MTY.webview.src = URL.createObjectURL(blob);
+			}
+			break;
+		case 'wv-show':
+			MTY.webview.style.visibility = msg.show ? 'visible' : 'hidden';
+			break;
+		case 'wv-is-visible':
+			msg.sab[0] = MTY.webview.style.visibility != 'visible';
+			mty_signal(msg.sync);
+			break;
+		case 'wv-send-text':
+			MTY.webview.contentWindow.postMessage(msg.message, '*');
+			break;
+		case 'wv-reload':
+			MTY.webview.contentWindow.location.reload();
+			break;
 	}
 }

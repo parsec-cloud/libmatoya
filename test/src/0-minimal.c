@@ -1,5 +1,5 @@
 #include "matoya.h"
-
+#include "stdio.h"
 // Your top level application context
 struct context {
 	MTY_App *app;
@@ -7,16 +7,23 @@ struct context {
 };
 
 // This function will fire for each event
+// This function will fire for each event
 static void event_func(const MTY_Event *evt, void *opaque)
 {
-	struct context *ctx = opaque;
+    struct context *ctx = opaque;
 
-	MTY_PrintEvent(evt);
+    MTY_PrintEvent(evt);
 
-	if (evt->type == MTY_EVENT_CLOSE)
-		ctx->quit = true;
+    if (evt->type == MTY_EVENT_CLOSE)
+        ctx->quit = true;
+    
+    if (evt->type == MTY_EVENT_CONTROLLER) {
+		printf("Controller ID: %u\n", evt->controller.id);  // Print the controller ID
+        printf("Triggering Rumble\n");
+        MTY_AppRumbleController(ctx->app, evt->controller.id, UINT16_MAX, UINT16_MAX);
+
+    }
 }
-
 // This function fires once per "cycle", either blocked by a
 // call to MTY_WindowPresent or limited by MTY_AppSetTimeout
 static bool app_func(void *opaque)

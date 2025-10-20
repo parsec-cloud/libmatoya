@@ -20,7 +20,9 @@ LIBS = \
 	-framework IOKit \
 	-framework Metal \
 	-framework QuartzCore \
-	-framework WebKit
+	-framework WebKit \
+	-framework GameController \
+	-framework CoreHaptics
 
 else
 

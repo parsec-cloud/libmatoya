@@ -4,6 +4,59 @@
 
 #pragma once
 
+struct xboxw_state {
+	bool rumble;
+	uint16_t low;
+	uint16_t high;
+};
+
+// Rumble
+
+static void xboxw_rumble(struct hid_dev *device, uint16_t low, uint16_t high)
+{
+    struct xboxw_state *ctx = mty_hid_device_get_state(device);
+
+	printf("Got here 1\n");
+	// Xbox 360 wired controller rumble packet format
+	uint8_t rumble_packet[8] = {0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	rumble_packet[3] = low >> 8;   // Low frequency motor intensity
+	rumble_packet[4] = high >> 8;  // High frequency motor intensity
+	printf("Got here 2 - low: %u, high: %u\n", low >> 8, high >> 8);
+
+	mty_hid_device_write(device, rumble_packet, sizeof(rumble_packet));
+	printf("Got here 3\n");
+
+	// Store values for potential retransmission
+	ctx->low = low;
+	ctx->high = high;
+	ctx->rumble = true;
+}
+
+static void xboxw_do_rumble(struct hid_dev *device)
+{
+    struct xboxw_state *ctx = mty_hid_device_get_state(device);
+
+    if (ctx->rumble) {
+        uint8_t rumble_packet[8] = {0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        rumble_packet[3] = ctx->low >> 8;
+        rumble_packet[4] = ctx->high >> 8;
+		printf("Got here 2\n");
+
+        mty_hid_device_write(device, rumble_packet, sizeof(rumble_packet));
+		printf("Got here 4\n");
+        ctx->rumble = false;
+    }
+}
+
+static void xboxw_init(struct hid_dev *device)
+{
+	printf("Got to xboxw_init\n");
+	struct xboxw_state *ctx = mty_hid_device_get_state(device);
+	ctx->rumble = false;
+	ctx->low = 0;
+	ctx->high = 0;
+}
+
 static bool xboxw_state(struct hid_dev *device, const void *data, size_t size, MTY_ControllerEvent *c)
 {
 	const uint8_t *d = data;
@@ -65,6 +118,7 @@ static bool xboxw_state(struct hid_dev *device, const void *data, size_t size, M
 
 	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = c->axes[MTY_CAXIS_TRIGGER_L].value > 0;
 	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = c->axes[MTY_CAXIS_TRIGGER_R].value > 0;
+	xboxw_do_rumble(device);
 
 	return true;
 }

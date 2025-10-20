@@ -192,6 +192,7 @@ OBJS := $(OBJS) \
 	src/hid/hid.o \
 	src/unix/apple/image.o \
 	src/unix/apple/macosx/hid.o \
+	src/unix/apple/macosx/hid_gc.o \
 	src/unix/apple/macosx/gfx/metal-ctx.o
 
 else

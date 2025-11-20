@@ -1453,21 +1453,89 @@ MTY_WaitPtr(int32_t *sync);
 
 //- #module Audio
 //- #mbrief Simple audio playback and resampling.
-//- #mdetails This is a very minimal interface that assumes 2-channel, 16-bit signed PCM
+//- #mdetails This is a very minimal interface that supports multi-channel PCM audio
 //-   submitted by pushing to a queue. This module also includes a straightforward
-//-   resampler.
+//-   resampler for 2-channel, 16-bit signed PCM audio.
 
 typedef struct MTY_Audio MTY_Audio;
 typedef struct MTY_Resampler MTY_Resampler;
 
+/// @brief Audio sample formats. Currently only PCM formats.
+typedef enum {
+	MTY_AUDIO_SAMPLE_FORMAT_UNKNOWN = 0, ///< Unknown format.
+	MTY_AUDIO_SAMPLE_FORMAT_FLOAT   = 1, ///< 32-bit floating point.
+	MTY_AUDIO_SAMPLE_FORMAT_INT16   = 2, ///< 16-bit signed integer.
+} MTY_AudioSampleFormat;
+
+/// @brief Surround sound audio channel IDs.
+/// @details Used in ::MTY_AudioFormat. Follows standard surround sound speaker ids
+///   (see https://en.wikipedia.org/wiki/Surround_sound#Standard_speaker_channels).
+typedef enum {
+	MTY_AUDIO_CHANNEL_FL      = 0x00000001,
+	MTY_AUDIO_CHANNEL_FR      = 0x00000002,
+	MTY_AUDIO_CHANNEL_FC      = 0x00000004,
+	MTY_AUDIO_CHANNEL_LFE     = 0x00000008,
+	MTY_AUDIO_CHANNEL_BL      = 0x00000010,
+	MTY_AUDIO_CHANNEL_BR      = 0x00000020,
+	MTY_AUDIO_CHANNEL_FLC     = 0x00000040,
+	MTY_AUDIO_CHANNEL_FRC     = 0x00000080,
+	MTY_AUDIO_CHANNEL_BC      = 0x00000100,
+	MTY_AUDIO_CHANNEL_SL      = 0x00000200,
+	MTY_AUDIO_CHANNEL_SR      = 0x00000400,
+	MTY_AUDIO_CHANNEL_TC      = 0x00000800,
+	MTY_AUDIO_CHANNEL_TFL     = 0x00001000,
+	MTY_AUDIO_CHANNEL_TFC     = 0x00002000,
+	MTY_AUDIO_CHANNEL_TFR     = 0x00004000,
+	MTY_AUDIO_CHANNEL_TBL     = 0x00008000,
+	MTY_AUDIO_CHANNEL_TBC     = 0x00010000,
+	MTY_AUDIO_CHANNEL_TBR     = 0x00020000,
+
+	// Some common configurations
+	MTY_AUDIO_CHANNEL_CFG_UNKNOWN      = 0,
+	MTY_AUDIO_CHANNEL_CFG_MONO         = MTY_AUDIO_CHANNEL_FL,
+	MTY_AUDIO_CHANNEL_CFG_STEREO       = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR,
+	MTY_AUDIO_CHANNEL_CFG_5_1_SURROUND = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_SL  | MTY_AUDIO_CHANNEL_SR,
+	MTY_AUDIO_CHANNEL_CFG_5_1_REAR     = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_BL  | MTY_AUDIO_CHANNEL_BR,
+	MTY_AUDIO_CHANNEL_CFG_7_1_SURROUND = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_BL  | MTY_AUDIO_CHANNEL_BR  |
+	                                     MTY_AUDIO_CHANNEL_SL  | MTY_AUDIO_CHANNEL_SR,
+	MTY_AUDIO_CHANNEL_CFG_7_1_WIDE     = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_BL  | MTY_AUDIO_CHANNEL_BR  |
+	                                     MTY_AUDIO_CHANNEL_FLC | MTY_AUDIO_CHANNEL_FRC,
+	MTY_AUDIO_CHANNEL_CFG_7_1_SIDE     = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_SL  | MTY_AUDIO_CHANNEL_SR  |
+	                                     MTY_AUDIO_CHANNEL_FLC | MTY_AUDIO_CHANNEL_FRC,
+	MTY_AUDIO_CHANNEL_CFG_7_1_4_ATMOS  = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_BL  | MTY_AUDIO_CHANNEL_BR  |
+	                                     MTY_AUDIO_CHANNEL_SL  | MTY_AUDIO_CHANNEL_SR  | MTY_AUDIO_CHANNEL_TFL |
+	                                     MTY_AUDIO_CHANNEL_TFR | MTY_AUDIO_CHANNEL_TBL | MTY_AUDIO_CHANNEL_TBR,
+} MTY_AudioChannelID;
+
+/// @brief Format description for an audio device.
+typedef struct {
+	MTY_AudioSampleFormat sampleFormat; ///< Format of audio samples.
+	uint32_t sampleRate;                ///< Number of audio samples per second. Usually set to 48000.
+	uint32_t channels;                  ///< Number of audio channels.
+	uint32_t channelMask;               ///< Bitmask that defines which channels are present in the audio data.
+	                                    ///<   Should contain only values defined in ::MTY_AudioChannelID.
+	                                    ///<   For `channels` > 2, specify this value correctly in order
+	                                    ///<   to yield accurate audio playback.
+										///<   Currently only supported by Windows and macOS. All other platforms
+										///<   will ignore this field.
+										///<   If set to MTY_AUDIO_CHANNEL_CFG_UNKNOWN, the platform will
+										///<   attempt to use reasonable defaults based on `channels`.
+} MTY_AudioFormat;
+
 /// @brief Create an MTY_Audio context for playback.
-/// @param sampleRate Audio sample rate in KHz.
+/// @param format Format that the audio device will attempt to initialize. If the
+///   provided format is not supported, the function will fail and return NULL.
 /// @param minBuffer The minimum amount of audio in milliseconds that must be queued
 ///   before playback begins.
 /// @param maxBuffer The maximum amount of audio in milliseconds that can be queued
 ///   before audio begins getting dropped. The queue will flush to zero, then begin
 ///   building back towards `minBuffer` again before playback resumes.
-/// @param channels Number of audio channels.
 /// @param deviceID Specify a specific audio device for playback, or NULL for the default
 ///   device. Windows only.
 /// @param fallback If `deviceID` is not NULL, set to true to fallback to the default device, or
@@ -1475,7 +1543,7 @@ typedef struct MTY_Resampler MTY_Resampler;
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_Audio context must be destroyed with MTY_AudioDestroy.
 MTY_EXPORT MTY_Audio *
-MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
+MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer, uint32_t maxBuffer,
 	const char *deviceID, bool fallback);
 
 /// @brief Destroy an MTY_Audio context.
@@ -1498,11 +1566,13 @@ MTY_AudioGetQueued(MTY_Audio *ctx);
 
 /// @brief Queue 16-bit signed PCM audio for playback.
 /// @param ctx An MTY_Audio context.
-/// @param frames Buffer containing 16-bit signed PCM audio frames. The number of audio channels
-///   is specified during MTY_AudioCreate. In the case of 2-channel PCM, one audio frame is two
-///   samples, each sample being one channel.
+/// @param frames Buffer containing PCM audio frames as per the format (channels, sample rate, etc)
+///   that was specified during MTY_AudioCreate. A frame is an interleaving of 1 sample per channel.
+///   For example, in the case of 2-channel/stereo audio, one audio frame is two samples, each
+///   sample being one channel.
 /// @param count The number of frames contained in `frames`. The number of frames would
-///   be the size of `frames` in bytes divided by 2 * `channels` specified during MTY_AudioCreate.
+///   be the size of `frames` in bytes divided by sample size * `channels` specified
+///   during MTY_AudioCreate.
 MTY_EXPORT void
 MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count);
 

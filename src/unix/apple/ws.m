@@ -33,16 +33,16 @@ static void websocket_URLSession_task_didCompleteWithError(id self, SEL _cmd, NS
 	if (!error)
 		return;
 
-	MTY_Log("'URLSession:task:didCompleteWithError' fired with code %ld. Not closing the session though!", error.code);
+	MTY_Log("'URLSession:task:didCompleteWithError' fired with code %ld", error.code);
 
 	MTY_WebSocket *ctx = OBJC_CTX();
 	if (!ctx)
 		return;
 
-	// ctx->closed = true;
+	ctx->closed = true;
 
-	// if (ctx->conn)
-	// 	MTY_WaitableSignal(ctx->conn);
+	if (ctx->conn)
+		MTY_WaitableSignal(ctx->conn);
 }
 
 static void websocket_URLSession_webSocketTask_didOpenWithProtocol(id self, SEL _cmd, NSURLSession *session,
@@ -52,8 +52,6 @@ static void websocket_URLSession_webSocketTask_didOpenWithProtocol(id self, SEL 
 
 	if (ctx && ctx->conn)
 		MTY_WaitableSignal(ctx->conn);
-
-	MTY_Log("didOpenWithProtocol ---- %s", [protocol UTF8String]);
 }
 
 static void websocket_URLSession_webSocketTask_didCloseWithCode_reason(id self, SEL _cmd, NSURLSession *session,
@@ -65,17 +63,6 @@ static void websocket_URLSession_webSocketTask_didCloseWithCode_reason(id self, 
 
 	ctx->closed = true;
 
-	// Convert reason data to a UTF-8 string if available
-    const char *reasonCString = NULL;
-    if (reason != nil && reason.length > 0) {
-        NSString *reasonString = [[NSString alloc] initWithData:reason encoding:NSUTF8StringEncoding];
-        reasonCString = reasonString ? [reasonString UTF8String] : "(non-UTF8 data)";
-    } else {
-        reasonCString = "(no reason)";
-    }
-
-	MTY_Log("didCloseWithCode_reason ---- %d --- %s", (int)closeCode, reasonCString);
-
 	if (closeCode != NSURLSessionWebSocketCloseCodeNormalClosure)
 		MTY_Log("'URLSession:webSocketTask:didCloseWithCode' fired with closeCode %ld\n", closeCode);
 }
@@ -86,8 +73,6 @@ static void websocket_URLSession_didBecomeInvalidWithError(id self, SEL _cmd, NS
 
 	if (ctx && ctx->conn)
 		MTY_WaitableSignal(ctx->conn);
-	
-	MTY_Log("didBecomeInvalidWithError ---- %s", error ? [error.localizedDescription UTF8String] : "(no error)");
 }
 
 static Class websocket_class(void)
@@ -134,9 +119,6 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *url, const char *headers, const 
 
 	// Session configuration
 	NSURLSessionConfiguration *cfg = net_configuration(proxy);
-	printf("OLD NETWORK SERVICE TYPE: %d %s\n", (int) cfg.networkServiceType, url);
-	cfg.networkServiceType = NSURLNetworkServiceTypeResponsiveData;
-	printf("NEW NETWORK SERVICE TYPE: %d\n", (int) cfg.networkServiceType);
 
 	// Connect
 	ctx->session = [NSURLSession sessionWithConfiguration:cfg
@@ -150,8 +132,6 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *url, const char *headers, const 
 
 	// Upgrade status
 	NSHTTPURLResponse *response = (NSHTTPURLResponse *) ctx->task.response;
-
-	MTY_Log("SETTING UP NEW WEBSOCKET CONNECTION ---- %u", response.statusCode);
 
 	if (response)
 		*upgradeStatus = response.statusCode;
@@ -169,11 +149,8 @@ void MTY_WebSocketDestroy(MTY_WebSocket **webSocket)
 
 	MTY_WebSocket *ctx = *webSocket;
 
-	if (ctx->task) {
-		MTY_Log("Sending client cancel with close code");
-		NSData *reasonData = [@"client initiated disconnect" dataUsingEncoding:NSUTF8StringEncoding];
-		[ctx->task cancelWithCloseCode:NSURLSessionWebSocketCloseCodeNormalClosure reason:reasonData];
-	}
+	if (ctx->task)
+		[ctx->task cancelWithCloseCode:NSURLSessionWebSocketCloseCodeNormalClosure reason:nil];
 
 	if (ctx->session) {
 		id delegate = [ctx->session delegate];
@@ -196,8 +173,6 @@ void MTY_WebSocketDestroy(MTY_WebSocket **webSocket)
 	MTY_Free(ctx->msg);
 	MTY_Free(ctx);
 	*webSocket = NULL;
-
-	MTY_Log("Calling MTY_WebSocketDestroy");
 }
 
 MTY_Async MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, size_t size)
@@ -207,13 +182,11 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, siz
 
 	if (MTY_TimeDiff(ctx->last_ping, now) > WS_PING_INTERVAL) {
 		[ctx->task sendPingWithPongReceiveHandler:^(NSError *e) {
-			MTY_Log("I SENT THE PING ---- %u %lld", time(NULL), now);
 			if (e) {
-				MTY_Log("NSURLSessionWebSocketTask:sendPingWithPongReceiveHandler failed: %s. Code is %d",
-					[e.localizedDescription UTF8String], (int) e.code);
+				MTY_Log("NSURLSessionWebSocketTask:sendPingWithPongReceiveHandler failed: %s",
+					[e.localizedDescription UTF8String]);
 
 			} else {
-				MTY_Log("I GOT THE PONG ---- %u %lld", time(NULL), now);
 				ctx->last_pong = MTY_GetTime();
 			}
 		}];
@@ -222,17 +195,12 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, siz
 	}
 
 	// If we haven't gotten a pong within WS_PONG_TO, error
-	if (MTY_TimeDiff(ctx->last_pong, now) > WS_PONG_TO) {
-		MTY_Log("WebSocket pong timeout %lld %lld", now, ctx->last_pong);
+	if (MTY_TimeDiff(ctx->last_pong, now) > WS_PONG_TO)
 		return MTY_ASYNC_ERROR;
-	}
 
 	// WebSocket is already closed
-	if (ctx->closed || ctx->task.closeCode != NSURLSessionWebSocketCloseCodeInvalid) {
-		MTY_Log("WebSocket is closed %d", (int)ctx->task.closeCode);
+	if (ctx->closed || ctx->task.closeCode != NSURLSessionWebSocketCloseCodeInvalid)
 		return MTY_ASYNC_DONE;
-	}
-		
 
 	// Set completion handler and sempaphore
 	if (!ctx->read_started) {

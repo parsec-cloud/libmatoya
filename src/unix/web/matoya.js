@@ -1132,25 +1132,6 @@ async function mty_thread_message(ev) {
 	}
 }
 
-function MTY_NativeSendText(text) {
-	console.log("HI SAM!");
-	window.postMessage('T' + text);
-}
-
-async function createBlobUrlFrom(url) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-  }
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  return {
-    objectUrl,
-    blob,
-    revoke: () => URL.revokeObjectURL(objectUrl),
-  };
-}
-
 // HACKY FIX TO RESOLVE THE DIFFERENT ORIGIN ISSUE (UI is on :3000, app is on :8000)
 async function loadIframeFromUrlSrcdoc(iframe, url, fetchOpts = {}) {
   const res = await fetch(url, fetchOpts);

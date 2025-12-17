@@ -35,8 +35,6 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 {
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
-	printf("Creating UNIX webview\n");
-
 	ctx->app = app;
 	ctx->window = window;
 	ctx->ready_func = ready_func;

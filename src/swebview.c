@@ -188,7 +188,7 @@ static void finished_request_run0(void *This, void *pvParam)
 		"};"
 
 		"window.MTY_NativeSendText = text => {"
-			"alert('T' + text);"
+			"alert('T' + text);alert('I AM HERE!!!');"
 		"};"
 
 		"alert('R');"

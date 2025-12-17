@@ -816,6 +816,7 @@ const MTY_WEB_API = {
 		throw 'MTY_RunAndYield halted execution';
 	},
 	web_webview_create: function(ctx) {
+		console.log("I AM ABOUT TO CREATE THE WEBVIEW!!!");
 		postMessage({type: 'wv-create', ctx});
 	},
 	web_webview_destroy: function() {
@@ -1142,6 +1143,9 @@ async function mty_instantiate_wasm(wasmBuf, userEnv) {
 }
 
 onmessage = async (ev) => {
+	// if (ev.data.type != 'window-update') {
+	// 	console.log("I HAVE RECEIVED THIS MESSAGE:", ev.data, ev.data.type);
+	// }
 	const msg = ev.data;
 
 	switch (msg.type) {
@@ -1263,6 +1267,7 @@ onmessage = async (ev) => {
 		case 'wv-event':
 			const buf = mty_alloc(1, msg.message.length + 1);
 			mty_str_to_c(msg.message, buf, msg.message.length + 1);
+			console.log("WebView Event:", buf, msg.message);
 			MTY.exports.mty_webview_handle_event(msg.ctx, buf);
 			break;
 	}

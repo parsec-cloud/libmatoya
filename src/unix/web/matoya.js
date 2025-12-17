@@ -893,6 +893,9 @@ async function MTY_Start(bin, container, userEnv) {
 	// Add input events
 	mty_add_input_events(MTY.mainThread);
 
+	console.log('MTY Started - posting ready message now!');
+	window.postMessage('R');  
+
 	return true;
 }
 
@@ -1096,9 +1099,40 @@ async function mty_thread_message(ev) {
 				setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
 			};
 
-			window.addEventListener('message', function (message) {
-				MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message.data});
+
+			window.addEventListener('message', (event) => {
+				console.log("RECEIVED MESSAGE FROM WEBVIEW IN THE IFRAME: ", msg.ctx, event.data);
+				MTY.webview.contentWindow.MTY_NativeListener(event.data);
 			});
+
+			window.postWVMessage = (message) => {
+				MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message});
+			}
+			
+
+			// window.addEventListener('message', function (message) {
+			// 	console.log("RECEIVED MESSAGE FROM WEBVIEW: ", msg.ctx, message.data);
+			// 	MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message.data});
+			// });
+
+
+
+
+
+			// console.log(MTY.webview.srcdoc);
+
+			// MTY.webview.sandbox = 'allow-scripts allow-same-origin';
+			// MTY.webview.srcdoc = `
+			// <script>
+			// 	window.MTY_NativeSendText = (text) => {
+			// 		console.log("SENDING MESSAGE" + text);
+			// 		window.postMessage('T' + text);
+			// 	}
+			// <\/script>
+			// `;
+
+			// MTY.webview.contentWindow.MTY_NativeSendText = MTY_NativeSendText;
+			// console.log(MTY.webview.contentWindow)
 
 			document.body.appendChild(MTY.webview);
 			break;
@@ -1108,12 +1142,28 @@ async function mty_thread_message(ev) {
 			break;
 		case 'wv-navigate':
 			if (msg.url) {
-				MTY.webview.src = msg.source;
-
+				// MTY.webview.src = msg.source;
+				loadIframeFromUrlSrcdoc(MTY.webview, msg.source).then(() => {
+					console.log("I AM IN wv-navigate after loadIframeFromUrlSrcdoc");
+					// MTY.webview.contentWindow.MTY_NativeSendText = MTY_NativeSendText;
+					
+				});
 			} else {
 				const blob = new Blob([msg.source], { type: 'text/html' });
 				MTY.webview.src = URL.createObjectURL(blob);
 			}
+
+			// MTY.webview.addEventListener('load', () => {
+			// 	console.log("CALLING LOAD IN iframe")
+			// 	MTY.webview.contentWindow.MTY_NativeSendText = (msg) => {
+			// 		console.log("SENDING MESSAGE" + msg);
+			// 		window.postMessage('T' + msg, '*');
+			// 	}
+			// });
+			MTY.webview.addEventListener('message', (event) => {
+				console.log("RECEIVED MESSAGE FROM WEBVIEW IN THE IFRAME: ", msg.ctx, event.data);
+				MTY.webview.contentWindow.MTY_NativeListener(event.data);
+			});
 			break;
 		case 'wv-show':
 			MTY.webview.style.visibility = msg.show ? 'visible' : 'hidden';
@@ -1123,10 +1173,45 @@ async function mty_thread_message(ev) {
 			mty_signal(msg.sync);
 			break;
 		case 'wv-send-text':
-			MTY.webview.contentWindow.postMessage(msg.message, '*');
+			// console.log("I AM IN wv-send-text", msg.message);
+			MTY.webview.contentWindow.MTY_NativeListener(msg.message);
+			// MTY.webview.contentWindow.postMessage(msg.message);
 			break;
 		case 'wv-reload':
 			MTY.webview.contentWindow.location.reload();
 			break;
 	}
+}
+
+function MTY_NativeSendText(text) {
+	console.log("HI SAM!");
+	window.postMessage('T' + text);
+}
+
+async function createBlobUrlFrom(url) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  return {
+    objectUrl,
+    blob,
+    revoke: () => URL.revokeObjectURL(objectUrl),
+  };
+}
+
+async function loadIframeFromUrlSrcdoc(iframe, url, fetchOpts = {}) {
+  const res = await fetch(url, fetchOpts);
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  let html = await res.text();
+  // Ensure a <base> so relative URLs inside the HTML resolve to the original URL
+  const baseTag = `<base href="${new URL(url, location.href).href}">`;
+  if (/<head[\s>]/i.test(html)) {
+    html = html.replace(/<head([^>]*)>/i, (m, attrs) => `<head${attrs}>${baseTag}<script>window.parent.postWVMessage('R');window.MTY_NativeSendText = (text) => { console.log("HELLO WORLD", text); window.parent.postWVMessage('T' + text); }</script>`);
+  } else {
+    html = `${baseTag}${html}`;
+  }
+  iframe.srcdoc = html;
 }

@@ -35,6 +35,8 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 {
 	struct webview *ctx = MTY_Alloc(1, sizeof(struct webview));
 
+	printf("Creating UNIX webview\n");
+
 	ctx->app = app;
 	ctx->window = window;
 	ctx->ready_func = ready_func;
@@ -130,6 +132,7 @@ __attribute__((export_name("mty_webview_handle_event")))
 void mty_webview_handle_event(struct webview *ctx, char *str)
 {
 	MTY_JSON *j = NULL;
+	printf("RECEIVED WEBVIEW EVENT: %s\n", str);
 
 	switch (str[0]) {
 		// MTY_EVENT_WEBVIEW_READY

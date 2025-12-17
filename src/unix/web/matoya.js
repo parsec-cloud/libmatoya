@@ -1099,40 +1099,9 @@ async function mty_thread_message(ev) {
 				setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
 			};
 
-
-			window.addEventListener('message', (event) => {
-				console.log("RECEIVED MESSAGE FROM WEBVIEW IN THE IFRAME: ", msg.ctx, event.data);
-				MTY.webview.contentWindow.MTY_NativeListener(event.data);
+			window.addEventListener('message', function (message) {
+				MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message.data});
 			});
-
-			window.postWVMessage = (message) => {
-				MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message});
-			}
-			
-
-			// window.addEventListener('message', function (message) {
-			// 	console.log("RECEIVED MESSAGE FROM WEBVIEW: ", msg.ctx, message.data);
-			// 	MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message.data});
-			// });
-
-
-
-
-
-			// console.log(MTY.webview.srcdoc);
-
-			// MTY.webview.sandbox = 'allow-scripts allow-same-origin';
-			// MTY.webview.srcdoc = `
-			// <script>
-			// 	window.MTY_NativeSendText = (text) => {
-			// 		console.log("SENDING MESSAGE" + text);
-			// 		window.postMessage('T' + text);
-			// 	}
-			// <\/script>
-			// `;
-
-			// MTY.webview.contentWindow.MTY_NativeSendText = MTY_NativeSendText;
-			// console.log(MTY.webview.contentWindow)
 
 			document.body.appendChild(MTY.webview);
 			break;
@@ -1152,18 +1121,6 @@ async function mty_thread_message(ev) {
 				const blob = new Blob([msg.source], { type: 'text/html' });
 				MTY.webview.src = URL.createObjectURL(blob);
 			}
-
-			// MTY.webview.addEventListener('load', () => {
-			// 	console.log("CALLING LOAD IN iframe")
-			// 	MTY.webview.contentWindow.MTY_NativeSendText = (msg) => {
-			// 		console.log("SENDING MESSAGE" + msg);
-			// 		window.postMessage('T' + msg, '*');
-			// 	}
-			// });
-			MTY.webview.addEventListener('message', (event) => {
-				console.log("RECEIVED MESSAGE FROM WEBVIEW IN THE IFRAME: ", msg.ctx, event.data);
-				MTY.webview.contentWindow.MTY_NativeListener(event.data);
-			});
 			break;
 		case 'wv-show':
 			MTY.webview.style.visibility = msg.show ? 'visible' : 'hidden';
@@ -1202,6 +1159,7 @@ async function createBlobUrlFrom(url) {
   };
 }
 
+// HACKY FIX TO RESOLVE THE DIFFERENT ORIGIN ISSUE (UI is on :3000, app is on :8000)
 async function loadIframeFromUrlSrcdoc(iframe, url, fetchOpts = {}) {
   const res = await fetch(url, fetchOpts);
   if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
@@ -1209,7 +1167,7 @@ async function loadIframeFromUrlSrcdoc(iframe, url, fetchOpts = {}) {
   // Ensure a <base> so relative URLs inside the HTML resolve to the original URL
   const baseTag = `<base href="${new URL(url, location.href).href}">`;
   if (/<head[\s>]/i.test(html)) {
-    html = html.replace(/<head([^>]*)>/i, (m, attrs) => `<head${attrs}>${baseTag}<script>window.parent.postWVMessage('R');window.MTY_NativeSendText = (text) => { console.log("HELLO WORLD", text); window.parent.postWVMessage('T' + text); }</script>`);
+    html = html.replace(/<head([^>]*)>/i, (m, attrs) => `<head${attrs}>${baseTag}<script>window.parent.postMessage('R');window.MTY_NativeSendText = (text) => { console.log("HELLO WORLD", text); window.parent.postMessage('T' + text); }</script>`);
   } else {
     html = `${baseTag}${html}`;
   }

@@ -893,9 +893,6 @@ async function MTY_Start(bin, container, userEnv) {
 	// Add input events
 	mty_add_input_events(MTY.mainThread);
 
-	console.log('MTY Started - posting ready message now!');
-	window.postMessage('R');  
-
 	return true;
 }
 
@@ -1112,11 +1109,7 @@ async function mty_thread_message(ev) {
 		case 'wv-navigate':
 			if (msg.url) {
 				// MTY.webview.src = msg.source;
-				loadIframeFromUrlSrcdoc(MTY.webview, msg.source).then(() => {
-					console.log("I AM IN wv-navigate after loadIframeFromUrlSrcdoc");
-					// MTY.webview.contentWindow.MTY_NativeSendText = MTY_NativeSendText;
-					
-				});
+				loadIframeFromUrlSrcdoc(MTY.webview, msg.source)
 			} else {
 				const blob = new Blob([msg.source], { type: 'text/html' });
 				MTY.webview.src = URL.createObjectURL(blob);
@@ -1130,9 +1123,8 @@ async function mty_thread_message(ev) {
 			mty_signal(msg.sync);
 			break;
 		case 'wv-send-text':
-			// console.log("I AM IN wv-send-text", msg.message);
+			// wv-send-text sends native app messages back to the running UI
 			MTY.webview.contentWindow.MTY_NativeListener(msg.message);
-			// MTY.webview.contentWindow.postMessage(msg.message);
 			break;
 		case 'wv-reload':
 			MTY.webview.contentWindow.location.reload();
@@ -1167,7 +1159,7 @@ async function loadIframeFromUrlSrcdoc(iframe, url, fetchOpts = {}) {
   // Ensure a <base> so relative URLs inside the HTML resolve to the original URL
   const baseTag = `<base href="${new URL(url, location.href).href}">`;
   if (/<head[\s>]/i.test(html)) {
-    html = html.replace(/<head([^>]*)>/i, (m, attrs) => `<head${attrs}>${baseTag}<script>window.parent.postMessage('R');window.MTY_NativeSendText = (text) => { console.log("HELLO WORLD", text); window.parent.postMessage('T' + text); }</script>`);
+    html = html.replace(/<head([^>]*)>/i, (m, attrs) => `<head${attrs}>${baseTag}<script>window.parent.postMessage('R');window.MTY_NativeSendText = (text) => { window.parent.postMessage('T' + text); }</script>`);
   } else {
     html = `${baseTag}${html}`;
   }

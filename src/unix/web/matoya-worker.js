@@ -1267,7 +1267,6 @@ onmessage = async (ev) => {
 		case 'wv-event':
 			const buf = mty_alloc(1, msg.message.length + 1);
 			mty_str_to_c(msg.message, buf, msg.message.length + 1);
-			console.log("WebView Event:", buf, msg.message);
 			MTY.exports.mty_webview_handle_event(msg.ctx, buf);
 			break;
 	}

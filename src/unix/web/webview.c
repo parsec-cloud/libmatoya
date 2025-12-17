@@ -132,7 +132,6 @@ __attribute__((export_name("mty_webview_handle_event")))
 void mty_webview_handle_event(struct webview *ctx, char *str)
 {
 	MTY_JSON *j = NULL;
-	printf("RECEIVED WEBVIEW EVENT: %s\n", str);
 
 	switch (str[0]) {
 		// MTY_EVENT_WEBVIEW_READY

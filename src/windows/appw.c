@@ -1136,6 +1136,20 @@ static void app_prep_wait(HANDLE timer, uint32_t timeout)
 	}
 }
 
+static bool app_peek_wait(MSG *msg, HANDLE timer, uint32_t timeout)
+{
+	// Check for messages first
+	if (PeekMessage(msg, NULL, 0, 0, PM_REMOVE))
+		return true;
+
+	// No messages, check if timer is needed and okay
+	if (timeout == 0 || timer == NULL)
+		return false;
+
+	// Wait for timer
+	return WaitForSingleObject(timer, 1) == WAIT_TIMEOUT;
+}
+
 void MTY_AppRun(MTY_App *ctx)
 {
 	HANDLE timer = CreateWaitableTimer(NULL, FALSE, NULL);
@@ -1167,10 +1181,13 @@ void MTY_AppRun(MTY_App *ctx)
 		// Set up waitable timer
 		app_prep_wait(timer, ctx->timeout);
 
-		// Poll messages belonging to the current (main) thread
-		for (MSG msg; PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);) {
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+		// Poll messages belonging to the current (main) thread until timeout passes AND queue is exhausted
+		for (MSG msg = {0}; app_peek_wait(&msg, timer, ctx->timeout);) {
+			if (msg.message != WM_NULL) {
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+				msg.message = WM_NULL;
+			}
 		}
 
 		// Mouse button state reconciliation

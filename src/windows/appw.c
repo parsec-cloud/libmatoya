@@ -1122,6 +1122,8 @@ void MTY_AppDestroy(MTY_App **app)
 
 void MTY_AppRun(MTY_App *ctx)
 {
+	HANDLE timer = CreateWaitableTimer(NULL, FALSE, NULL);
+
 	for (bool cont = true; cont;) {
 		struct window *window = app_get_main_window(ctx);
 		if (!window)
@@ -1164,6 +1166,9 @@ void MTY_AppRun(MTY_App *ctx)
 		if (ctx->timeout > 0)
 			MTY_Sleep(ctx->timeout);
 	}
+
+	if (timer != NULL)
+		CloseHandle(timer);
 }
 
 void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)

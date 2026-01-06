@@ -1136,11 +1136,13 @@ static void app_prep_wait(HANDLE timer, uint32_t timeout)
 	}
 }
 
-static bool app_peek_wait(MSG *msg, HANDLE timer, uint32_t timeout)
+static bool app_peek_wait(MSG *msg, HANDLE timer, uint32_t timeout, bool *have_msg)
 {
 	// Check for messages first
-	if (PeekMessage(msg, NULL, 0, 0, PM_REMOVE))
+	*have_msg = PeekMessage(msg, NULL, 0, 0, PM_REMOVE);
+	if (*have_msg) {
 		return true;
+	}
 
 	// No messages, check if timer is needed and okay
 	if (timeout == 0 || timer == NULL)
@@ -1182,12 +1184,13 @@ void MTY_AppRun(MTY_App *ctx)
 		app_prep_wait(timer, ctx->timeout);
 
 		// Poll messages belonging to the current (main) thread until timeout passes AND queue is exhausted
-		for (MSG msg = {0}; app_peek_wait(&msg, timer, ctx->timeout);) {
-			if (msg.message != WM_NULL) {
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-				msg.message = WM_NULL;
-			}
+		bool have_msg = false;
+		for (MSG msg = {0}; app_peek_wait(&msg, timer, ctx->timeout, &have_msg);) {
+			if (!have_msg)
+				continue;
+
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
 		}
 
 		// Mouse button state reconciliation

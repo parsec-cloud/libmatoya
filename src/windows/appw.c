@@ -1120,19 +1120,19 @@ void MTY_AppDestroy(MTY_App **app)
 	*app = NULL;
 }
 
-static void app_prep_wait(HANDLE timer, uint32_t timeout)
+static void app_prep_wait(HANDLE *timer, uint32_t timeout)
 {
 	// Ensure timer is created
-	if (timer == NULL)
-		timer = CreateWaitableTimer(NULL, FALSE, NULL);
+	if (*timer == NULL)
+		*timer = CreateWaitableTimer(NULL, FALSE, NULL);
 
-	if (timer == NULL)
+	if (*timer == NULL)
 		MTY_Log("'CreateWaitableTimer' failed with error 0x%X", GetLastError());
 
 	// Set the timer
-	if (timer != NULL && timeout > 0) {
+	if (*timer != NULL && timeout > 0) {
 		LARGE_INTEGER ft = {.QuadPart = -10000 * (int32_t) timeout};
-		SetWaitableTimer(timer, &ft, 0, NULL, NULL, FALSE);
+		SetWaitableTimer(*timer, &ft, 0, NULL, NULL, FALSE);
 	}
 }
 
@@ -1181,7 +1181,7 @@ void MTY_AppRun(MTY_App *ctx)
 		app_tray_retry(ctx, window);
 
 		// Set up waitable timer
-		app_prep_wait(timer, ctx->timeout);
+		app_prep_wait(&timer, ctx->timeout);
 
 		// Poll messages belonging to the current (main) thread until timeout passes AND queue is exhausted
 		bool have_msg = false;

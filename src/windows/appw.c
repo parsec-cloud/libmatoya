@@ -1163,7 +1163,8 @@ void MTY_AppRun(MTY_App *ctx)
 
 		cont = ctx->app_func(ctx->opaque);
 
-		if (ctx->timeout > 0)
+		// Hard sleep if CreateWaitableTimer is failing
+		if (timer == NULL && ctx->timeout > 0)
 			MTY_Sleep(ctx->timeout);
 	}
 

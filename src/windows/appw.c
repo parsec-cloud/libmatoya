@@ -1154,7 +1154,7 @@ static bool app_peek_wait(MSG *msg, HANDLE timer, uint32_t timeout, bool *have_m
 
 void MTY_AppRun(MTY_App *ctx)
 {
-	HANDLE timer = CreateWaitableTimer(NULL, FALSE, NULL);
+	HANDLE timer = NULL;
 
 	for (bool cont = true; cont;) {
 		struct window *window = app_get_main_window(ctx);

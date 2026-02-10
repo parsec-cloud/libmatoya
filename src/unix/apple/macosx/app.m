@@ -778,17 +778,18 @@ static void window_scroll_event(struct window *ctx, NSEvent *event)
 
 static void window_text_event(struct window *ctx, const char *text)
 {
-	// Make sure visible ASCII
-	if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
-		MTY_Event evt = {
-			.type = MTY_EVENT_TEXT,
-			.window = ctx->window,
-		};
+	if (!text || !text[0] || (strlen(text) == 1 && (text[0] < 0x20 || text[0] == 0x7F)))
+		// Ignore ASCII control characters
+		return;
 
-		snprintf(evt.text, 8, "%s", text);
+	MTY_Event evt = {
+		.type = MTY_EVENT_TEXT,
+		.window = ctx->window,
+	};
 
-		ctx->app->event_func(&evt, ctx->app->opaque);
-	}
+	snprintf(evt.text, 8, "%s", text);
+
+	ctx->app->event_func(&evt, ctx->app->opaque);
 }
 
 static void window_keyboard_event(struct window *ctx, uint16_t key_code, NSEventModifierFlags flags,

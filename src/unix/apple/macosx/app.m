@@ -776,6 +776,16 @@ static void window_scroll_event(struct window *ctx, NSEvent *event)
 
 // Keyboard
 
+static bool is_function_key(NSEvent *event) {
+	NSString *s = event.characters;
+	if (!s || !s.length)
+		return false;
+
+	unichar c = [s characterAtIndex:0];
+	printf("%d %x\n", c, c);
+    return (c >= 0xF700 && c <= 0xF8FF);
+}
+
 static void window_text_event(struct window *ctx, const char *text)
 {
 	if (!text || !text[0] || (strlen(text) == 1 && (text[0] < 0x20 || text[0] == 0x7F)))
@@ -1004,8 +1014,8 @@ static void window_keyDown(NSWindow *self, SEL _cmd, NSEvent *event)
 	struct window *ctx = OBJC_CTX();
 	if (!ctx)
 		return;
-
-	window_text_event(ctx, [event.characters UTF8String]);
+	if (!is_function_key(event))
+		window_text_event(ctx, [event.characters UTF8String]);
 	window_keyboard_event(ctx, event.keyCode, event.modifierFlags, true, event.isARepeat);
 }
 

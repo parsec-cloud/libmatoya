@@ -788,7 +788,12 @@ static bool is_function_key(NSEvent *event) {
 
 static void window_text_event(struct window *ctx, const char *text)
 {
-	if (!text || !text[0] || (strlen(text) == 1 && (text[0] < 0x20 || text[0] == 0x7F)))
+	if (!text || !text[0])
+		// Empty event
+		return;
+
+	bool is_ascii_control_character = strlen(text) == 1 ? text[0] < 0x20 || text[0] == 0x7F : false;
+	if (is_ascii_control_character)
 		// Ignore ASCII control characters
 		return;
 

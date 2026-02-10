@@ -782,8 +782,8 @@ static bool is_function_key(NSEvent *event) {
 		return false;
 
 	unichar c = [s characterAtIndex:0];
-	printf("%d %x\n", c, c);
-    return (c >= 0xF700 && c <= 0xF8FF);
+	// Ref: https://developer.apple.com/documentation/appkit/function-key-unicode-values?language=objc
+	return (c >= 0xF700 && c <= 0xF8FF);
 }
 
 static void window_text_event(struct window *ctx, const char *text)

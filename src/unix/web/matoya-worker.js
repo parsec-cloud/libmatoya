@@ -313,7 +313,28 @@ function mty_mutex_unlock(mutex, index, notify) {
 }
 
 const MTY_AUDIO_API = {
-	MTY_AudioCreate: function (format, minBuffer, maxBuffer, deviceID, fallback) {
+	MTY_AudioCreate: function (formatPtr, minBuffer, maxBuffer, deviceID, fallback) {
+		if (formatPtr === null || formatPtr === undefined)
+			return 0;
+
+		let format;
+		if (typeof formatPtr === 'number') {
+			const memoryBuffer = new DataView(MTY_MEMORY.buffer);
+			format = {
+				channels: memoryBuffer.getUint32(formatPtr, true),
+				sampleRate: memoryBuffer.getUint32(formatPtr + 4, true),
+			};
+
+		} else if (typeof formatPtr === 'object') {
+			format = {
+				channels: formatPtr.channels,
+				sampleRate: formatPtr.sampleRate,
+			};
+
+		} else {
+			throw new Error('Invalid formatPtr type');
+		}
+
 		MTY.audio = {
 			sampleRate: format.sampleRate,
 			minBuffer,

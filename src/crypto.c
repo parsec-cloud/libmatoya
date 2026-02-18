@@ -68,6 +68,9 @@ uint32_t MTY_CRC32(uint32_t crc, const void *buf, size_t size)
 
 uint32_t MTY_DJB2(const char *str)
 {
+	if (!str)
+		return 0;
+
 	uint32_t hash = 5381;
 
 	while (*str)
@@ -99,7 +102,8 @@ void MTY_HexToBytes(const char *hex, void *bytes, size_t size)
 {
 	uint8_t *bytes8 = bytes;
 
-	for (size_t x = 0; x < strlen(hex); x++) {
+	const size_t hex_length = strlen(hex);
+	for (size_t x = 0; x < hex_length; x++) {
 		size_t i = x / 2;
 		uint8_t c = hex[x];
 		uint8_t v = CRYPTO_HEX_REVERSE[c];

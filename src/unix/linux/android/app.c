@@ -613,7 +613,7 @@ static void app_push_controller_event(MTY_App *ctx, const MTY_ControllerEvent *c
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1button(JNIEnv *env, jobject obj,
-	jint deviceId, jboolean pressed, jint button)
+	jint deviceId, jboolean pressed, jint button, jboolean axis_triggers)
 {
 	MTY_MutexLock(CTX.ctrl_mutex);
 
@@ -651,6 +651,13 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1button(JNIEnv *env, job
 		}
 	}
 
+	if (!axis_triggers) {
+		switch (button) {
+			case AKEYCODE_BUTTON_L2: c->axes[MTY_CAXIS_TRIGGER_L].value = (pressed ? UINT8_MAX : 0); break;
+			case AKEYCODE_BUTTON_R2: c->axes[MTY_CAXIS_TRIGGER_R].value = (pressed ? UINT8_MAX : 0); break;
+		}
+	}
+
 	app_push_controller_event(&CTX, c);
 
 	MTY_MutexUnlock(CTX.ctrl_mutex);
@@ -672,14 +679,11 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1axis(JNIEnv *env, jobje
 	c->axes[MTY_CAXIS_TRIGGER_L].value = lrint(lT * (float) UINT8_MAX);
 	c->axes[MTY_CAXIS_TRIGGER_R].value = lrint(rT * (float) UINT8_MAX);
 
-	// Xbox Series X hack
-	if (c->vid == 0x045E && c->pid == 0x0B13) {
-		if (c->axes[MTY_CAXIS_TRIGGER_L].value == 0)
-			c->axes[MTY_CAXIS_TRIGGER_L].value = lrint(lTalt * (float) UINT8_MAX);
+	if (c->axes[MTY_CAXIS_TRIGGER_L].value == 0)
+		c->axes[MTY_CAXIS_TRIGGER_L].value = lrint(lTalt * (float) UINT8_MAX);
 
-		if (c->axes[MTY_CAXIS_TRIGGER_R].value == 0)
-			c->axes[MTY_CAXIS_TRIGGER_R].value = lrint(rTalt * (float) UINT8_MAX);
-	}
+	if (c->axes[MTY_CAXIS_TRIGGER_R].value == 0)
+		c->axes[MTY_CAXIS_TRIGGER_R].value = lrint(rTalt * (float) UINT8_MAX);
 
 	c->buttons[MTY_CBUTTON_DPAD_UP] = hatY == -1.0f;
 	c->buttons[MTY_CBUTTON_DPAD_DOWN] = hatY == 1.0f;
@@ -801,8 +805,11 @@ void MTY_AppSendNotification(MTY_App *ctx, const char *title, const char *msg)
 char *MTY_AppGetClipboard(MTY_App *ctx)
 {
 	JNIEnv *env = MTY_GetJNIEnv();
+	jstring str = mty_jni_obj(env, ctx->obj,  "getClipboard", "()Ljava/lang/String;");
+	if (str == NULL)
+		return NULL;
 
-	return mty_jni_cstrmov(env, mty_jni_obj(env, ctx->obj,  "getClipboard", "()Ljava/lang/String;"));
+	return mty_jni_cstrmov(env, str);
 }
 
 void MTY_AppSetClipboard(MTY_App *ctx, const char *text)
@@ -1096,6 +1103,11 @@ MTY_Size MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window)
 float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 {
 	return app->scale;
+}
+
+uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
+{
+	return 60;
 }
 
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)

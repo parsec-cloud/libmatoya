@@ -27,6 +27,7 @@ struct window {
 	MTY_Frame frame;
 	HWND hwnd;
 	bool was_zoomed;
+	bool was_focussed;
 	bool mouse_tracked;
 	uint32_t min_width;
 	uint32_t min_height;
@@ -427,7 +428,8 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 		bool intercept = ((p->flags & LLKHF_ALTDOWN) && p->vkCode == VK_TAB) || // ALT + TAB
 			(p->vkCode == VK_LWIN || p->vkCode == VK_RWIN) || // Windows Key
 			(p->vkCode == VK_APPS) || // Application Key
-			(p->vkCode == VK_ESCAPE); // ESC
+			(p->vkCode == VK_ESCAPE) || // ESC
+			(p->vkCode == VK_SNAPSHOT); // Print Screen;
 
 		if (intercept) {
 			bool up = p->flags & LLKHF_UP;
@@ -628,8 +630,17 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 		case WM_SETFOCUS:
 		case WM_KILLFOCUS:
-			evt.type = MTY_EVENT_FOCUS;
 			evt.focus = msg == WM_SETFOCUS;
+			if (mty_webview_is_visible(ctx->cmn.webview))
+				evt.focus = mty_webview_is_focussed(ctx->cmn.webview);
+
+			// This block effectively coalesces focus events between the normal and webview windows
+			bool focus_unchanged = ctx->was_focussed == evt.focus;
+			ctx->was_focussed = evt.focus;
+			if (focus_unchanged)
+				break;
+
+			evt.type = MTY_EVENT_FOCUS;
 			app->state++;
 			break;
 		case WM_QUERYENDSESSION:
@@ -671,11 +682,17 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			}
 
 			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
+				evt.motion.x = GET_X_LPARAM(lparam);
+				evt.motion.y = GET_Y_LPARAM(lparam);
+
+				if (evt.motion.x == app->last_x && evt.motion.y == app->last_y)
+					break;
+
 				evt.type = MTY_EVENT_MOTION;
 				evt.motion.relative = false;
 				evt.motion.synth = false;
-				evt.motion.x = GET_X_LPARAM(lparam);
-				evt.motion.y = GET_Y_LPARAM(lparam);
+				app->last_x = evt.motion.x;
+				app->last_y = evt.motion.y;
 			}
 
 			app->filter_move = false;
@@ -1123,8 +1140,42 @@ void MTY_AppDestroy(MTY_App **app)
 	*app = NULL;
 }
 
+static void app_prep_wait(HANDLE *timer, uint32_t timeout)
+{
+	// Ensure timer is created
+	if (*timer == NULL)
+		*timer = CreateWaitableTimer(NULL, FALSE, NULL);
+
+	if (*timer == NULL)
+		MTY_Log("'CreateWaitableTimer' failed with error 0x%X", GetLastError());
+
+	// Set the timer
+	if (*timer != NULL && timeout > 0) {
+		LARGE_INTEGER ft = {.QuadPart = -10000 * (int32_t) timeout};
+		SetWaitableTimer(*timer, &ft, 0, NULL, NULL, FALSE);
+	}
+}
+
+static bool app_peek_wait(MSG *msg, HANDLE timer, uint32_t timeout, bool *have_msg)
+{
+	// Check for messages first
+	*have_msg = PeekMessage(msg, NULL, 0, 0, PM_REMOVE);
+	if (*have_msg) {
+		return true;
+	}
+
+	// No messages, check if timer is needed and okay
+	if (timeout == 0 || timer == NULL)
+		return false;
+
+	// Wait for timer
+	return WaitForSingleObject(timer, 1) == WAIT_TIMEOUT;
+}
+
 void MTY_AppRun(MTY_App *ctx)
 {
+	HANDLE timer = NULL;
+
 	for (bool cont = true; cont;) {
 		struct window *window = app_get_main_window(ctx);
 		if (!window)
@@ -1149,8 +1200,15 @@ void MTY_AppRun(MTY_App *ctx)
 		// Tray retry in case of failure
 		app_tray_retry(ctx, window);
 
-		// Poll messages belonging to the current (main) thread
-		for (MSG msg; PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);) {
+		// Set up waitable timer
+		app_prep_wait(&timer, ctx->timeout);
+
+		// Poll messages belonging to the current (main) thread until timeout passes AND queue is exhausted
+		bool have_msg = false;
+		for (MSG msg = {0}; app_peek_wait(&msg, timer, ctx->timeout, &have_msg);) {
+			if (!have_msg)
+				continue;
+
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
@@ -1164,9 +1222,13 @@ void MTY_AppRun(MTY_App *ctx)
 
 		cont = ctx->app_func(ctx->opaque);
 
-		if (ctx->timeout > 0)
+		// Hard sleep if CreateWaitableTimer is failing
+		if (timer == NULL && ctx->timeout > 0)
 			MTY_Sleep(ctx->timeout);
 	}
+
+	if (timer != NULL)
+		CloseHandle(timer);
 }
 
 void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
@@ -1983,6 +2045,21 @@ float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 	return monitor_get_scale(monitor_from_hwnd(ctx->hwnd));
 }
 
+uint32_t MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return 60;
+
+	MONITORINFOEX info = monitor_get_info(monitor_from_hwnd(ctx->hwnd));
+	DEVMODE mode = {.dmSize = sizeof(DEVMODE)};
+
+	if (EnumDisplaySettings(info.szDevice, ENUM_CURRENT_SETTINGS, &mode))
+		return mode.dmDisplayFrequency;
+
+	return 60;
+}
+
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
 	struct window *ctx = app_get_window(app, window);
@@ -2011,7 +2088,10 @@ bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return false;
 
-	return app_hwnd_active(ctx->hwnd);
+	struct window_common *cmn = mty_window_get_common(app, window);
+	bool webview_active = cmn && mty_webview_is_focussed(cmn->webview);
+
+	return app_hwnd_active(ctx->hwnd) || webview_active;
 }
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)

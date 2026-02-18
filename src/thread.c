@@ -39,13 +39,6 @@ static uint8_t thread_rwlock_index(void)
 	return 0;
 }
 
-static void thread_rwlock_yield(MTY_RWLock *ctx)
-{
-	// Ensure that readers will yield to writers in a tight loop
-	while (MTY_Atomic32Get(&ctx->yield) > 0)
-		MTY_Sleep(0);
-}
-
 MTY_RWLock *MTY_RWLockCreate(void)
 {
 	MTY_RWLock *ctx = MTY_Alloc(1, sizeof(MTY_RWLock));
@@ -62,23 +55,28 @@ void MTY_RWLockDestroy(MTY_RWLock **rwlock)
 		return;
 
 	MTY_RWLock *ctx = *rwlock;
+	*rwlock = NULL;
+	MTY_MEMORY_BARRIER();
 
 	mty_rwlock_destroy(&ctx->rwlock);
 	memset(&RWLOCK_STATE[ctx->index], 0, sizeof(struct thread_rwlock));
 	MTY_Atomic32Set(&RWLOCK_INIT[ctx->index], 0);
 
 	MTY_Free(ctx);
-	*rwlock = NULL;
 }
 
 bool MTY_RWTryLockReader(MTY_RWLock *ctx)
 {
+	if (!ctx)
+		return false;
+
 	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	bool r = true;
 
 	if (rw->taken == 0) {
-		thread_rwlock_yield(ctx);
+		if (MTY_Atomic32Get(&ctx->yield) > 0)
+			return false;
 		r = mty_rwlock_try_reader(&ctx->rwlock);
 		rw->read = true;
 	}
@@ -91,10 +89,14 @@ bool MTY_RWTryLockReader(MTY_RWLock *ctx)
 
 void MTY_RWLockReader(MTY_RWLock *ctx)
 {
+	if (!ctx)
+		return;
+
 	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	if (rw->taken == 0) {
-		thread_rwlock_yield(ctx);
+		while (MTY_Atomic32Get(&ctx->yield) > 0)
+			MTY_Sleep(0);
 		mty_rwlock_reader(&ctx->rwlock);
 		rw->read = true;
 	}
@@ -104,6 +106,9 @@ void MTY_RWLockReader(MTY_RWLock *ctx)
 
 void MTY_RWLockWriter(MTY_RWLock *ctx)
 {
+	if (!ctx)
+		return;
+
 	bool relock = false;
 	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
@@ -125,6 +130,9 @@ void MTY_RWLockWriter(MTY_RWLock *ctx)
 
 void MTY_RWLockUnlock(MTY_RWLock *ctx)
 {
+	if (!ctx)
+		return;
+
 	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	if (--rw->taken == 0) {
@@ -164,16 +172,20 @@ void MTY_WaitableDestroy(MTY_Waitable **waitable)
 		return;
 
 	MTY_Waitable *ctx = *waitable;
+	*waitable = NULL;
+	MTY_MEMORY_BARRIER();
 
 	MTY_CondDestroy(&ctx->cond);
 	MTY_MutexDestroy(&ctx->mutex);
 
 	MTY_Free(ctx);
-	*waitable = NULL;
 }
 
 bool MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout)
 {
+	if (!ctx)
+		return false;
+
 	MTY_MutexLock(ctx->mutex);
 
 	if (!ctx->signal)
@@ -189,6 +201,9 @@ bool MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout)
 
 void MTY_WaitableSignal(MTY_Waitable *ctx)
 {
+	if (!ctx)
+		return;
+
 	MTY_MutexLock(ctx->mutex);
 
 	if (!ctx->signal) {
@@ -237,6 +252,8 @@ void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach)
 		return;
 
 	MTY_ThreadPool *ctx = *pool;
+	*pool = NULL;
+	MTY_MEMORY_BARRIER();
 
 	for (uint32_t x = 0; x < ctx->num; x++) {
 		MTY_ThreadPoolDetach(ctx, x, detach);
@@ -249,7 +266,6 @@ void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach)
 
 	MTY_Free(ctx->ti);
 	MTY_Free(ctx);
-	*pool = NULL;
 }
 
 static void *thread_pool_func(void *opaque)
@@ -275,6 +291,9 @@ static void *thread_pool_func(void *opaque)
 
 uint32_t MTY_ThreadPoolDispatch(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaque)
 {
+	if (!ctx)
+		return 0;
+
 	uint32_t index = 0;
 
 	for (uint32_t x = 1; x < ctx->num && index == 0; x++) {
@@ -304,6 +323,9 @@ uint32_t MTY_ThreadPoolDispatch(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *op
 
 void MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc detach)
 {
+	if (!ctx)
+		return;
+
 	struct thread_info *ti = &ctx->ti[index];
 
 	MTY_MutexLock(ti->m);
@@ -323,6 +345,9 @@ void MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc deta
 
 MTY_Async MTY_ThreadPoolPoll(MTY_ThreadPool *ctx, uint32_t index, void **opaque)
 {
+	if (!ctx)
+		return MTY_ASYNC_ERROR;
+
 	struct thread_info *ti = &ctx->ti[index];
 
 	MTY_MutexLock(ti->m);

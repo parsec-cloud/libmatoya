@@ -342,9 +342,9 @@ struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *
 
 	ctx->pushq = MTY_QueueCreate(50, 0);
 
-	bool r = SteamAPI_Init();
+	bool r = SteamAPI_InitSafe();
 	if (!r) {
-		MTY_Log("'SteamAPI_Init' failed");
+		MTY_Log("'SteamAPI_InitSafe' failed");
 		goto except;
 	}
 
@@ -591,7 +591,17 @@ void mty_webview_render(struct webview *ctx)
 	}
 }
 
+bool mty_webview_is_focussed(struct webview *ctx)
+{
+	return false;
+}
+
 bool mty_webview_is_steam(void)
+{
+	return true;
+}
+
+bool mty_webview_is_available(void)
 {
 	return true;
 }

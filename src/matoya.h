@@ -18,8 +18,10 @@
 
 #if defined(__GNUC__)
 	#define MTY_FMT(a, b) __attribute__((format(printf, a, b)))
+	#define MTY_MEMORY_BARRIER() __sync_synchronize()
 #else
 	#define MTY_FMT(a, b)
+	#define MTY_MEMORY_BARRIER() MemoryBarrier()
 #endif
 
 #ifdef __cplusplus
@@ -530,6 +532,9 @@ typedef struct {
 	float scale;            ///< Multiplier applied to the dimensions of the image, producing an
 	                        ///<   minimized or magnified image. This can be set to 0
 	                        ///<   if unnecessary.
+	bool hardware;          ///< The graphics data is a handle to a SharedResource and should be
+	                        ///<   mapped to a texture directly for rendering.
+	bool clear;				///< The window should be cleared before drawing anything.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.
@@ -1141,6 +1146,12 @@ MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window);
 MTY_EXPORT float
 MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window);
 
+/// @brief Get the refresh rate of the display where the window currently resides.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+MTY_EXPORT uint32_t
+MTY_WindowGetRefreshRate(MTY_App *app, MTY_Window window);
+
 /// @brief Set the window's title.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
@@ -1200,6 +1211,15 @@ MTY_WindowSetFullscreen(MTY_App *app, MTY_Window window, bool fullscreen);
 //- #support Windows macOS Linux
 MTY_EXPORT void
 MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y);
+
+/// @brief Test if the hardware frame provided can be used on the current window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param shared_resource The hardware frame pointer.
+/// @param desc Description of the image and how it should be rendered.
+MTY_EXPORT bool
+MTY_WindowIsValidHardwareFrame(MTY_App *app, MTY_Window window, const void *shared_resource,
+	const MTY_RenderDesc *desc);
 
 /// @brief Draw a quad with a raw image and MTY_RenderDesc.
 /// @param app The MTY_App.
@@ -1385,6 +1405,13 @@ MTY_WebViewSetInputPassthrough(MTY_App *app, MTY_Window window, bool passthrough
 MTY_EXPORT bool
 MTY_WebViewIsSteam(void);
 
+/// @brief Check if the WebView is available on the current platform.
+/// @details The function returns true if the platform supports WebView, AND has the necessary
+///   dependencies to create a WebView. For example, on Windows, WebView is only available on
+///   Windows 10 and later, and the WebView2 runtime must be installed.
+MTY_EXPORT bool
+MTY_WebViewIsAvailable(void);
+
 /// @brief Fill an MTY_Frame taking the current display settings into account.
 /// @details The returned MTY_Frame can be passed directly to MTY_WindowCreate or
 ///   MTY_WindowSetFrame.
@@ -1459,21 +1486,89 @@ MTY_WaitPtr(int32_t *sync);
 
 //- #module Audio
 //- #mbrief Simple audio playback and resampling.
-//- #mdetails This is a very minimal interface that assumes 2-channel, 16-bit signed PCM
+//- #mdetails This is a very minimal interface that supports multi-channel PCM audio
 //-   submitted by pushing to a queue. This module also includes a straightforward
-//-   resampler.
+//-   resampler for 2-channel, 16-bit signed PCM audio.
 
 typedef struct MTY_Audio MTY_Audio;
 typedef struct MTY_Resampler MTY_Resampler;
 
+/// @brief Audio sample formats. Currently only PCM formats.
+typedef enum {
+	MTY_AUDIO_SAMPLE_FORMAT_UNKNOWN = 0, ///< Unknown format.
+	MTY_AUDIO_SAMPLE_FORMAT_FLOAT   = 1, ///< 32-bit floating point.
+	MTY_AUDIO_SAMPLE_FORMAT_INT16   = 2, ///< 16-bit signed integer.
+} MTY_AudioSampleFormat;
+
+/// @brief Surround sound audio channel IDs.
+/// @details Used in ::MTY_AudioFormat. Follows standard surround sound speaker ids
+///   (see https://en.wikipedia.org/wiki/Surround_sound#Standard_speaker_channels).
+typedef enum {
+	MTY_AUDIO_CHANNEL_FL      = 0x00000001,
+	MTY_AUDIO_CHANNEL_FR      = 0x00000002,
+	MTY_AUDIO_CHANNEL_FC      = 0x00000004,
+	MTY_AUDIO_CHANNEL_LFE     = 0x00000008,
+	MTY_AUDIO_CHANNEL_BL      = 0x00000010,
+	MTY_AUDIO_CHANNEL_BR      = 0x00000020,
+	MTY_AUDIO_CHANNEL_FLC     = 0x00000040,
+	MTY_AUDIO_CHANNEL_FRC     = 0x00000080,
+	MTY_AUDIO_CHANNEL_BC      = 0x00000100,
+	MTY_AUDIO_CHANNEL_SL      = 0x00000200,
+	MTY_AUDIO_CHANNEL_SR      = 0x00000400,
+	MTY_AUDIO_CHANNEL_TC      = 0x00000800,
+	MTY_AUDIO_CHANNEL_TFL     = 0x00001000,
+	MTY_AUDIO_CHANNEL_TFC     = 0x00002000,
+	MTY_AUDIO_CHANNEL_TFR     = 0x00004000,
+	MTY_AUDIO_CHANNEL_TBL     = 0x00008000,
+	MTY_AUDIO_CHANNEL_TBC     = 0x00010000,
+	MTY_AUDIO_CHANNEL_TBR     = 0x00020000,
+
+	// Some common configurations
+	MTY_AUDIO_CHANNEL_CFG_UNKNOWN      = 0,
+	MTY_AUDIO_CHANNEL_CFG_MONO         = MTY_AUDIO_CHANNEL_FL,
+	MTY_AUDIO_CHANNEL_CFG_STEREO       = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR,
+	MTY_AUDIO_CHANNEL_CFG_5_1_SURROUND = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_SL  | MTY_AUDIO_CHANNEL_SR,
+	MTY_AUDIO_CHANNEL_CFG_5_1_REAR     = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_BL  | MTY_AUDIO_CHANNEL_BR,
+	MTY_AUDIO_CHANNEL_CFG_7_1_SURROUND = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_BL  | MTY_AUDIO_CHANNEL_BR  |
+	                                     MTY_AUDIO_CHANNEL_SL  | MTY_AUDIO_CHANNEL_SR,
+	MTY_AUDIO_CHANNEL_CFG_7_1_WIDE     = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_BL  | MTY_AUDIO_CHANNEL_BR  |
+	                                     MTY_AUDIO_CHANNEL_FLC | MTY_AUDIO_CHANNEL_FRC,
+	MTY_AUDIO_CHANNEL_CFG_7_1_SIDE     = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_SL  | MTY_AUDIO_CHANNEL_SR  |
+	                                     MTY_AUDIO_CHANNEL_FLC | MTY_AUDIO_CHANNEL_FRC,
+	MTY_AUDIO_CHANNEL_CFG_7_1_4_ATMOS  = MTY_AUDIO_CHANNEL_FL  | MTY_AUDIO_CHANNEL_FR  | MTY_AUDIO_CHANNEL_FC  |
+	                                     MTY_AUDIO_CHANNEL_LFE | MTY_AUDIO_CHANNEL_BL  | MTY_AUDIO_CHANNEL_BR  |
+	                                     MTY_AUDIO_CHANNEL_SL  | MTY_AUDIO_CHANNEL_SR  | MTY_AUDIO_CHANNEL_TFL |
+	                                     MTY_AUDIO_CHANNEL_TFR | MTY_AUDIO_CHANNEL_TBL | MTY_AUDIO_CHANNEL_TBR,
+} MTY_AudioChannelID;
+
+/// @brief Format description for an audio device.
+typedef struct {
+	MTY_AudioSampleFormat sampleFormat; ///< Format of audio samples.
+	uint32_t sampleRate;                ///< Number of audio samples per second. Usually set to 48000.
+	uint32_t channels;                  ///< Number of audio channels.
+	uint32_t channelMask;               ///< Bitmask that defines which channels are present in the audio data.
+	                                    ///<   Should contain only values defined in ::MTY_AudioChannelID.
+	                                    ///<   For `channels` > 2, specify this value correctly in order
+	                                    ///<   to yield accurate audio playback.
+										///<   Currently only supported by Windows and macOS. All other platforms
+										///<   will ignore this field.
+										///<   If set to MTY_AUDIO_CHANNEL_CFG_UNKNOWN, the platform will
+										///<   attempt to use reasonable defaults based on `channels`.
+} MTY_AudioFormat;
+
 /// @brief Create an MTY_Audio context for playback.
-/// @param sampleRate Audio sample rate in KHz.
+/// @param format Format that the audio device will attempt to initialize. If the
+///   provided format is not supported, the function will fail and return NULL.
 /// @param minBuffer The minimum amount of audio in milliseconds that must be queued
 ///   before playback begins.
 /// @param maxBuffer The maximum amount of audio in milliseconds that can be queued
 ///   before audio begins getting dropped. The queue will flush to zero, then begin
 ///   building back towards `minBuffer` again before playback resumes.
-/// @param channels Number of audio channels.
 /// @param deviceID Specify a specific audio device for playback, or NULL for the default
 ///   device. Windows only.
 /// @param fallback If `deviceID` is not NULL, set to true to fallback to the default device, or
@@ -1481,7 +1576,7 @@ typedef struct MTY_Resampler MTY_Resampler;
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_Audio context must be destroyed with MTY_AudioDestroy.
 MTY_EXPORT MTY_Audio *
-MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer, uint8_t channels,
+MTY_AudioCreate(MTY_AudioFormat format, uint32_t minBuffer, uint32_t maxBuffer,
 	const char *deviceID, bool fallback);
 
 /// @brief Destroy an MTY_Audio context.
@@ -1504,11 +1599,13 @@ MTY_AudioGetQueued(MTY_Audio *ctx);
 
 /// @brief Queue 16-bit signed PCM audio for playback.
 /// @param ctx An MTY_Audio context.
-/// @param frames Buffer containing 16-bit signed PCM audio frames. The number of audio channels
-///   is specified during MTY_AudioCreate. In the case of 2-channel PCM, one audio frame is two
-///   samples, each sample being one channel.
+/// @param frames Buffer containing PCM audio frames as per the format (channels, sample rate, etc)
+///   that was specified during MTY_AudioCreate. A frame is an interleaving of 1 sample per channel.
+///   For example, in the case of 2-channel/stereo audio, one audio frame is two samples, each
+///   sample being one channel.
 /// @param count The number of frames contained in `frames`. The number of frames would
-///   be the size of `frames` in bytes divided by 2 * `channels` specified during MTY_AudioCreate.
+///   be the size of `frames` in bytes divided by sample size * `channels` specified
+///   during MTY_AudioCreate.
 MTY_EXPORT void
 MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count);
 
@@ -1664,14 +1761,15 @@ MTY_GetRandomBytes(void *buf, size_t size);
 MTY_EXPORT uint32_t
 MTY_GetRandomUInt(uint32_t minVal, uint32_t maxVal);
 
-/// @brief Create an MTY_AESGCM context for AES-GCM-128 encryption/decryption.
+/// @brief Create an MTY_AESGCM context for AES-GCM encryption/decryption.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_AESGCM context must be destroyed with MTY_AESGCMDestroy.
-/// @param key The secret key to use for encryption. This buffer must be 16 bytes,
-///   the size necessary for AES-128.
+/// @param key The secret key to use for encryption. This buffer must be 16 or 32
+///   bytes, the size necessary for AES-GCM-128 or AES-GCM-256, respectively.
+/// @param keySize Size in bytes of `key`. Must be 16 or 32.
 //- #support Windows macOS Android Linux
 MTY_EXPORT MTY_AESGCM *
-MTY_AESGCMCreate(const void *key);
+MTY_AESGCMCreate(const void *key, size_t keySize);
 
 /// @brief Destroy an MTY_AESGCM context.
 /// @param aesgcm Passed by reference and set to NULL after being destroyed.
@@ -1679,7 +1777,7 @@ MTY_AESGCMCreate(const void *key);
 MTY_EXPORT void
 MTY_AESGCMDestroy(MTY_AESGCM **aesgcm);
 
-/// @brief Encrypt plain text with a nonce using AES-GCM-128 and output the GCM tag.
+/// @brief Encrypt plain text with a nonce using AES-GCM and output the GCM tag.
 /// @param ctx An MTY_AESGCM context.
 /// @param nonce A buffer used as salt during encryption. This buffer must be 12 bytes,
 ///   and it MUST be different for each call to this function using the same
@@ -1695,7 +1793,7 @@ MTY_EXPORT bool
 MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, size_t size,
 	void *tag, void *cipherText);
 
-/// @brief Decrypt cipher text with a nonce and GCM tag using AES-GCM-128.
+/// @brief Decrypt cipher text with a nonce and GCM tag using AES-GCM.
 /// @param ctx An MTY_AESGCM context.
 /// @param nonce This buffer must be 12 bytes and it must match the `nonce` used
 ///   during encryption.
@@ -1771,9 +1869,10 @@ typedef enum {
 
 /// @brief File properties.
 typedef struct {
-	char *path; ///< The base path to the file.
-	char *name; ///< The file name.
-	bool dir;   ///< The file is a directory.
+	char *path;    ///< The base path to the file.
+	char *name;    ///< The file name.
+	uint64_t size; ///< The file size in bytes.
+	bool dir;      ///< The file is a directory.
 } MTY_FileDesc;
 
 /// @brief A list of files.
@@ -2229,6 +2328,9 @@ MTY_JSONObjSetItem(MTY_JSON *json, const char *key, MTY_JSON *value);
 #define MTY_JSONObjGetFloat(json, key, val) \
 	MTY_JSONFloat(MTY_JSONObjGetItem(json, key), val)
 
+#define MTY_JSONObjGetNumber(json, key, val) \
+	MTY_JSONNumber(MTY_JSONObjGetItem(json, key), val)
+
 #define MTY_JSONObjGetString(json, key, val, size) \
 	MTY_JSONString(MTY_JSONObjGetItem(json, key), val, size)
 
@@ -2447,6 +2549,15 @@ MTY_SprintfD(const char *fmt, ...) MTY_FMT(1, 2);
 ///   This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_SprintfDL(const char *fmt, ...) MTY_FMT(1, 2);
+
+/// @brief Search a string for a list of substrings.
+/// @param a String to be searched.
+/// @param b List of substrings delimited by `delim`.
+/// @param delim Delimiters used to for `s1`. Each character in this string is treated
+///   as a delimiter like MTY_Strtok.
+/// @returns Returns true if any of `s1` is found in `s0`, otherwise false.
+MTY_EXPORT bool
+MTY_StrSearch(const char *s0, const char *s1, const char *delim);
 
 /// @brief Case insensitive string comparison.
 /// @details For more information, see `strcasecmp` from the C standard library.
@@ -3357,6 +3468,19 @@ MTY_GetProcessPath(void);
 MTY_EXPORT const char *
 MTY_GetProcessDir(void);
 
+/// @brief Restart the current process into a specific binary.
+/// @details For more information, see `execv` from the C standard library.
+/// @param path Full path to an executable to execv.
+///   May be set to `NULL` to restart the current process.
+/// @param argv Arguments to set up a call to `execv`. This is an array of strings
+///   that must have its last element set to NULL.
+/// @param dir The working directory to set. May be NULL to use the current working directory
+/// @returns On success this function does not return, otherwise it returns false.
+///   Call MTY_GetLog for details.
+//- #support Windows macOS Linux
+MTY_EXPORT bool
+MTY_StartInProcess(const char *path, char * const *argv, const char *dir);
+
 /// @brief Restart the current process.
 /// @details For more information, see `execv` from the C standard library.
 /// @param argv Arguments to set up a call to `execv`. This is an array of strings
@@ -3577,10 +3701,10 @@ MTY_RevertTimerResolution(uint32_t res);
 //-   A minor version increase means an implementation change or a pure addition to the
 //-   interface. A major version increase means the interface has changed.
 
-#define MTY_VERSION_MAJOR   4      ///< libmatoya major version number.
+#define MTY_VERSION_MAJOR   5      ///< libmatoya major version number.
 #define MTY_VERSION_MINOR   0      ///< libmatoya minor version number.
-#define MTY_VERSION_STRING  "4.0"  ///< UTF-8 libmatoya version string.
-#define MTY_VERSION_STRINGW L"4.0" ///< Wide character libmatoya version string.
+#define MTY_VERSION_STRING  "5.0"  ///< UTF-8 libmatoya version string.
+#define MTY_VERSION_STRINGW L"5.0" ///< Wide character libmatoya version string.
 
 /// @brief Get the version libmatoya was compiled with.
 /// @returns The major and minor version numbers packed into a 32-bit integer. The major

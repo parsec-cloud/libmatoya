@@ -324,17 +324,10 @@ function mty_add_input_events(thread) {
 			ev.preventDefault();
 	});
 
-	window.addEventListener('blur', (ev) => {
+	document.addEventListener('visibilitychange', (ev) => {
 		thread.postMessage({
 			type: 'focus',
-			focus: false,
-		});
-	});
-
-	window.addEventListener('focus', (ev) => {
-		thread.postMessage({
-			type: 'focus',
-			focus: true,
+			focus: document.visibilityState == 'visible',
 		});
 	});
 

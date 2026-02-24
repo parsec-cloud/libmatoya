@@ -812,6 +812,7 @@ static bool window_flags_changed(uint16_t key_code, NSEventModifierFlags flags)
 		case kVK_RightControl: return flags & NS_MOD_RCTRL;
 		case kVK_RightOption: return flags & NS_MOD_RALT;
 		case kVK_RightCommand: return flags & NS_MOD_RCMD;
+
 		case kVK_CapsLock: return flags & NSEventModifierFlagCapsLock;
 	}
 
@@ -974,8 +975,8 @@ static void window_flagsChanged(NSWindow *self, SEL _cmd, NSEvent *event)
 	struct window *ctx = OBJC_CTX();
 
 	// Print all relevant fields of event
-	printf("flagChanged: modifierFlags=0x%lx\n",
-		event.modifierFlags);
+	printf("flagChanged: keyCode:0x%x, modifierFlags=0x%lx\n",
+		event.keyCode, event.modifierFlags);
 
 	bool pressed = window_flags_changed(event.keyCode, event.modifierFlags);
 	window_keyboard_event(ctx, event.keyCode, event.modifierFlags, pressed, false);

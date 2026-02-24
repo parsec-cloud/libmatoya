@@ -4,6 +4,8 @@
 *.dll
 *.pdb
 
+.vs
+
 /obj
 /bin
 

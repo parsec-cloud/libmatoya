@@ -950,12 +950,20 @@ static void window_keyUp(NSWindow *self, SEL _cmd, NSEvent *event)
 {
 	struct window *ctx = OBJC_CTX();
 
+	// Print all relevant fields of event
+	printf("keyUp: keyCode=0x%x, modifierFlags=0x%lx, isARepeat=%d, characters=%s, no-mod characters=%s\n",
+		event.keyCode, event.modifierFlags, event.isARepeat, [event.characters UTF8String], [event.charactersIgnoringModifiers UTF8String]);
+
 	window_keyboard_event(ctx, event.keyCode, event.modifierFlags, false, false);
 }
 
 static void window_keyDown(NSWindow *self, SEL _cmd, NSEvent *event)
 {
 	struct window *ctx = OBJC_CTX();
+
+	// Print all relevant fields of event
+	printf("keyDown: keyCode=0x%x, modifierFlags=0x%lx, isARepeat=%d, characters=%s, no-mod characters=%s\n",
+		event.keyCode, event.modifierFlags, event.isARepeat, [event.characters UTF8String], [event.charactersIgnoringModifiers UTF8String]);
 
 	window_text_event(ctx, [event.characters UTF8String]);
 	window_keyboard_event(ctx, event.keyCode, event.modifierFlags, true, event.isARepeat);
@@ -964,6 +972,10 @@ static void window_keyDown(NSWindow *self, SEL _cmd, NSEvent *event)
 static void window_flagsChanged(NSWindow *self, SEL _cmd, NSEvent *event)
 {
 	struct window *ctx = OBJC_CTX();
+
+	// Print all relevant fields of event
+	printf("flagChanged: modifierFlags=0x%lx\n",
+		event.modifierFlags);
 
 	bool pressed = window_flags_changed(event.keyCode, event.modifierFlags);
 	window_keyboard_event(ctx, event.keyCode, event.modifierFlags, pressed, false);

@@ -61,6 +61,7 @@ struct MTY_App {
 	struct window *windows[MTY_WINDOW_MAX];
 	float timeout;
 	struct hid *hid;
+	io_connect_t hid_driver;
 };
 
 static const MTY_Button APP_MOUSE_MAP[] = {
@@ -807,6 +808,20 @@ static void window_keyboard_event(struct window *ctx, uint16_t key_code, NSEvent
 		.key.pressed = pressed,
 	};
 
+	if (keyCode == kVK_CapsLock) {
+		bool capslock = false;
+		kern_return_t e = KERN_SUCCESS;
+		
+		e = IOHIDModifierLockState(ctx->app->hid_driver, kIOHIDCapsLockState, &capslock)
+		if (e == KERN_SUCCESS) {
+			if (capslock) {
+				evt.key.mod |= MTY_MOD_CAPS;
+			} else {
+				evt.key.mod &= ~MTY_MOD_CAPS;
+			}
+		}
+	}
+
 	mty_app_kb_to_hotkey(ctx->app, &evt, MTY_EVENT_HOTKEY);
 
 	// Only use hid keys hotkeys if available.
@@ -1398,6 +1413,48 @@ static void app_pump_events(MTY_App *ctx, NSDate *until)
 	}
 }
 
+static io_connect_t app_get_event_driver(void)
+{
+	kern_return_t e = KERN_SUCCESS;
+	mach_port_t main = 0;
+	io_iterator_t service = 0;
+	io_iterator_t iter = 0;
+	io_connect_t driver = 0;
+
+	if (@available(macOS 12.0, *)) {
+		e = IOMainPort(MACH_PORT_NULL, &main);
+	} else {
+		e = IOMasterPort(MACH_PORT_NULL, &main);
+	}
+
+	if (e != KERN_SUCCESS) {
+		MTY_Log("Failed to get IOMainPort: %d", e);
+		goto except;
+	}
+
+	e = IOServiceGetMatchingServices(main, IOServiceMatching(kIOHIDSystemClass), &iter);
+	if (e != KERN_SUCCESS) {
+		MTY_Log("'IOServiceGetMatchingServices' Failed: %d", e);
+		goto except;
+	}
+
+	e = IOServiceOpen(service, mach_task_serlf(), kIOHIDParamConnectType, &driver);
+	if (e != KERN_SUCCESS) {
+		MTY_Log("'IOServiceOpen' Failed: %d", e);
+		goto except;
+	}
+
+	except:
+
+	if (service)
+		IOObjectRelease(service);
+
+	if (iter)
+		IOObjectRelease(iter)
+	
+	return driver
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFlag flags, MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaque)
 {
 	MTY_App *ctx = MTY_Alloc(1, sizeof(MTY_App));
@@ -1419,6 +1476,8 @@ MTY_App *MTY_AppCreate(MTY_AppFlag flags, MTY_AppFunc appFunc, MTY_EventFunc eve
 		ctx->hid = mty_hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, NULL, ctx);
 		ctx->flags &= ~MTY_APP_FLAG_HID_KEYBOARD;
 	}
+
+	ctx->hid_driver = app_get_event_driver();
 
 	ctx->hotkey = MTY_HashCreate(0);
 	ctx->deduper = MTY_HashCreate(0);
@@ -1453,6 +1512,8 @@ void MTY_AppDestroy(MTY_App **app)
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(ctx, x);
+
+	if (ctx->hid_driver)
 
 	mty_hid_destroy(&ctx->hid);
 

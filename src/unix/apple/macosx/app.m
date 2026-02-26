@@ -766,7 +766,9 @@ static void window_scroll_event(struct window *ctx, NSEvent *event)
 	MTY_Event evt = {
 		.type = MTY_EVENT_SCROLL,
 		.window = ctx->window,
-		.scroll.x = lrint(event.scrollingDeltaX * delta),
+		// macOS and Windows treat horizontal scrolling diffently,
+		// so invert the horizontal delta to match Windows behavior.
+		.scroll.x = lrint(-event.scrollingDeltaX * delta),
 		.scroll.y = lrint(event.scrollingDeltaY * delta),
 	};
 

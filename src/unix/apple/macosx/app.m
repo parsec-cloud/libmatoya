@@ -7,6 +7,7 @@
 #include <AppKit/AppKit.h>
 #include <Carbon/Carbon.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/hidsystem/IOHIDLib.h>
 
 #include "objc.h"
 #include "scale.h"
@@ -73,6 +74,8 @@ static const MTY_Button APP_MOUSE_MAP[] = {
 };
 
 #define APP_MOUSE_MAX (sizeof(APP_MOUSE_MAP) / sizeof(MTY_Button))
+
+#define kIOHIDCapsLockState 0x00000001
 
 static void app_schedule_func(MTY_App *ctx)
 {
@@ -808,11 +811,11 @@ static void window_keyboard_event(struct window *ctx, uint16_t key_code, NSEvent
 		.key.pressed = pressed,
 	};
 
-	if (keyCode == kVK_CapsLock) {
+	if (key_code == kVK_CapsLock) {
 		bool capslock = false;
 		kern_return_t e = KERN_SUCCESS;
 		
-		e = IOHIDModifierLockState(ctx->app->hid_driver, kIOHIDCapsLockState, &capslock)
+		e = IOHIDGetModifierLockState(ctx->app->hid_driver, kIOHIDCapsLockState, &capslock);
 		if (e == KERN_SUCCESS) {
 			if (capslock) {
 				evt.key.mod |= MTY_MOD_CAPS;
@@ -1438,7 +1441,13 @@ static io_connect_t app_get_event_driver(void)
 		goto except;
 	}
 
-	e = IOServiceOpen(service, mach_task_serlf(), kIOHIDParamConnectType, &driver);
+	service = IOIteratorNext(iter);
+	if (!service) {
+		MTY_Log("'IOIIteratorNext' Failed");
+		goto except;
+	}
+
+	e = IOServiceOpen(service, mach_task_self(), kIOHIDParamConnectType, &driver);
 	if (e != KERN_SUCCESS) {
 		MTY_Log("'IOServiceOpen' Failed: %d", e);
 		goto except;
@@ -1450,9 +1459,9 @@ static io_connect_t app_get_event_driver(void)
 		IOObjectRelease(service);
 
 	if (iter)
-		IOObjectRelease(iter)
+		IOObjectRelease(iter);
 	
-	return driver
+	return driver;
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFlag flags, MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaque)

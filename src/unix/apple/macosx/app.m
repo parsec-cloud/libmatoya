@@ -813,6 +813,7 @@ static void window_keyboard_event(struct window *ctx, uint16_t key_code, NSEvent
 		kern_return_t e = KERN_SUCCESS;
 		
 		e = IOHIDModifierLockState(ctx->app->hid_driver, kIOHIDCapsLockState, &capslock)
+		printf("IOHIDGetModifierLockState value: %d, error: %d\n", capslock, e);
 		if (e == KERN_SUCCESS) {
 			if (capslock) {
 				evt.key.mod |= MTY_MOD_CAPS;

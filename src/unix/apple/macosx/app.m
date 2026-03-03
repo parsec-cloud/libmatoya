@@ -789,14 +789,11 @@ static bool is_function_key(NSEvent *event) {
 static void window_text_event(struct window *ctx, const char *text)
 {
 	if (!text || !text[0])
-		// Empty event
-		return;
+		return; // Empty event
 
 	bool is_ascii_control_character = strlen(text) == 1 ? text[0] < 0x20 || text[0] == 0x7F : false;
-	if (is_ascii_control_character) {
-		// Ignore ASCII control characters
-		return;
-	}
+	if (is_ascii_control_character)
+		return; // Ignore ASCII control characters
 
 	MTY_Event evt = {
 		.type = MTY_EVENT_TEXT,
@@ -1019,13 +1016,11 @@ static void window_keyDown(NSWindow *self, SEL _cmd, NSEvent *event)
 {
 	struct window *ctx = OBJC_CTX();
 
-	if (!ctx) {
+	if (!ctx)
 		return;
-	}
 
-	if (!is_function_key(event)) {
+	if (!is_function_key(event))
 		window_text_event(ctx, [event.characters UTF8String]);
-	}
 
 	window_keyboard_event(ctx, event.keyCode, event.modifierFlags, true, event.isARepeat);
 }

@@ -801,7 +801,6 @@ static void window_text_event(struct window *ctx, const char *text)
 	};
 
 	snprintf(evt.text, 8, "%s", text);
-
 	ctx->app->event_func(&evt, ctx->app->opaque);
 }
 
@@ -1015,7 +1014,6 @@ static void window_keyUp(NSWindow *self, SEL _cmd, NSEvent *event)
 static void window_keyDown(NSWindow *self, SEL _cmd, NSEvent *event)
 {
 	struct window *ctx = OBJC_CTX();
-
 	if (!ctx)
 		return;
 

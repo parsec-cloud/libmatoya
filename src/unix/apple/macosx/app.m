@@ -791,8 +791,8 @@ static void window_text_event(struct window *ctx, const char *text)
 	if (!text || !text[0])
 		return; // Empty event
 
-	bool is_ascii_control_character = strlen(text) == 1 ? text[0] < 0x20 || text[0] == 0x7F : false;
-	if (is_ascii_control_character)
+	unsigned char c = (unsigned char) text[0];
+	if (text[1] == '\0' && (c < 0x20 || c == 0x7F))
 		return; // Ignore ASCII control characters
 
 	MTY_Event evt = {

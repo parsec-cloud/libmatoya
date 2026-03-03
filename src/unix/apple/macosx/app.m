@@ -800,7 +800,7 @@ static void window_text_event(struct window *ctx, const char *text)
 		.window = ctx->window,
 	};
 
-	snprintf(evt.text, 8, "%s", text);
+	snprintf(evt.text, sizeof(evt.text), "%s", text);
 	ctx->app->event_func(&evt, ctx->app->opaque);
 }
 

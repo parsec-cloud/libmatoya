@@ -53,7 +53,7 @@ GFX_CTX_DECLARE_TABLE()
 	GFX_CTX_API[(cmn)->api].lock((cmn)->gfx_ctx)
 
 #define gfx_ctx_unlock(cmn) \
-	GFX_CTX_API[(cmn)->api].unlock()
+	GFX_CTX_API[(cmn)->api].unlock((cmn)->gfx_ctx)
 
 static void gfx_set_device(struct window_common *cmn, MTY_Device *device)
 {
@@ -117,12 +117,14 @@ void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, cons
 	if (!cmn || cmn->api == MTY_GFX_NONE)
 		return;
 
-	MTY_Surface *surface = gfx_ctx_get_surface(cmn);
-	if (!surface)
-		return;
-
 	if (!gfx_ctx_lock(cmn))
 		return;
+
+	MTY_Surface *surface = gfx_ctx_get_surface(cmn);
+	if (!surface) {
+		gfx_ctx_unlock(cmn);
+		return;
+	}
 
 	MTY_RenderDesc mutated = *desc;
 	gfx_ctx_get_size(cmn, &mutated.viewWidth, &mutated.viewHeight);
@@ -142,12 +144,14 @@ void MTY_WindowClear(MTY_App *app, MTY_Window window, float r, float g, float b,
 	if (!cmn || cmn->api == MTY_GFX_NONE)
 		return;
 
-	MTY_Surface *surface = gfx_ctx_get_surface(cmn);
-	if (!surface)
-		return;
-
 	if (!gfx_ctx_lock(cmn))
 		return;
+
+	MTY_Surface *surface = gfx_ctx_get_surface(cmn);
+	if (!surface) {
+		gfx_ctx_unlock(cmn);
+		return;
+	}
 
 	uint32_t w = 0;
 	uint32_t h = 0;
@@ -168,12 +172,14 @@ void MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd)
 	if (!cmn || cmn->api == MTY_GFX_NONE)
 		return;
 
-	MTY_Surface *surface = gfx_ctx_get_surface(cmn);
-	if (!surface)
-		return;
-
 	if (!gfx_ctx_lock(cmn))
 		return;
+
+	MTY_Surface *surface = gfx_ctx_get_surface(cmn);
+	if (!surface) {
+		gfx_ctx_unlock(cmn);
+		return;
+	}
 
 	MTY_DrawData mutated = *dd;
 

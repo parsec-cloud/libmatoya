@@ -27,7 +27,7 @@ struct gfx_ctx;
 	MTY_Surface *wrap(api, get_surface)(struct gfx_ctx *gfx_ctx); \
 	void wrap(api, set_sync_interval)(struct gfx_ctx *gfx_ctx, uint32_t interval); \
 	bool wrap(api, lock)(struct gfx_ctx *gfx_ctx); \
-	void wrap(api, unlock)(void);
+	void wrap(api, unlock)(struct gfx_ctx *gfx_ctx);
 
 #define GFX_CTX_PROTOTYPES(api) \
 	GFX_CTX_DECLARE_API(api, GFX_CTX_PROTO)

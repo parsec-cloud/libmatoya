@@ -351,6 +351,6 @@ bool mty_d3d11_ctx_lock(struct gfx_ctx *gfx_ctx)
 	return true;
 }
 
-void mty_d3d11_ctx_unlock(void)
+void mty_d3d11_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
 }

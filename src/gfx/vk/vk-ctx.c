@@ -717,6 +717,6 @@ bool mty_vk_ctx_lock(struct gfx_ctx *gfx_ctx)
 	return true;
 }
 
-void mty_vk_ctx_unlock(void)
+void mty_vk_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
 }

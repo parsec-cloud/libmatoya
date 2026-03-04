@@ -201,7 +201,7 @@ bool mty_gl_ctx_lock(struct gfx_ctx *gfx_ctx)
 	return true;
 }
 
-void mty_gl_ctx_unlock(void)
+void mty_gl_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
 	mty_gfx_unlock();
 }

@@ -169,6 +169,6 @@ bool mty_metal_ctx_lock(struct gfx_ctx *gfx_ctx)
 	return true;
 }
 
-void mty_metal_ctx_unlock(void)
+void mty_metal_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
 }

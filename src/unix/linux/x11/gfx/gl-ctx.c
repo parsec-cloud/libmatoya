@@ -70,6 +70,10 @@ void mty_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	struct gl_ctx *ctx = (struct gl_ctx *) *gfx_ctx;
 	*gfx_ctx = NULL;
 
+	// Ensure nothing is still using the context before freeing it
+	MTY_MutexLock(ctx->mutex);
+	MTY_MutexUnlock(ctx->mutex);
+
 	if (ctx->gl)
 		glXDestroyContext(ctx->display, ctx->gl);
 

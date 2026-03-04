@@ -220,6 +220,10 @@ void mty_d3d11_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) *gfx_ctx;
 	*gfx_ctx = NULL;
 
+	// Ensure nothing is still using the context before freeing it
+	EnterCriticalSection(&ctx->mutex);
+	LeaveCriticalSection(&ctx->mutex);
+
 	dxgi_sync_destroy(&ctx->dxgi_sync);
 	d3d11_ctx_free(ctx);
 

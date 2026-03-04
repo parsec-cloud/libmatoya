@@ -315,6 +315,10 @@ void mty_d3d12_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	struct d3d12_ctx *ctx = (struct d3d12_ctx *) *gfx_ctx;
 	*gfx_ctx = NULL;
 
+	// Ensure nothing is still using the context before freeing it
+	EnterCriticalSection(&ctx->mutex);
+	LeaveCriticalSection(&ctx->mutex);
+
 	dxgi_sync_destroy(&ctx->dxgi_sync);
 	d3d12_core_free(&ctx->core);
 

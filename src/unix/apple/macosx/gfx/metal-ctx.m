@@ -83,6 +83,10 @@ void mty_metal_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	struct metal_ctx *ctx = (struct metal_ctx *) *gfx_ctx;
 	*gfx_ctx = NULL;
 
+	// Ensure nothing is still using the context before freeing it
+	MTY_MutexLock(ctx->mutex);
+	MTY_MutexUnlock(ctx->mutex);
+
 	display_link_destroy(&ctx->dlink);
 
 	ctx->window = nil;

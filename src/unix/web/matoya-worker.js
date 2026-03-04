@@ -825,11 +825,6 @@ const MTY_WEB_API = {
 		MTY.app = app;
 		mty_update_window(app, MTY.initWindowInfo);
 	},
-	web_run_and_yield: function (iter, opaque) {
-		// Must run on a non-main thread since a tight loop on the main thread
-		// would block the event loop and prevent yielding
-		while (mty_cfunc(iter)(opaque));
-	},
 	web_run_main_thread: function (iter, opaque) {
 		// Cannot use web_run_and_yield on the main thread
 		// since the tight loop would block the event loop and prevent yielding,

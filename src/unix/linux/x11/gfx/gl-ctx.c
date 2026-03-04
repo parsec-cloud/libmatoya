@@ -14,6 +14,7 @@ struct gl_ctx {
 	Window window;
 	GLXContext gl;
 	uint32_t fb0;
+	MTY_Mutex *mutex;
 };
 
 struct gfx_ctx *mty_gl_ctx_create(void *native_window, bool vsync)
@@ -27,6 +28,12 @@ struct gfx_ctx *mty_gl_ctx_create(void *native_window, bool vsync)
 	bool r = true;
 
 	struct gl_ctx *ctx = MTY_Alloc(1, sizeof(struct gl_ctx));
+	ctx->mutex = MTY_MutexCreate();
+	if (!ctx->mutex) {
+		r = false;
+		goto except;
+	}
+
 	struct xinfo *info = (struct xinfo *) native_window;
 	ctx->display = info->display;
 	ctx->vis = info->vis;
@@ -65,6 +72,8 @@ void mty_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	if (ctx->gl)
 		glXDestroyContext(ctx->display, ctx->gl);
+
+	MTY_MutexDestroy(&ctx->mutex);
 
 	MTY_Free(ctx);
 }
@@ -113,9 +122,22 @@ void mty_gl_ctx_present(struct gfx_ctx *gfx_ctx)
 
 bool mty_gl_ctx_lock(struct gfx_ctx *gfx_ctx)
 {
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
+
+	if (!ctx)
+		return false;
+
+	MTY_MutexLock(ctx->mutex);
+
 	return true;
 }
 
 void mty_gl_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
+
+	if (!ctx)
+		return;
+
+	MTY_MutexUnlock(ctx->mutex);
 }

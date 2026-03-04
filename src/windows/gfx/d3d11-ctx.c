@@ -22,6 +22,7 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 
 struct d3d11_ctx {
 	HWND hwnd;
+	CRITICAL_SECTION mutex;
 	struct sync sync;
 	struct dxgi_sync *dxgi_sync;
 	int64_t pcount;
@@ -198,6 +199,8 @@ struct gfx_ctx *mty_d3d11_ctx_create(void *native_window, bool vsync)
 	struct d3d11_ctx *ctx = MTY_Alloc(1, sizeof(struct d3d11_ctx));
 	ctx->hwnd = (HWND) native_window;
 
+	InitializeCriticalSection(&ctx->mutex);
+
 	if (vsync)
 		sync_set_interval(&ctx->sync, 100);
 
@@ -219,6 +222,8 @@ void mty_d3d11_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	dxgi_sync_destroy(&ctx->dxgi_sync);
 	d3d11_ctx_free(ctx);
+
+	DeleteCriticalSection(&ctx->mutex);
 
 	MTY_Free(ctx);
 }
@@ -348,9 +353,22 @@ void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx)
 
 bool mty_d3d11_ctx_lock(struct gfx_ctx *gfx_ctx)
 {
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
+	if (!ctx)
+		return false;
+
+	EnterCriticalSection(&ctx->mutex);
+
 	return true;
 }
 
 void mty_d3d11_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
+
+	if (!ctx)
+		return;
+
+	LeaveCriticalSection(&ctx->mutex);
 }

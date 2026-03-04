@@ -19,6 +19,7 @@ struct metal_ctx {
 	id<CAMetalDrawable> back_buffer;
 	id<MTLCommandQueue> cq;
 	CGSize size;
+	MTY_Mutex *mutex;
 
 	struct sync sync;
 	struct display_link dlink;
@@ -43,6 +44,13 @@ struct gfx_ctx *mty_metal_ctx_create(void *native_window, bool vsync)
 		return NULL;
 
 	struct metal_ctx *ctx = MTY_Alloc(1, sizeof(struct metal_ctx));
+	ctx->mutex = MTY_MutexCreate();
+
+	if (!ctx->mutex) {
+		MTY_Free(ctx);
+		return NULL;
+	}
+
 	ctx->window = (__bridge NSWindow *) native_window;
 
 	metal_ctx_mt_block(^{
@@ -81,6 +89,8 @@ void mty_metal_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	ctx->layer = nil;
 	ctx->cq = nil;
 	ctx->back_buffer = nil;
+
+	MTY_MutexDestroy(&ctx->mutex);
 
 	MTY_Free(ctx);
 }
@@ -166,9 +176,22 @@ void mty_metal_ctx_present(struct gfx_ctx *gfx_ctx)
 
 bool mty_metal_ctx_lock(struct gfx_ctx *gfx_ctx)
 {
+	struct metal_ctx *ctx = (struct metal_ctx *) gfx_ctx;
+
+	if (!ctx || !ctx->mutex)
+		return false;
+
+	MTY_MutexLock(ctx->mutex);
+
 	return true;
 }
 
 void mty_metal_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
+	struct metal_ctx *ctx = (struct metal_ctx *) gfx_ctx;
+
+	if (!ctx || !ctx->mutex)
+		return;
+
+	MTY_MutexUnlock(ctx->mutex);
 }

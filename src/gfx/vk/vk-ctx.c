@@ -32,6 +32,7 @@ struct vk_swapchain {
 
 struct vk_ctx {
 	bool vsync;
+	MTY_Mutex *mutex;
 	MTY_VkDeviceObjects dobjs;
 
 	VkInstance instance;
@@ -325,10 +326,16 @@ static VkBool32 VKAPI_PTR vk_ctx_debug_callback(VkDebugUtilsMessageSeverityFlagB
 
 struct gfx_ctx *mty_vk_ctx_create(void *native_window, bool vsync)
 {
+	bool r = true;
+
 	struct vk_ctx *ctx = MTY_Alloc(1, sizeof(struct vk_ctx));
 	ctx->vsync = vsync;
 
-	bool r = true;
+	ctx->mutex = MTY_MutexCreate();
+	if (!ctx->mutex) {
+		r = false;
+		goto except;
+	}
 
 	if (!vkproc_global_init()) {
 		r = false;
@@ -572,6 +579,8 @@ void mty_vk_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	vkproc_global_destroy();
 
+	MTY_MutexDestroy(&ctx->mutex);
+
 	MTY_Free(ctx);
 }
 
@@ -714,9 +723,22 @@ void mty_vk_ctx_present(struct gfx_ctx *gfx_ctx)
 
 bool mty_vk_ctx_lock(struct gfx_ctx *gfx_ctx)
 {
+	struct vk_ctx *ctx = (struct vk_ctx *) gfx_ctx;
+
+	if (!ctx)
+		return false;
+
+	MTY_MutexLock(ctx->mutex);
+
 	return true;
 }
 
 void mty_vk_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
+	struct vk_ctx *ctx = (struct vk_ctx *) gfx_ctx;
+
+	if (!ctx)
+		return;
+
+	MTY_MutexUnlock(ctx->mutex);
 }

@@ -34,6 +34,7 @@ struct d3d12_ctx_buffer {
 
 struct d3d12_ctx {
 	HWND hwnd;
+	CRITICAL_SECTION mutex;
 	struct sync sync;
 	struct dxgi_sync *dxgi_sync;
 	int64_t pcount;
@@ -287,6 +288,8 @@ struct gfx_ctx *mty_d3d12_ctx_create(void *native_window, bool vsync)
 
 	ctx->hwnd = (HWND) native_window;
 
+	InitializeCriticalSection(&ctx->mutex);
+
 	if (vsync)
 		sync_set_interval(&ctx->sync, 100);
 
@@ -314,6 +317,8 @@ void mty_d3d12_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	dxgi_sync_destroy(&ctx->dxgi_sync);
 	d3d12_core_free(&ctx->core);
+
+	DeleteCriticalSection(&ctx->mutex);
 
 	MTY_Free(ctx);
 }
@@ -502,9 +507,22 @@ void mty_d3d12_ctx_present(struct gfx_ctx *gfx_ctx)
 
 bool mty_d3d12_ctx_lock(struct gfx_ctx *gfx_ctx)
 {
+	struct d3d12_ctx *ctx = (struct d3d12_ctx *) gfx_ctx;
+
+	if (!ctx)
+		return false;
+
+	EnterCriticalSection(&ctx->mutex);
+
 	return true;
 }
 
 void mty_d3d12_ctx_unlock(struct gfx_ctx *gfx_ctx)
 {
+	struct d3d12_ctx *ctx = (struct d3d12_ctx *) gfx_ctx;
+
+	if (!ctx)
+		return;
+
+	LeaveCriticalSection(&ctx->mutex);
 }

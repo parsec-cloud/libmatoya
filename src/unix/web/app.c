@@ -335,7 +335,8 @@ void MTY_AppDestroy(MTY_App **app)
 
 void MTY_AppRun(MTY_App *ctx)
 {
-	web_run_and_yield(ctx->app_func, ctx->opaque);
+	// NOTE: This function will never complete / return.
+	web_run_main_thread(ctx->app_func, ctx->opaque);
 }
 
 void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
@@ -707,5 +708,6 @@ void *MTY_GLGetProcAddress(const char *name)
 
 void MTY_RunAndYield(MTY_IterFunc iter, void *opaque)
 {
-	web_run_and_yield(iter, opaque);
+	while(iter(opaque));
+	// web_run_and_yield(iter, opaque);
 }

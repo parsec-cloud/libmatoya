@@ -826,6 +826,14 @@ const MTY_WEB_API = {
 		mty_update_window(app, MTY.initWindowInfo);
 	},
 	web_run_and_yield: function (iter, opaque) {
+		// Must run on a non-main thread since a tight loop on the main thread
+		// would block the event loop and prevent yielding
+		while (mty_cfunc(iter)(opaque));
+	},
+	web_run_main_thread: function (iter, opaque) {
+		// Cannot use web_run_and_yield on the main thread
+		// since the tight loop would block the event loop and prevent yielding,
+		// so we use setTimeout to yield after each iteration
 		MTY.exports.mty_app_set_keys();
 
 		const step = () => {
@@ -834,7 +842,8 @@ const MTY_WEB_API = {
 		};
 
 		setTimeout(step, 0);
-		throw 'MTY_RunAndYield halted execution';
+		// Throw exception to ensure execution does not halt when this function finishes.
+		throw 'run_main_thread halted execution';
 	},
 };
 

@@ -73,6 +73,7 @@ void mty_metal_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		return;
 
 	struct metal_ctx *ctx = (struct metal_ctx *) *gfx_ctx;
+	*gfx_ctx = NULL;
 
 	display_link_destroy(&ctx->dlink);
 
@@ -82,7 +83,6 @@ void mty_metal_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	ctx->back_buffer = nil;
 
 	MTY_Free(ctx);
-	*gfx_ctx = NULL;
 }
 
 void mty_metal_ctx_get_size(struct gfx_ctx *gfx_ctx, uint32_t *w, uint32_t *h)

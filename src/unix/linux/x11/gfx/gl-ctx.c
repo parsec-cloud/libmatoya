@@ -61,12 +61,12 @@ void mty_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		return;
 
 	struct gl_ctx *ctx = (struct gl_ctx *) *gfx_ctx;
+	*gfx_ctx = NULL;
 
 	if (ctx->gl)
 		glXDestroyContext(ctx->display, ctx->gl);
 
 	MTY_Free(ctx);
-	*gfx_ctx = NULL;
 }
 
 void mty_gl_ctx_get_size(struct gfx_ctx *gfx_ctx, uint32_t *w, uint32_t *h)

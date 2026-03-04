@@ -125,6 +125,7 @@ void mty_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		return;
 
 	struct gl_ctx *ctx = (struct gl_ctx *) *gfx_ctx;
+	*gfx_ctx = NULL;
 
 	mty_gfx_lock();
 
@@ -132,7 +133,6 @@ void mty_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	mty_gfx_unlock();
 
-	*gfx_ctx = NULL;
 }
 
 void mty_gl_ctx_get_size(struct gfx_ctx *gfx_ctx, uint32_t *w, uint32_t *h)

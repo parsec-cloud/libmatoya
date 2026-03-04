@@ -310,12 +310,12 @@ void mty_d3d12_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		return;
 
 	struct d3d12_ctx *ctx = (struct d3d12_ctx *) *gfx_ctx;
+	*gfx_ctx = NULL;
 
 	dxgi_sync_destroy(&ctx->dxgi_sync);
 	d3d12_core_free(&ctx->core);
 
 	MTY_Free(ctx);
-	*gfx_ctx = NULL;
 }
 
 void mty_d3d12_ctx_get_size(struct gfx_ctx *gfx_ctx, uint32_t *w, uint32_t *h)

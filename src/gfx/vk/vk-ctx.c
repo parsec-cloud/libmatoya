@@ -536,6 +536,7 @@ void mty_vk_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		return;
 
 	struct vk_ctx *ctx = (struct vk_ctx *) *gfx_ctx;
+	*gfx_ctx = NULL;
 
 	if (ctx->instance) {
 		if (ctx->device) {
@@ -572,7 +573,6 @@ void mty_vk_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	vkproc_global_destroy();
 
 	MTY_Free(ctx);
-	*gfx_ctx = NULL;
 }
 
 void mty_vk_ctx_get_size(struct gfx_ctx *gfx_ctx, uint32_t *w, uint32_t *h)

@@ -543,10 +543,10 @@ void mty_vk_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		return;
 
 	struct vk_ctx *ctx = (struct vk_ctx *) *gfx_ctx;
-	*gfx_ctx = NULL;
 
 	// Ensure nothing is still using the context before freeing it
 	MTY_MutexLock(ctx->mutex);
+	*gfx_ctx = NULL;
 	MTY_MutexUnlock(ctx->mutex);
 
 	if (ctx->instance) {

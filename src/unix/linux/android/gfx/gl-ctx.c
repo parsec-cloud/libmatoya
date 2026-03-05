@@ -125,9 +125,9 @@ void mty_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		return;
 
 	struct gl_ctx *ctx = (struct gl_ctx *) *gfx_ctx;
-	*gfx_ctx = NULL;
 
 	mty_gfx_lock();
+	*gfx_ctx = NULL;
 
 	gl_ctx_destroy_context(ctx);
 

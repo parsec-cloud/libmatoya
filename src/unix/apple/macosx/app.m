@@ -766,6 +766,8 @@ static void window_scroll_event(struct window *ctx, NSEvent *event)
 	MTY_Event evt = {
 		.type = MTY_EVENT_SCROLL,
 		.window = ctx->window,
+		// macOS and Windows treat horizontal scrolling differently,
+		// so invert the horizontal delta to match Windows behavior.
 		.scroll.x = lrint(-event.scrollingDeltaX * delta),
 		.scroll.y = lrint(event.scrollingDeltaY * delta),
 	};
@@ -776,19 +778,32 @@ static void window_scroll_event(struct window *ctx, NSEvent *event)
 
 // Keyboard
 
+static bool is_function_key(NSEvent *event) {
+	NSString *s = event.characters;
+	if (!s || !s.length)
+		return false;
+
+	unichar c = [s characterAtIndex:0];
+	// Ref: https://developer.apple.com/documentation/appkit/function-key-unicode-values?language=objc
+	return (c >= 0xF700 && c <= 0xF8FF);
+}
+
 static void window_text_event(struct window *ctx, const char *text)
 {
-	// Make sure visible ASCII
-	if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
-		MTY_Event evt = {
-			.type = MTY_EVENT_TEXT,
-			.window = ctx->window,
-		};
+	if (!text || !text[0])
+		return; // Empty event
 
-		snprintf(evt.text, 8, "%s", text);
+	unsigned char c = (unsigned char) text[0];
+	if (text[1] == '\0' && (c < 0x20 || c == 0x7F))
+		return; // Ignore ASCII control characters
 
-		ctx->app->event_func(&evt, ctx->app->opaque);
-	}
+	MTY_Event evt = {
+		.type = MTY_EVENT_TEXT,
+		.window = ctx->window,
+	};
+
+	snprintf(evt.text, sizeof(evt.text), "%s", text);
+	ctx->app->event_func(&evt, ctx->app->opaque);
 }
 
 static void window_keyboard_event(struct window *ctx, uint16_t key_code, NSEventModifierFlags flags,
@@ -1004,7 +1019,9 @@ static void window_keyDown(NSWindow *self, SEL _cmd, NSEvent *event)
 	if (!ctx)
 		return;
 
-	window_text_event(ctx, [event.characters UTF8String]);
+	if (!is_function_key(event))
+		window_text_event(ctx, [event.characters UTF8String]);
+
 	window_keyboard_event(ctx, event.keyCode, event.modifierFlags, true, event.isARepeat);
 }
 

@@ -1120,8 +1120,42 @@ void MTY_AppDestroy(MTY_App **app)
 	*app = NULL;
 }
 
+static void app_prep_wait(HANDLE *timer, uint32_t timeout)
+{
+	// Ensure timer is created
+	if (*timer == NULL)
+		*timer = CreateWaitableTimer(NULL, FALSE, NULL);
+
+	if (*timer == NULL)
+		MTY_Log("'CreateWaitableTimer' failed with error 0x%X", GetLastError());
+
+	// Set the timer
+	if (*timer != NULL && timeout > 0) {
+		LARGE_INTEGER ft = {.QuadPart = -10000 * (int32_t) timeout};
+		SetWaitableTimer(*timer, &ft, 0, NULL, NULL, FALSE);
+	}
+}
+
+static bool app_peek_wait(MSG *msg, HANDLE timer, uint32_t timeout, bool *have_msg)
+{
+	// Check for messages first
+	*have_msg = PeekMessage(msg, NULL, 0, 0, PM_REMOVE);
+	if (*have_msg) {
+		return true;
+	}
+
+	// No messages, check if timer is needed and okay
+	if (timeout == 0 || timer == NULL)
+		return false;
+
+	// Wait for timer
+	return WaitForSingleObject(timer, 1) == WAIT_TIMEOUT;
+}
+
 void MTY_AppRun(MTY_App *ctx)
 {
+	HANDLE timer = NULL;
+
 	for (bool cont = true; cont;) {
 		struct window *window = app_get_main_window(ctx);
 		if (!window)
@@ -1146,8 +1180,15 @@ void MTY_AppRun(MTY_App *ctx)
 		// Tray retry in case of failure
 		app_tray_retry(ctx, window);
 
-		// Poll messages belonging to the current (main) thread
-		for (MSG msg; PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);) {
+		// Set up waitable timer
+		app_prep_wait(&timer, ctx->timeout);
+
+		// Poll messages belonging to the current (main) thread until timeout passes AND queue is exhausted
+		bool have_msg = false;
+		for (MSG msg = {0}; app_peek_wait(&msg, timer, ctx->timeout, &have_msg);) {
+			if (!have_msg)
+				continue;
+
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
@@ -1161,9 +1202,13 @@ void MTY_AppRun(MTY_App *ctx)
 
 		cont = ctx->app_func(ctx->opaque);
 
-		if (ctx->timeout > 0)
+		// Hard sleep if CreateWaitableTimer is failing
+		if (timer == NULL && ctx->timeout > 0)
 			MTY_Sleep(ctx->timeout);
 	}
+
+	if (timer != NULL)
+		CloseHandle(timer);
 }
 
 void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)

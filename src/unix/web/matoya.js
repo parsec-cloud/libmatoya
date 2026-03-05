@@ -1131,18 +1131,3 @@ async function mty_thread_message(ev) {
 			break;
 	}
 }
-
-// HACKY FIX TO RESOLVE THE DIFFERENT ORIGIN ISSUE (UI is on :3000, app is on :8000)
-async function loadIframeFromUrlSrcdoc(iframe, url, fetchOpts = {}) {
-  const res = await fetch(url, fetchOpts);
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-  let html = await res.text();
-  // Ensure a <base> so relative URLs inside the HTML resolve to the original URL
-  const baseTag = `<base href="${new URL(url, location.href).href}">`;
-  if (/<head[\s>]/i.test(html)) {
-    html = html.replace(/<head([^>]*)>/i, (m, attrs) => `<head${attrs}>${baseTag}<script>window.parent.postMessage('R');window.MTY_NativeSendText = (text) => { window.parent.postMessage('T' + text); }</script>`);
-  } else {
-    html = `${baseTag}${html}`;
-  }
-  iframe.srcdoc = html;
-}

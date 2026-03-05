@@ -825,11 +825,6 @@ const MTY_WEB_API = {
 		MTY.app = app;
 		mty_update_window(app, MTY.initWindowInfo);
 	},
-	web_run_and_yield: function (iter, opaque) {
-		// Must run on a non-main thread since a tight loop on the main thread
-		// would block the event loop and prevent yielding
-		while (mty_cfunc(iter)(opaque));
-	},
 	web_run_main_thread: function (iter, opaque) {
 		// Cannot use web_run_and_yield on the main thread
 		// since the tight loop would block the event loop and prevent yielding,
@@ -844,31 +839,6 @@ const MTY_WEB_API = {
 		setTimeout(step, 0);
 		// Throw exception to ensure execution does not halt when this function finishes.
 		throw 'run_main_thread halted execution';
-	},
-	web_webview_create: function(ctx) {
-		postMessage({type: 'wv-create', ctx});
-	},
-	web_webview_destroy: function() {
-		postMessage({type: 'wv-destroy'});
-	},
-	web_webview_navigate: function(csource, url) {
-		const source = mty_str_to_js(csource);
-		postMessage({type: 'wv-navigate', source, url});
-	},
-	web_webview_show: function(show) {
-		postMessage({type: 'wv-show', show});
-	},
-	web_webview_is_visible: function() {
-		postMessage({type: 'wv-is-visible', sync: MTY.sync, sab: MTY.sab});
-		mty_wait(MTY.sync);
-		return MTY.sab[0] != 0;
-	},
-	web_webview_send_text: function(cmessage) {
-		const message = mty_str_to_js(cmessage);
-		postMessage({type: 'wv-send-text', message});
-	},
-	web_webview_reload: function() {
-		postMessage({type: 'wv-reload'});
 	},
 };
 

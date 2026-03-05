@@ -1085,10 +1085,6 @@ async function mty_thread_message(ev) {
 			MTY.webview.style.height = '100%';
 			MTY.webview.style.inset = '0';
 
-			MTY.webview.onload = () => {
-				setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
-			};
-
 			window.addEventListener('message', function (message) {
 				MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message.data});
 			});
@@ -1096,13 +1092,24 @@ async function mty_thread_message(ev) {
 			document.body.appendChild(MTY.webview);
 			break;
 		case 'wv-destroy':
-			document.removeChild(MTY.webview);
+			document.body.removeChild(MTY.webview);
 			delete MTY.webview;
 			break;
 		case 'wv-navigate':
 			if (msg.url) {
-				// MTY.webview.src = msg.source;
-				loadIframeFromUrlSrcdoc(MTY.webview, msg.source)
+				MTY.webview.src = msg.source;
+
+				MTY.webview.onload = () => {
+					try {
+						const script = MTY.webview.contentWindow.document.createElement('script');
+						script.textContent = "window.parent.postMessage('R');window.MTY_NativeSendText = (text) => { window.parent.postMessage('T' + text); }";
+						MTY.webview.contentWindow.document.head.appendChild(script);
+						setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
+					} catch (e) {
+						console.error('Failed to inject script into iframe (cross-origin restriction):', e);
+						setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
+					}
+				};
 			} else {
 				const blob = new Blob([msg.source], { type: 'text/html' });
 				MTY.webview.src = URL.createObjectURL(blob);

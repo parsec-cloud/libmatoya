@@ -1180,7 +1180,8 @@ onmessage = async (ev) => {
 				close();
 
 			} catch (e) {
-				if (e.toString().search('MTY_RunAndYield') == -1)
+				// Ignore known exception that we throw to continue main thread execution
+				if (e.toString().search('run_main_thread halted execution') == -1)
 					console.error(e);
 			}
 			break;

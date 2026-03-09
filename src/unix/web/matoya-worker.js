@@ -680,7 +680,7 @@ const MTY_CRYPTO_API = {
 
 const MTY_SYSTEM_API = {
 	MTY_HandleProtocol: function (uri, token) {
-		postMessage({type: 'uri', uri});
+		postMessage({type: 'uri', uri: mty_str_to_js(uri)});
 	},
 };
 

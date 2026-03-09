@@ -990,7 +990,7 @@ async function mty_thread_message(ev) {
 			break;
 		case 'uri':
 			mty_set_action(() => {
-				window.open(mty_str_to_js(msg.uri), '_blank');
+				window.open(msg.uri, '_blank');
 			});
 			break;
 		case 'http': {

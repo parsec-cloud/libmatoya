@@ -1104,6 +1104,9 @@ async function mty_thread_message(ev) {
 						const script = MTY.webview.contentWindow.document.createElement('script');
 						script.textContent = "window.parent.postMessage('R');window.MTY_NativeSendText = (text) => { window.parent.postMessage('T' + text); }";
 						MTY.webview.contentWindow.document.head.appendChild(script);
+						const userAgentScript = MTY.webview.contentWindow.document.createElement('script');
+						userAgentScript.textContent = "Object.defineProperty(window, 'MTY_GetPlatform', { value: () => 'web'});";
+						MTY.webview.contentWindow.document.head.appendChild(userAgentScript);
 						setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
 					} catch (e) {
 						console.error('Failed to inject script into iframe (cross-origin restriction):', e);

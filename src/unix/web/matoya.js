@@ -944,6 +944,10 @@ async function mty_thread_message(ev) {
 			window.localStorage[msg.key] = mty_buf_to_b64(msg.val);
 			mty_signal(msg.sync);
 			break;
+		case 'remove-ls':
+			window.localStorage.removeItem(msg.key);
+			mty_signal(msg.sync);
+			break;
 		case 'alert':
 			mty_alert(msg.title, msg.msg);
 			break;

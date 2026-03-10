@@ -979,6 +979,16 @@ const MTY_WASI_SNAPSHOT_PREVIEW1_API = {
 		return __WASI_ERRNO_SUCCESS;
 	},
 	path_unlink_file: function (fd, path) {
+		const jpath = mty_str_to_js(path);
+
+		postMessage({
+			type: 'remove-ls',
+			key: jpath,
+			sync: MTY.sync,
+		});
+
+		mty_wait(MTY.sync);
+
 		return __WASI_ERRNO_SUCCESS;
 	},
 	path_readlink: function (fd, path, buf, buf_len, retptr0) {

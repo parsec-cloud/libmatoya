@@ -12,6 +12,10 @@ const MTY = {
 	glObj: {},
 	fds: {},
 	fdIndex: 0,
+	jspi: typeof WebAssembly !== 'undefined' &&
+		typeof WebAssembly.Suspending === 'function' &&
+		typeof WebAssembly.promising === 'function',
+	promising: {},
 };
 
 
@@ -34,6 +38,50 @@ function mty_dup_c(buf) {
 	mty_memcpy(ptr, buf);
 
 	return ptr;
+}
+
+// Wraps the calling function to allow a Promise to be returned (if needed).
+// Fallback to a direct call if JSPI is not supported or the export cannot be wrapped.
+async function mty_call_export(name, ...args) {
+	const fn = MTY.exports[name];
+
+	if (!fn)
+		throw new Error('Missing export: ' + name);
+
+	if (!MTY.jspi)
+		return fn(...args);
+
+	if (!MTY.promising[name]) {
+		try {
+			MTY.promising[name] = WebAssembly.promising(fn);
+
+		} catch (e) {
+			console.warn('JSPI export wrap failed for', name, e);
+			MTY.jspi = false;
+			return fn(...args);
+		}
+	}
+
+	return await MTY.promising[name](...args);
+}
+
+async function mty_web_run_and_yield_async(iter, opaque) {
+	MTY.exports.mty_app_set_keys();
+
+	const cfunc = mty_cfunc(iter);
+
+	await new Promise(resolve => {
+		const step = () => {
+			if (cfunc(opaque)) {
+				setTimeout(step, 0);
+
+			} else {
+				resolve();
+			}
+		};
+
+		step();
+	});
 }
 
 
@@ -825,10 +873,10 @@ const MTY_WEB_API = {
 		MTY.app = app;
 		mty_update_window(app, MTY.initWindowInfo);
 	},
-	web_run_main_thread: function (iter, opaque) {
-		// Cannot use web_run_and_yield on the main thread
-		// since the tight loop would block the event loop and prevent yielding,
-		// so we use setTimeout to yield after each iteration
+
+	// Fallback in case the browser does not support JSPI.
+	web_run_and_yield: function (iter, opaque) {
+		console.warn('JSPI not supported. Fallback to old behavior. This may cause issues with blocking calls.');
 		MTY.exports.mty_app_set_keys();
 
 		const step = () => {
@@ -838,7 +886,8 @@ const MTY_WEB_API = {
 
 		setTimeout(step, 0);
 		// Throw exception to ensure execution does not halt when this function finishes.
-		throw 'run_main_thread halted execution';
+		// NOTE: This will end up blocking the caller indefinitely.
+		throw 'run_and_yield halted execution';
 	},
 	web_webview_create: function(ctx) {
 		postMessage({type: 'wv-create', ctx});
@@ -1150,6 +1199,15 @@ async function mty_instantiate_wasm(wasmBuf, userEnv) {
 		},
 	}
 
+	if (MTY.jspi) {
+		try {
+			imports.env.web_run_and_yield = new WebAssembly.Suspending(mty_web_run_and_yield_async);
+		} catch (e) {
+			console.warn('JSPI import setup failed, falling back to sync imports', e);
+			MTY.jspi = false;
+		}
+	}
+
 	// Add userEnv to imports, run on the main thread
 	for (let x = 0; x < userEnv.length; x++) {
 		const key = userEnv[x];
@@ -1205,17 +1263,18 @@ onmessage = async (ev) => {
 			try {
 				// Additional thread
 				if (msg.startArg) {
-					MTY.exports.wasi_thread_start(msg.threadId, msg.startArg);
+					await mty_call_export('wasi_thread_start', msg.threadId, msg.startArg);
 
 				// Main thread
 				} else {
-					MTY.exports._start();
+					await mty_call_export('_start');
 				}
 
 				close();
 
 			} catch (e) {
-				if (e.toString().search('MTY_RunAndYield') == -1)
+				// Ignore known exception that we throw to continue thread execution
+				if (e.toString().search('run_and_yield halted execution') == -1)
 					console.error(e);
 			}
 			break;

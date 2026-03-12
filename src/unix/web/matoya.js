@@ -826,7 +826,6 @@ function mty_thread_start(threadId, bin, wasmBuf, memory, startArg, userEnv, kbM
 		threadId: threadId,
 		memory: memory,
 		audioObjs,
-		jspi: MTY.jspi,
 	});
 
 	return worker;
@@ -839,11 +838,6 @@ async function MTY_Start(bin, container, userEnv) {
 	MTY.bin = bin;
 	MTY.userEnv = userEnv;
 
-	// For now, we'll allow execution if the client does not support JSPI
-	// by falling back to non-promise based functions
-	MTY.jspi = typeof WebAssembly !== 'undefined' &&
-		typeof WebAssembly.Suspending === 'function' &&
-		typeof WebAssembly.promising === 'function';
 	MTY.psync = new Int32Array(new SharedArrayBuffer(4));
 	MTY.audioObjs = {
 		buf: new Int16Array(new SharedArrayBuffer(1024 * 1024)),

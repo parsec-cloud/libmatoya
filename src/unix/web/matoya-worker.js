@@ -12,7 +12,9 @@ const MTY = {
 	glObj: {},
 	fds: {},
 	fdIndex: 0,
-	jspi: false,
+	jspi: typeof WebAssembly !== 'undefined' &&
+		typeof WebAssembly.Suspending === 'function' &&
+		typeof WebAssembly.promising === 'function',
 	promising: {},
 };
 
@@ -877,6 +879,7 @@ const MTY_WEB_API = {
 
 	// Fallback in case the browser does not support JSPI.
 	web_run_and_yield: function (iter, opaque) {
+		console.warn('JSPI not supported. Fallback to old behavior. This may cause issues with blocking calls.');
 		MTY.exports.mty_app_set_keys();
 
 		const step = () => {
@@ -1216,7 +1219,6 @@ onmessage = async (ev) => {
 			MTY.psync = msg.psync;
 			MTY.audioObjs = msg.audioObjs;
 			MTY.initWindowInfo = msg.windowInfo;
-			MTY.jspi = msg.jspi === true;
 			MTY.sync = new Int32Array(new SharedArrayBuffer(4));
 			MTY.sleeper = new Int32Array(new SharedArrayBuffer(4));
 			MTY.module = await mty_instantiate_wasm(msg.wasmBuf, msg.userEnv);

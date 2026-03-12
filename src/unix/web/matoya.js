@@ -665,7 +665,7 @@ async function mty_decode_image(input) {
 	const height = img.naturalHeight;
 
 	const canvas = new OffscreenCanvas(width, height);
-	const ctx = canvas.getContext('2d', {"willReadFrequently": true});
+	const ctx = canvas.getContext('2d');
 	ctx.drawImage(img, 0, 0, width, height);
 
 	return ctx.getImageData(0, 0, width, height);

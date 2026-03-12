@@ -12,6 +12,8 @@ const MTY = {
 	glObj: {},
 	fds: {},
 	fdIndex: 0,
+	jspi: false,
+	promising: {},
 };
 
 
@@ -34,6 +36,64 @@ function mty_dup_c(buf) {
 	mty_memcpy(ptr, buf);
 
 	return ptr;
+}
+
+function mty_schedule(func) {
+	if (typeof scheduler != 'undefined' && typeof scheduler.postTask == 'function') {
+		scheduler.postTask(func);
+
+	} else {
+		setTimeout(func, 0);
+	}
+}
+
+function mty_run_until_false(cfunc, opaque) {
+	return new Promise(resolve => {
+		const step = () => {
+			if (cfunc(opaque)) {
+				mty_schedule(step);
+
+			} else {
+				resolve();
+			}
+		};
+
+		step();
+	});
+}
+
+function mty_supports_jspi() {
+	return typeof WebAssembly.Suspending == 'function' && typeof WebAssembly.promising == 'function';
+}
+
+async function mty_call_export(name, ...args) {
+	const fn = MTY.exports[name];
+
+	if (!fn)
+		throw new Error('Missing export: ' + name);
+
+	if (!MTY.jspi)
+		return fn(...args);
+
+	if (!MTY.promising[name]) {
+		try {
+			MTY.promising[name] = WebAssembly.promising(fn);
+
+		} catch (e) {
+			console.warn('JSPI export wrap failed for', name, e);
+			MTY.jspi = false;
+			return fn(...args);
+		}
+	}
+
+	return await MTY.promising[name](...args);
+}
+
+async function mty_web_run_and_yield_async(iter, opaque) {
+	MTY.exports.mty_app_set_keys();
+
+	const cfunc = mty_cfunc(iter);
+	await mty_run_until_false(cfunc, opaque);
 }
 
 
@@ -825,6 +885,19 @@ const MTY_WEB_API = {
 		MTY.app = app;
 		mty_update_window(app, MTY.initWindowInfo);
 	},
+	// web_run_and_yield: function (iter, opaque) {
+	// 	// Cannot be called on the main thread since the tight loop would block the event loop and prevent yielding.
+	// 	// MTY.exports.mty_app_set_keys();
+
+	// 	const cfunc = mty_cfunc(iter);
+	// 	let count = 0;
+
+	// 	while (cfunc(opaque)) {
+	// 		// Periodically block for 1 ms to reduce allocator/GC pressure in long-running loops.
+	// 		if ((++count & 0x3FF) == 0)
+	// 			Atomics.wait(MTY.sleeper, 0, 0, 1);
+	// 	}
+	// },
 	web_run_main_thread: function (iter, opaque) {
 		// Cannot use web_run_and_yield on the main thread
 		// since the tight loop would block the event loop and prevent yielding,
@@ -1115,6 +1188,22 @@ async function mty_instantiate_wasm(wasmBuf, userEnv) {
 		},
 	}
 
+	if (MTY.jspi) {
+		if (mty_supports_jspi()) {
+			try {
+				imports.env.web_run_and_yield = new WebAssembly.Suspending(mty_web_run_and_yield_async);
+
+			} catch (e) {
+				console.warn('JSPI import setup failed, falling back to sync imports', e);
+				MTY.jspi = false;
+			}
+
+		} else {
+			console.warn('JSPI requested but not supported by this runtime, falling back to sync imports');
+			MTY.jspi = false;
+		}
+	}
+
 	// Add userEnv to imports, run on the main thread
 	for (let x = 0; x < userEnv.length; x++) {
 		const key = userEnv[x];
@@ -1158,6 +1247,7 @@ onmessage = async (ev) => {
 			MTY.psync = msg.psync;
 			MTY.audioObjs = msg.audioObjs;
 			MTY.initWindowInfo = msg.windowInfo;
+			MTY.jspi = msg.jspi === true;
 			MTY.sync = new Int32Array(new SharedArrayBuffer(4));
 			MTY.sleeper = new Int32Array(new SharedArrayBuffer(4));
 			MTY.module = await mty_instantiate_wasm(msg.wasmBuf, msg.userEnv);
@@ -1170,11 +1260,11 @@ onmessage = async (ev) => {
 			try {
 				// Additional thread
 				if (msg.startArg) {
-					MTY.exports.wasi_thread_start(msg.threadId, msg.startArg);
+					await mty_call_export('wasi_thread_start', msg.threadId, msg.startArg);
 
 				// Main thread
 				} else {
-					MTY.exports._start();
+					await mty_call_export('_start');
 				}
 
 				close();

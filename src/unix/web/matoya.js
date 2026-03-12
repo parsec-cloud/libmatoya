@@ -783,6 +783,21 @@ function mty_supports_web_gl() {
 	return false;
 }
 
+function mty_use_jspi() {
+	if (typeof WebAssembly == 'undefined')
+		return false;
+
+	const params = new URLSearchParams(window.location.search);
+
+	if (params.get('mty-jspi') == '1')
+		return true;
+
+	if (params.get('mty-jspi') == '0')
+		return false;
+
+	return typeof WebAssembly.Suspending == 'function' && typeof WebAssembly.promising == 'function';
+}
+
 function mty_update_interval(thread) {
 	// Poll gamepads
 	if (document.hasFocus())
@@ -826,6 +841,7 @@ function mty_thread_start(threadId, bin, wasmBuf, memory, startArg, userEnv, kbM
 		threadId: threadId,
 		memory: memory,
 		audioObjs,
+		jspi: MTY.jspi,
 	});
 
 	return worker;
@@ -837,6 +853,7 @@ async function MTY_Start(bin, container, userEnv) {
 
 	MTY.bin = bin;
 	MTY.userEnv = userEnv;
+	MTY.jspi = mty_use_jspi();
 	MTY.psync = new Int32Array(new SharedArrayBuffer(4));
 	MTY.audioObjs = {
 		buf: new Int16Array(new SharedArrayBuffer(1024 * 1024)),

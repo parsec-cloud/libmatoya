@@ -709,5 +709,5 @@ void *MTY_GLGetProcAddress(const char *name)
 // Cannot be called on the main thread since the tight loop would block the event loop and prevent yielding.
 void MTY_RunAndYield(MTY_IterFunc iter, void *opaque)
 {
-	while(iter(opaque));
+	web_run_and_yield(iter, opaque);
 }

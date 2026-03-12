@@ -38,20 +38,11 @@ function mty_dup_c(buf) {
 	return ptr;
 }
 
-function mty_schedule(func) {
-	if (typeof scheduler != 'undefined' && typeof scheduler.postTask == 'function') {
-		scheduler.postTask(func);
-
-	} else {
-		setTimeout(func, 0);
-	}
-}
-
 function mty_run_until_false(cfunc, opaque) {
 	return new Promise(resolve => {
 		const step = () => {
 			if (cfunc(opaque)) {
-				mty_schedule(step);
+				setTimeout(step, 0);
 
 			} else {
 				resolve();
@@ -62,10 +53,8 @@ function mty_run_until_false(cfunc, opaque) {
 	});
 }
 
-function mty_supports_jspi() {
-	return typeof WebAssembly.Suspending == 'function' && typeof WebAssembly.promising == 'function';
-}
-
+// Wraps the calling function to allow a Promise to be returned (if needed).
+// Fallback to a direct call if JSPI is not supported or the export cannot be wrapped.
 async function mty_call_export(name, ...args) {
 	const fn = MTY.exports[name];
 
@@ -885,23 +874,9 @@ const MTY_WEB_API = {
 		MTY.app = app;
 		mty_update_window(app, MTY.initWindowInfo);
 	},
-	// web_run_and_yield: function (iter, opaque) {
-	// 	// Cannot be called on the main thread since the tight loop would block the event loop and prevent yielding.
-	// 	// MTY.exports.mty_app_set_keys();
 
-	// 	const cfunc = mty_cfunc(iter);
-	// 	let count = 0;
-
-	// 	while (cfunc(opaque)) {
-	// 		// Periodically block for 1 ms to reduce allocator/GC pressure in long-running loops.
-	// 		if ((++count & 0x3FF) == 0)
-	// 			Atomics.wait(MTY.sleeper, 0, 0, 1);
-	// 	}
-	// },
-	web_run_main_thread: function (iter, opaque) {
-		// Cannot use web_run_and_yield on the main thread
-		// since the tight loop would block the event loop and prevent yielding,
-		// so we use setTimeout to yield after each iteration
+	// Fallback in case the browser does not support JSPI.
+	web_run_and_yield: function (iter, opaque) {
 		MTY.exports.mty_app_set_keys();
 
 		const step = () => {
@@ -911,7 +886,8 @@ const MTY_WEB_API = {
 
 		setTimeout(step, 0);
 		// Throw exception to ensure execution does not halt when this function finishes.
-		throw 'run_main_thread halted execution';
+		// NOTE: This will end up blocking the caller indefinitely.
+		throw 'run_and_yield halted execution';
 	},
 };
 
@@ -1189,17 +1165,10 @@ async function mty_instantiate_wasm(wasmBuf, userEnv) {
 	}
 
 	if (MTY.jspi) {
-		if (mty_supports_jspi()) {
-			try {
-				imports.env.web_run_and_yield = new WebAssembly.Suspending(mty_web_run_and_yield_async);
-
-			} catch (e) {
-				console.warn('JSPI import setup failed, falling back to sync imports', e);
-				MTY.jspi = false;
-			}
-
-		} else {
-			console.warn('JSPI requested but not supported by this runtime, falling back to sync imports');
+		try {
+			imports.env.web_run_and_yield = new WebAssembly.Suspending(mty_web_run_and_yield_async);
+		} catch (e) {
+			console.warn('JSPI import setup failed, falling back to sync imports', e);
 			MTY.jspi = false;
 		}
 	}
@@ -1271,7 +1240,7 @@ onmessage = async (ev) => {
 
 			} catch (e) {
 				// Ignore known exception that we throw to continue main thread execution
-				if (e.toString().search('run_main_thread halted execution') == -1)
+				if (e.toString().search('run_and_yield halted execution') == -1)
 					console.error(e);
 			}
 			break;

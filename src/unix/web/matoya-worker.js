@@ -40,21 +40,6 @@ function mty_dup_c(buf) {
 	return ptr;
 }
 
-function mty_run_until_false(cfunc, opaque) {
-	return new Promise(resolve => {
-		const step = () => {
-			if (cfunc(opaque)) {
-				setTimeout(step, 0);
-
-			} else {
-				resolve();
-			}
-		};
-
-		step();
-	});
-}
-
 // Wraps the calling function to allow a Promise to be returned (if needed).
 // Fallback to a direct call if JSPI is not supported or the export cannot be wrapped.
 async function mty_call_export(name, ...args) {
@@ -84,7 +69,19 @@ async function mty_web_run_and_yield_async(iter, opaque) {
 	MTY.exports.mty_app_set_keys();
 
 	const cfunc = mty_cfunc(iter);
-	await mty_run_until_false(cfunc, opaque);
+
+	await new Promise(resolve => {
+		const step = () => {
+			if (cfunc(opaque)) {
+				setTimeout(step, 0);
+
+			} else {
+				resolve();
+			}
+		};
+
+		step();
+	});
 }
 
 
@@ -1241,7 +1238,7 @@ onmessage = async (ev) => {
 				close();
 
 			} catch (e) {
-				// Ignore known exception that we throw to continue main thread execution
+				// Ignore known exception that we throw to continue thread execution
 				if (e.toString().search('run_and_yield halted execution') == -1)
 					console.error(e);
 			}

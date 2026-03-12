@@ -837,7 +837,6 @@ async function MTY_Start(bin, container, userEnv) {
 
 	MTY.bin = bin;
 	MTY.userEnv = userEnv;
-
 	MTY.psync = new Int32Array(new SharedArrayBuffer(4));
 	MTY.audioObjs = {
 		buf: new Int16Array(new SharedArrayBuffer(1024 * 1024)),

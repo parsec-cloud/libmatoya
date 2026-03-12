@@ -530,7 +530,7 @@ function mty_set_rgba_cursor(buf, width, height, hot_x, hot_y) {
 	if (buf) {
 		if (!MTY.ccanvas) {
 			MTY.ccanvas = document.createElement('canvas');
-			MTY.cctx = MTY.ccanvas.getContext('2d');
+			MTY.cctx = MTY.ccanvas.getContext('2d', {"willReadFrequently": true});
 		}
 
 		MTY.ccanvas.width = width;
@@ -665,7 +665,7 @@ async function mty_decode_image(input) {
 	const height = img.naturalHeight;
 
 	const canvas = new OffscreenCanvas(width, height);
-	const ctx = canvas.getContext('2d');
+	const ctx = canvas.getContext('2d', {"willReadFrequently": true});
 	ctx.drawImage(img, 0, 0, width, height);
 
 	return ctx.getImageData(0, 0, width, height);

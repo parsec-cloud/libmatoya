@@ -530,7 +530,7 @@ function mty_set_rgba_cursor(buf, width, height, hot_x, hot_y) {
 	if (buf) {
 		if (!MTY.ccanvas) {
 			MTY.ccanvas = document.createElement('canvas');
-			MTY.cctx = MTY.ccanvas.getContext('2d');
+			MTY.cctx = MTY.ccanvas.getContext('2d', {"willReadFrequently": true});
 		}
 
 		MTY.ccanvas.width = width;

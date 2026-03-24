@@ -109,6 +109,8 @@ public class Matoya extends SurfaceView implements
 
 		activity.setContentView(this);
 
+		enableFullscreen(true);
+
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.addPrimaryClipChangedListener(this);
 
@@ -454,10 +456,6 @@ public class Matoya extends SurfaceView implements
 			View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | // Removes space at the top for menu bar
 			View.SYSTEM_UI_FLAG_FULLSCREEN |        // Removes menu bar
 			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;    // Hides navigation buttons at the bottom
-	}
-
-	public boolean isFullscreen() {
-		return (this.activity.getWindow().getDecorView().getSystemUiVisibility() & Matoya.fullscreenFlags()) == Matoya.fullscreenFlags();
 	}
 
 	public void enableFullscreen(boolean _enable) {

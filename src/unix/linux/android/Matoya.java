@@ -2,6 +2,7 @@ package group.matoya.lib;
 
 import java.util.List;
 import android.app.Activity;
+import android.view.Window;
 import android.view.View;
 import android.view.Surface;
 import android.view.SurfaceView;
@@ -107,9 +108,11 @@ public class Matoya extends SurfaceView implements
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.invisCursor = PointerIcon.create(bm, 0, 0);
 
+		activity.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		activity.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		activity.setContentView(this);
 
-		enableFullscreen(true);
+		// enableFullscreen(true);
 
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.addPrimaryClipChangedListener(this);

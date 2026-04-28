@@ -1126,12 +1126,12 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
-	return true;
+	return mty_jni_bool(MTY_GetJNIEnv(), app->obj, "isFullscreen", "()Z");
 }
 
 void MTY_WindowSetFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
-
+	mty_jni_void(MTY_GetJNIEnv(), app->obj, "enableFullscreen", "(Z)V", fullscreen);
 }
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)

@@ -67,12 +67,11 @@ const char *MTY_GetPlatformString(uint32_t platform)
 		if (os != MTY_OS_UNKNOWN)
 			MTY_Strcat(final, 64, " ");
 
-		if (minor > 0) {
-			MTY_Strcat(final, 64, MTY_SprintfDL("%u.%u", major, minor));
-
-		} else {
+		if (minor > 0)
+			os == MTY_OS_UBUNTU ? MTY_Strcat(final, 64, MTY_SprintfDL("%u.%2u", major, minor)) :
+				MTY_Strcat(final, 64, MTY_SprintfDL("%u", major));
+		else
 			MTY_Strcat(final, 64, MTY_SprintfDL("%u", major));
-		}
 	}
 
 	return final;

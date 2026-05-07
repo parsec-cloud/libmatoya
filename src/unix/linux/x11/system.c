@@ -21,7 +21,7 @@ const char *MTY_GetSOExtension(void)
 
 uint32_t MTY_GetPlatform(void)
 {
-	return MTY_OS_LINUX;
+	return get_os_release();
 }
 
 uint32_t MTY_GetPlatformNoWeb(void)
@@ -78,4 +78,49 @@ bool MTY_RestartProcess(char * const *argv)
 void *MTY_GetJNIEnv(void)
 {
 	return NULL;
+}
+
+uint32_t get_os_release()
+{
+	bool r = false;
+	char *os_release = NULL;
+	bool is_ubuntu = false;
+	bool is_deprecated = false;
+	uint32_t release = MTY_OS_LINUX;
+
+	size_t size = 0;
+	os_release = MTY_ReadFile("/etc/os-release", &size);
+	if (!os_release || size == 0)
+		return release;
+
+	char *line_ptr = NULL, *line, *tok_ptr, *key, *value;
+
+	while (line) {
+		key = MTY_Strtok(line, "=", &tok_ptr);
+		if (!key)
+			goto next_line;
+
+		value = MTY_Strtok(NULL, "\n", &tok_ptr);
+		if (!value)
+			goto next_line;
+
+		if (!strcmp(key, "NAME") && !strcmp(value, "\"Ubuntu\"")) {
+			release &= ~MTY_OS_LINUX;
+			release |= MTY_OS_UBUNTU;
+		} else if (!strcmp(key, "VERSION_ID") && value[0] == '"' && value[strlen(value) - 1] == '"') {
+			char *val_ptr = NULL;
+			char *major = MTY_Strtok(value + 1, ".", &val_ptr);
+			uint8_t major_num = (uint8_t) atoi(major);
+			char *minor = MTY_Strtok(NULL, "\"", &val_ptr);
+			uint8_t minor_num = (uint8_t) atoi(minor);
+
+			release |= (major_num << 8) | minor_num;
+		}
+
+		next_line:
+
+		line = MTY_Strtok(NULL, "\n", &line_ptr);
+	}
+
+	return release;
 }

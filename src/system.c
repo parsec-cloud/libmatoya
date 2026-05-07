@@ -96,7 +96,7 @@ const char *MTY_GetPlatformVersion(void)
 
 	if (major > 0 || minor > 0) {
 		if (minor > 0)
-			os == MTY_OS_UBUNTU ? MTY_Strcat(final, 64, MTY_SprintfDL("%u.%2u", major, minor)) :
+			os == MTY_OS_UBUNTU ? MTY_Strcat(final, 64, MTY_SprintfDL("%u.%02u", major, minor)) :
 				MTY_Strcat(final, 64, MTY_SprintfDL("%u.%u", major, minor));
 		else
 			MTY_Strcat(final, 64, MTY_SprintfDL("%u", major));

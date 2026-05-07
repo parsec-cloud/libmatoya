@@ -65,15 +65,43 @@ const char *MTY_GetPlatformString(uint32_t platform)
 
 	if (major > 0 || minor > 0) {
 		if (os != MTY_OS_UNKNOWN)
-			MTY_Strcat(final, 64, "/");
+			MTY_Strcat(final, 64, " ");
 
+		if (minor > 0)
+			MTY_Strcat(final, 64, MTY_SprintfDL("%u.%u", major, minor));
+		else
+			MTY_Strcat(final, 64, MTY_SprintfDL("%u", major));
+	}
+
+	return final;
+}
+
+const char *MTY_GetPlatformOS(void)
+{
+	uint32_t platform = MTY_GetPlatform();
+	char *final = mty_tlocal(64);
+	MTY_Strcat(final, 64, system_get_os_string(platform));
+	return final;
+}
+
+const char *MTY_GetPlatformVersion(void)
+{
+	uint32_t platform = MTY_GetPlatform();
+	
+	MTY_OS os = platform & 0xFF000000;
+	uint8_t major = (platform & 0xFF00) >> 8;
+	uint8_t minor = platform & 0xFF;
+
+	char *final = mty_tlocal(64);
+
+	if (major > 0 || minor > 0) {
 		if (minor > 0)
 			os == MTY_OS_UBUNTU ? MTY_Strcat(final, 64, MTY_SprintfDL("%u.%2u", major, minor)) :
 				MTY_Strcat(final, 64, MTY_SprintfDL("%u.%u", major, minor));
 		else
 			MTY_Strcat(final, 64, MTY_SprintfDL("%u", major));
 	}
-
+	
 	return final;
 }
 

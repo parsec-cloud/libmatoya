@@ -3419,6 +3419,19 @@ MTY_GetPlatformNoWeb(void);
 MTY_EXPORT const char *
 MTY_GetPlatformString(uint32_t platform);
 
+/// @brief Turn a platform integer into a readable string.
+/// @returns Example format would be `Windows`.\n\n
+///   This buffer is allocated in thread local storage and must not be freed.
+MTY_EXPORT const char *
+MTY_GetPlatformOS(void);
+
+/// @brief Turn a platform integer into a readable string.
+
+/// @returns Example format would be `10.0`.\n\n
+///   This buffer is allocated in thread local storage and must not be freed.
+MTY_EXPORT const char *
+MTY_GetPlatformVersion(void);
+
 /// @brief Execute the default protocol handler for a given URI.
 /// @param uri The resource to be handled, i.e. `C:\tmp.txt` or `http://google.com`.
 /// @param token An optional `HANDLE` to a user's security token. This can be used

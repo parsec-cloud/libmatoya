@@ -15,6 +15,8 @@
 
 #include "tlocal.h"
 
+static uint32_t platform = 0;
+
 uint32_t get_os_release()
 {
 	char *os_release = NULL;
@@ -65,7 +67,10 @@ const char *MTY_GetSOExtension(void)
 
 uint32_t MTY_GetPlatform(void)
 {
-	return get_os_release();
+	if (platform)
+		return platform;
+	platform = get_os_release();
+	return platform;
 }
 
 uint32_t MTY_GetPlatformNoWeb(void)

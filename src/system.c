@@ -79,8 +79,8 @@ const char *MTY_GetPlatformString(uint32_t platform)
 const char *MTY_GetPlatformOS(void)
 {
 	uint32_t platform = MTY_GetPlatform();
-	char *final = mty_tlocal(64);
-	MTY_Strcat(final, 64, system_get_os_string(platform));
+	char *final = mty_tlocal(16);
+	MTY_Strcat(final, 16, system_get_os_string(platform));
 	return final;
 }
 
@@ -92,14 +92,14 @@ const char *MTY_GetPlatformVersion(void)
 	uint8_t major = (platform & 0xFF00) >> 8;
 	uint8_t minor = platform & 0xFF;
 
-	char *final = mty_tlocal(64);
+	char *final = mty_tlocal(8); // Max value would be 255.255
 
 	if (major > 0 || minor > 0) {
 		if (minor > 0)
-			os == MTY_OS_UBUNTU ? MTY_Strcat(final, 64, MTY_SprintfDL("%u.%02u", major, minor)) :
-				MTY_Strcat(final, 64, MTY_SprintfDL("%u.%u", major, minor));
+			os == MTY_OS_UBUNTU ? MTY_Strcat(final, 8, MTY_SprintfDL("%u.%02u", major, minor)) :
+				MTY_Strcat(final, 8, MTY_SprintfDL("%u.%u", major, minor));
 		else
-			MTY_Strcat(final, 64, MTY_SprintfDL("%u", major));
+			MTY_Strcat(final, 8, MTY_SprintfDL("%u", major));
 	}
 	
 	return final;

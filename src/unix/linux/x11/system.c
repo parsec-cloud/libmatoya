@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 
 #include <unistd.h>
@@ -16,10 +17,7 @@
 
 uint32_t get_os_release()
 {
-	bool r = false;
 	char *os_release = NULL;
-	bool is_ubuntu = false;
-	bool is_deprecated = false;
 	uint32_t release = MTY_OS_LINUX;
 
 	size_t size = 0;

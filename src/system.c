@@ -65,7 +65,7 @@ const char *MTY_GetPlatformString(uint32_t platform)
 
 	if (major > 0 || minor > 0) {
 		if (os != MTY_OS_UNKNOWN)
-			MTY_Strcat(final, 64, " ");
+			MTY_Strcat(final, 64, "/");
 
 		if (minor > 0)
 			os == MTY_OS_UBUNTU ? MTY_Strcat(final, 64, MTY_SprintfDL("%u.%2u", major, minor)) :

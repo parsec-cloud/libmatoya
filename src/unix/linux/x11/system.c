@@ -27,6 +27,7 @@ uint32_t get_os_release()
 
 	char *line_ptr = NULL, *line, *tok_ptr, *key, *value;
 
+	line = MTY_Strtok(os_release, "\n", &line_ptr);
 	while (line) {
 		key = MTY_Strtok(line, "=", &tok_ptr);
 		if (!key)

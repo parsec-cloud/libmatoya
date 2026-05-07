@@ -80,7 +80,7 @@ void *MTY_GetJNIEnv(void)
 	return NULL;
 }
 
-uint32_t get_os_release()
+static uint32_t get_os_release()
 {
 	bool r = false;
 	char *os_release = NULL;

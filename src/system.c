@@ -78,7 +78,7 @@ const char *MTY_GetPlatformString(uint32_t platform)
 
 const char *MTY_GetPlatformOS(void)
 {
-	uint32_t platform = MTY_GetPlatform();
+	uint32_t platform = MTY_GetPlatformNoWeb();
 	char *final = mty_tlocal(16);
 	MTY_Strcat(final, 16, system_get_os_string(platform));
 	return final;
@@ -86,7 +86,7 @@ const char *MTY_GetPlatformOS(void)
 
 const char *MTY_GetPlatformVersion(void)
 {
-	uint32_t platform = MTY_GetPlatform();
+	uint32_t platform = MTY_GetPlatformNoWeb();
 	
 	MTY_OS os = platform & 0xFF000000;
 	uint8_t major = (platform & 0xFF00) >> 8;

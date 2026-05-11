@@ -24,7 +24,6 @@ bool MTY_IsSupported(void)
 		case MTY_OS_ANDROID:
 			return minor >= 26;
 		case MTY_OS_UBUNTU:
-			return major >= 22;
 		case MTY_OS_LINUX:
 		case MTY_OS_WEB:
 			return true;

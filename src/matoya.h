@@ -3419,14 +3419,13 @@ MTY_GetPlatformNoWeb(void);
 MTY_EXPORT const char *
 MTY_GetPlatformString(uint32_t platform);
 
-/// @brief Turn a platform integer into a readable string.
+/// @brief Get the current platform as a readable string.
 /// @returns Example format would be `Windows`.\n\n
 ///   This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetPlatformOS(void);
 
-/// @brief Turn a platform integer into a readable string.
-
+/// @brief Get the current platform version as a readable string.
 /// @returns Example format would be `10.0`.\n\n
 ///   This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *

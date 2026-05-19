@@ -23,7 +23,6 @@ bool MTY_IsSupported(void)
 			return major > 10 || (major == 10 && minor > 11);
 		case MTY_OS_ANDROID:
 			return minor >= 26;
-		case MTY_OS_UBUNTU:
 		case MTY_OS_LINUX:
 		case MTY_OS_WEB:
 			return true;
@@ -41,7 +40,6 @@ static const char *system_get_os_string(uint32_t platform)
 		case MTY_OS_MACOS:   return "macOS";
 		case MTY_OS_ANDROID: return "Android";
 		case MTY_OS_LINUX:   return "Linux";
-		case MTY_OS_UBUNTU:  return "Ubuntu";
 		case MTY_OS_WEB:     return "Web";
 		case MTY_OS_IOS:     return "iOS";
 		case MTY_OS_TVOS:    return "tvOS";

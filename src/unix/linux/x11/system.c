@@ -75,10 +75,7 @@ const char *MTY_GetSOExtension(void)
 
 uint32_t MTY_GetPlatform(void)
 {
-	if (platform)
-		return platform;
-	platform = get_os_release();
-	return platform;
+	return MTY_OS_LINUX;
 }
 
 uint32_t MTY_GetPlatformNoWeb(void)

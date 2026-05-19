@@ -15,12 +15,20 @@
 
 #include "tlocal.h"
 
+
+/// @brief Operating systems.
+typedef enum {
+	UNKNOWN = 0x00000000, ///< Unable to detect the operating system.
+	LINUX   = 0x01000000, ///< Linux with X11 windowing system.
+	UBUNTU  = 0x02000000, ///< Ubuntu.
+} LINUX_DISTROS;
+
 static uint32_t platform = 0;
 
 uint32_t get_os_release()
 {
 	char *os_release = NULL;
-	uint32_t release = MTY_OS_LINUX;
+	uint32_t release = LINUX;
 
 	size_t size = 0;
 	os_release = MTY_ReadFile("/etc/os-release", &size);
@@ -40,8 +48,8 @@ uint32_t get_os_release()
 			goto next_line;
 
 		if (!strcmp(key, "NAME") && !strcmp(value, "\"Ubuntu\"")) {
-			release &= ~MTY_OS_LINUX;
-			release |= MTY_OS_UBUNTU;
+			release &= ~LINUX;
+			release |= UBUNTU;
 		} else if (!strcmp(key, "VERSION_ID") && value[0] == '"' && value[strlen(value) - 1] == '"') {
 			char *val_ptr = NULL;
 			char *major = MTY_Strtok(value + 1, ".", &val_ptr);
@@ -76,6 +84,44 @@ uint32_t MTY_GetPlatform(void)
 uint32_t MTY_GetPlatformNoWeb(void)
 {
 	return MTY_GetPlatform();
+}
+
+MTY_OSInfo MTY_GetPlatformOSInfo(void)
+{
+	uint32_t platform = get_os_release();
+
+	LINUX_DISTROS os = platform & 0xFF000000;
+	uint8_t major = (platform & 0xFF00) >> 8;
+	uint8_t minor = platform & 0xFF;
+
+	MTY_OSInfo info;
+
+	info.os = mty_tlocal(16);
+	info.version = mty_tlocal(8);
+
+	switch (os) {
+		case UNKNOWN: 
+			MTY_Strcat(info.os, 16, "Unknown");
+			break;
+		case LINUX:   
+			MTY_Strcat(info.os, 16, "Linux"); 
+			break;
+		case UBUNTU:  
+			MTY_Strcat(info.os, 16, "Ubuntu"); 
+			break;
+	}
+
+	
+
+	if (major > 0 || minor > 0) {
+		if (minor > 0)
+			os == UBUNTU ? MTY_Strcat(info.version, 8, MTY_SprintfDL("%u.%02u", major, minor)) :
+				MTY_Strcat(info.version, 8, MTY_SprintfDL("%u.%u", major, minor));
+		else
+			MTY_Strcat(info.version, 8, MTY_SprintfDL("%u", major));
+	}
+
+	return info;
 }
 
 void MTY_HandleProtocol(const char *uri, void *token)

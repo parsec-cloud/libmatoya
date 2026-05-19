@@ -75,33 +75,29 @@ const char *MTY_GetPlatformString(uint32_t platform)
 	return final;
 }
 
-const char *MTY_GetPlatformOS(void)
+MTY_OSInfo MTY_GetPlatformOSInfo(void)
 {
 	uint32_t platform = MTY_GetPlatformNoWeb();
-	char *final = mty_tlocal(16);
-	MTY_Strcat(final, 16, system_get_os_string(platform));
-	return final;
-}
 
-const char *MTY_GetPlatformVersion(void)
-{
-	uint32_t platform = MTY_GetPlatformNoWeb();
-	
 	MTY_OS os = platform & 0xFF000000;
 	uint8_t major = (platform & 0xFF00) >> 8;
 	uint8_t minor = platform & 0xFF;
 
-	char *final = mty_tlocal(8); // Max value would be 255.255
+	MTY_OSInfo info;
+
+	info.os = mty_tlocal(16);
+	info.version = mty_tlocal(8);
+
+	MTY_Strcat(info.os, 16, system_get_os_string(platform));
 
 	if (major > 0 || minor > 0) {
 		if (minor > 0)
-			os == MTY_OS_UBUNTU ? MTY_Strcat(final, 8, MTY_SprintfDL("%u.%02u", major, minor)) :
-				MTY_Strcat(final, 8, MTY_SprintfDL("%u.%u", major, minor));
+			MTY_Strcat(info.version, 8, MTY_SprintfDL("%u.%u", major, minor));
 		else
-			MTY_Strcat(final, 8, MTY_SprintfDL("%u", major));
+			MTY_Strcat(info.version, 8, MTY_SprintfDL("%u", major));
 	}
-	
-	return final;
+
+	return info;
 }
 
 const char *MTY_GetProcessDir(void)

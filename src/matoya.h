@@ -3419,17 +3419,17 @@ MTY_GetPlatformNoWeb(void);
 MTY_EXPORT const char *
 MTY_GetPlatformString(uint32_t platform);
 
-/// @brief Get the current platform as a readable string.
-/// @returns Example format would be `Windows`.\n\n
-///   This buffer is allocated in thread local storage and must not be freed.
-MTY_EXPORT const char *
-MTY_GetPlatformOS(void);
+/// @brief Information about the OS and version of the OS running the process.
+typedef struct {
+	char *os; // ex: macOS, Windows, Ubuntu
+	char *version; // ex: 10.0, 11.2, 20.04
+} MTY_OSInfo;
 
-/// @brief Get the current platform version as a readable string.
-/// @returns Example format would be `10.0`.\n\n
-///   This buffer is allocated in thread local storage and must not be freed.
-MTY_EXPORT const char *
-MTY_GetPlatformVersion(void);
+/// @brief Get the current platform's OS and version as readable strings.
+/// @returns Example format would be `os: Windows, version: 10.0`.\n\n
+///   The buffers are allocated in thread local storage and must not be freed.
+MTY_EXPORT MTY_OSInfo
+MTY_GetPlatformOSInfo(void);
 
 /// @brief Execute the default protocol handler for a given URI.
 /// @param uri The resource to be handled, i.e. `C:\tmp.txt` or `http://google.com`.

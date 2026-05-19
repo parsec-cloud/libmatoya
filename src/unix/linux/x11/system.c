@@ -25,8 +25,11 @@ typedef enum {
 
 static uint32_t platform = 0;
 
-uint32_t get_os_release()
+uint32_t get_platform()
 {
+	if (platform)
+		return platform;
+
 	char *os_release = NULL;
 	uint32_t release = LINUX;
 
@@ -65,6 +68,8 @@ uint32_t get_os_release()
 		line = MTY_Strtok(NULL, "\n", &line_ptr);
 	}
 
+	platform = release;
+
 	return release;
 }
 
@@ -85,7 +90,7 @@ uint32_t MTY_GetPlatformNoWeb(void)
 
 MTY_OSInfo MTY_GetPlatformOSInfo(void)
 {
-	uint32_t platform = get_os_release();
+	uint32_t platform = get_platform();
 
 	LINUX_DISTROS os = platform & 0xFF000000;
 	uint8_t major = (platform & 0xFF00) >> 8;
@@ -97,18 +102,16 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 	info.version = mty_tlocal(8);
 
 	switch (os) {
-		case UNKNOWN: 
-			MTY_Strcat(info.os, 16, "Unknown");
+		case UNKNOWN:
+			MTY_Strcat(info.name, 16, "Unknown");
 			break;
-		case LINUX:   
-			MTY_Strcat(info.os, 16, "Linux"); 
+		case LINUX:
+			MTY_Strcat(info.name, 16, "Linux");
 			break;
-		case UBUNTU:  
-			MTY_Strcat(info.os, 16, "Ubuntu"); 
+		case UBUNTU:
+			MTY_Strcat(info.name, 16, "Ubuntu");
 			break;
 	}
-
-	
 
 	if (major > 0 || minor > 0) {
 		if (minor > 0)

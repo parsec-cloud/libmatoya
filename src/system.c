@@ -83,10 +83,10 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 
 	MTY_OSInfo info;
 
-	info.os = mty_tlocal(16);
+	info.name = mty_tlocal(16);
 	info.version = mty_tlocal(8);
 
-	MTY_Strcat(info.os, 16, system_get_os_string(platform));
+	MTY_Strcat(info.name, 16, system_get_os_string(platform));
 
 	if (major > 0 || minor > 0) {
 		if (minor > 0)

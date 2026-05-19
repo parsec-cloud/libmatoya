@@ -93,7 +93,7 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 
 	MTY_OSInfo info;
 
-	info.os = mty_tlocal(16);
+	info.name = mty_tlocal(16);
 	info.version = mty_tlocal(8);
 
 	switch (os) {

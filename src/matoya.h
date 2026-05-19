@@ -3420,7 +3420,7 @@ MTY_GetPlatformString(uint32_t platform);
 
 /// @brief Information about the OS and version of the OS running the process.
 typedef struct {
-	char *os; // ex: macOS, Windows, Ubuntu
+	char *name; // ex: macOS, Windows, Ubuntu
 	char *version; // ex: 10.0, 11.2, 20.04
 } MTY_OSInfo;
 

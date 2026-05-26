@@ -106,13 +106,14 @@ FLAGS = \
 	/nologo
 
 LIB_FLAGS = \
-	/nologo
+	/nologo \
+	/LTCG
 
 !IFDEF DEBUG
 FLAGS = $(FLAGS) /Ob0 /Zi /Oy-
 DEFS = $(DEFS) -DMTY_VK_DEBUG
 !ELSE
-FLAGS = $(FLAGS) /O2 /GS- /Gw
+FLAGS = $(FLAGS) /O2 /GS- /Gw /Zi
 !ENDIF
 
 CFLAGS = $(INCLUDES) $(DEFS) $(FLAGS)

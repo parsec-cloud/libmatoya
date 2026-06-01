@@ -55,7 +55,8 @@ char *mty_tlocal_strcpy(const char *str)
 		len = TLOCAL_SIZE;
 
 	char *local = mty_tlocal(len);
-	strncpy(local, str, len);
+	strncpy(local, str, len-1);
+	local[len-1] = 0;
 
 	return local;
 }

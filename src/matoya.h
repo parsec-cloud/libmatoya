@@ -3419,7 +3419,7 @@ MTY_EXPORT const char *
 MTY_GetPlatformString(uint32_t platform);
 
 /// @brief The release type of an OS.
-/// @details Relates the linux concept of LTS release.
+/// @details Relates to the linux concept of LTS release.
 typedef enum MTY_OSReleaseType {
 	MTY_OS_RELEASE_UNDEFINED = 0,
 	MTY_OS_RELEASE_STABLE,
@@ -3429,8 +3429,8 @@ typedef enum MTY_OSReleaseType {
 } MTY_OSReleaseType;
 
 /// @brief More detailed information about the OS.
-/// @details Not all members are avaliable on all platforms. The valid_mask can be check to determine\n\n
-///   if the match member contains valid data.
+/// @details Not all members are available on all platforms. The valid_mask can be checked to determine\n\n
+///   if the matching member contains valid data.
 typedef struct {
 	MTY_OS os;										// OS value for the current platform 
 	MTY_OSReleaseType release_type;					// Release Type for the current platform.
@@ -3460,7 +3460,7 @@ typedef struct {
 } MTY_OSInfo;
 
 /// @brief Get the current platform's OS and version as readable strings.
-/// @details This function returns more detailed information that MTY_GetPlatformString() if possible.
+/// @details This function returns more detailed information than MTY_GetPlatformString() if possible.
 /// @returns Returns a MTY_OSInfo structure. Readable values can be checked by querying valid_mask.\n\n
 ///   The buffers are allocated in thread local storage and must not be freed.
 MTY_EXPORT MTY_OSInfo

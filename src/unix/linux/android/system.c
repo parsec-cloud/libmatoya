@@ -36,7 +36,7 @@ uint32_t MTY_GetPlatformNoWeb(void)
 MTY_OSInfo MTY_GetPlatformOSInfo(void)
 {
 	MTY_OSInfo info = {
-		.os = MTY_OS_MACOS,
+		.os = MTY_OS_ANDROID,
 		.name = MTY_GetPlatformString(MTY_GetPlatform()),
 		.valid_mask.name = true,
 	};

@@ -32,6 +32,13 @@ uint32_t MTY_GetPlatformNoWeb(void)
 
 MTY_OSInfo MTY_GetPlatformOSInfo(void)
 {
+	static char const* const release_type_name[] = {
+		[MTY_OS_RELEASE_UNDEFINED] = "",
+		[MTY_OS_RELEASE_STABLE] = "stable",
+		[MTY_OS_RELEASE_LTS] = "lts",
+		[MTY_OS_RELEASE_DEVELOPMENT] = "development",
+		[MTY_OS_RELEASE_EXPERIMENT] = "experiment",
+	};
 	MTY_OSInfo info = {
 		.os = MTY_OS_LINUX,
 		.name = MTY_GetPlatformString(MTY_GetPlatform()),
@@ -44,7 +51,6 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 	if (!os_release || size == 0)
 		return info;
 	
-	bool seen_pretty_name = false; // "PRETTY_NAME" is preferred over "NAME"
 	char *line_ptr = NULL, *line, *tok_ptr, *key, *value;
 	
 	line = MTY_Strtok(os_release, "\n", &line_ptr);
@@ -58,13 +64,13 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 		if (!value)
 			goto next_line;
 
-		if (!strcmp(key, "NAME") && !seen_pretty_name) {
+		// "PRETTY_NAME" is preferred over "NAME"
+		if (!strcmp(key, "NAME") && !info.valid_mask.name_pretty) {
 			info.name = mty_tlocal_strcpy(value);
-			info.valid_mask.name_pretty = true;
+			info.valid_mask.name = true;
 		} else if (!strcmp(key, "PRETTY_NAME")) {
 			info.name = mty_tlocal_strcpy(value);
 			info.valid_mask.name_pretty = true;
-			seen_pretty_name = true;
 		} else if (!strcmp(key, "VERSION")) {
 			info.version_pretty = mty_tlocal_strcpy(value);
 			info.valid_mask.version_pretty = true;
@@ -75,19 +81,14 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 			info.base_id = mty_tlocal_strcpy(value);
 			info.valid_mask.base_id = true;
 		} else if (!strcmp(key, "RELEASE_TYPE")) {
-			static char const* release_type_name[] = {
-				[MTY_OS_RELEASE_UNDEFINED] = "",
-				[MTY_OS_RELEASE_STABLE] = "stable",
-				[MTY_OS_RELEASE_LTS] = "lts",
-				[MTY_OS_RELEASE_DEVELOPMENT] = "development",
-				[MTY_OS_RELEASE_EXPERIMENT] = "experiment",
-			};
 			for (size_t i = MTY_OS_RELEASE_STABLE; i < (sizeof(release_type_name)/sizeof(release_type_name[0])); ++i) {
 				if (!strcmp(value, release_type_name[i])) {
 					info.release_type = (MTY_OSReleaseType)i;
 					break;
 				}
 			}
+			// Even if an explicit mapping is not found, release_type will be set to undefined and this is a valid setting.
+			// It still needs to be reported to the caller as set.
 			info.valid_mask.release_type = true;
 		} else if (!strcmp(key, "VERSION_ID")) {
 			// check for quoted string, skip ahead if need be

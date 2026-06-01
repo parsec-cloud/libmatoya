@@ -69,7 +69,7 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 			info.name = mty_tlocal_strcpy(value);
 			info.valid_mask.name = true;
 		} else if (!strcmp(key, "PRETTY_NAME")) {
-			info.name = mty_tlocal_strcpy(value);
+			info.name_pretty = mty_tlocal_strcpy(value);
 			info.valid_mask.name_pretty = true;
 		} else if (!strcmp(key, "VERSION")) {
 			info.version_pretty = mty_tlocal_strcpy(value);

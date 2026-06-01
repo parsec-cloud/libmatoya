@@ -34,7 +34,7 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 {
 	MTY_OSInfo info = {
 		.os = MTY_OS_LINUX,
-		.name = MTY_GetPlatformString(),
+		.name = MTY_GetPlatformString(MTY_GetPlatform()),
 		.valid_mask.name = true,
 	};
 	char *os_release = NULL;
@@ -76,12 +76,13 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 			info.valid_mask.base_id = true;
 		} else if (!strcmp(key, "RELEASE_TYPE")) {
 			static char const* release_type_name[] = {
+				[MTY_OS_RELEASE_UNDEFINED] = "",
 				[MTY_OS_RELEASE_STABLE] = "stable",
-				[MTY_OS_RELEASE_LTS] = "stable",
+				[MTY_OS_RELEASE_LTS] = "lts",
 				[MTY_OS_RELEASE_DEVELOPMENT] = "development",
 				[MTY_OS_RELEASE_EXPERIMENT] = "experiment",
 			};
-			for (int i = MTY_OS_RELEASE_STABLE; i < (sizeof(release_type_name)/sizeof(release_type_name[0])); ++i) {
+			for (size_t i = MTY_OS_RELEASE_STABLE; i < (sizeof(release_type_name)/sizeof(release_type_name[0])); ++i) {
 				if (!strcmp(value, release_type_name[i])) {
 					info.release_type = (MTY_OSReleaseType)i;
 					break;

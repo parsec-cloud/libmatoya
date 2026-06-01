@@ -33,6 +33,20 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
+MTY_OSInfo MTY_GetPlatformOSInfo(void)
+{
+	MTY_OSInfo info = {
+		.os = MTY_OS_MACOS,
+		.name = MTY_GetPlatformString(MTY_GetPlatform()),
+		.valid_mask.name = true,
+	};
+
+	info.version.major = android_get_device_api_level();
+	info.valid_mask.version = true;
+
+	return info;
+}
+
 void MTY_HandleProtocol(const char *uri, void *token)
 {
 	jobject obj = mty_app_get_obj();

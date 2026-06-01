@@ -19,6 +19,17 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
+MTY_OSInfo MTY_GetPlatformOSInfo(void)
+{
+	MTY_OSInfo info = {
+		.os = MTY_OS_MACOS,
+		.name = MTY_GetPlatformString(MTY_GetPlatform()),
+		.valid_mask.name = true,
+	};
+	
+	return info;
+}
+
 void MTY_HandleProtocol(const char *uri, void *token)
 {
 }

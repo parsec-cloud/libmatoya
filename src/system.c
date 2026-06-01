@@ -73,31 +73,6 @@ const char *MTY_GetPlatformString(uint32_t platform)
 	return final;
 }
 
-MTY_OSInfo MTY_GetPlatformOSInfo(void)
-{
-	uint32_t platform = MTY_GetPlatformNoWeb();
-
-	MTY_OS os = platform & 0xFF000000;
-	uint8_t major = (platform & 0xFF00) >> 8;
-	uint8_t minor = platform & 0xFF;
-
-	MTY_OSInfo info;
-
-	info.name = mty_tlocal(16);
-	info.version = mty_tlocal(8);
-
-	MTY_Strcat(info.name, 16, system_get_os_string(platform));
-
-	if (major > 0 || minor > 0) {
-		if (minor > 0)
-			MTY_Strcat(info.version, 8, MTY_SprintfDL("%u.%u", major, minor));
-		else
-			MTY_Strcat(info.version, 8, MTY_SprintfDL("%u", major));
-	}
-
-	return info;
-}
-
 const char *MTY_GetProcessDir(void)
 {
 	return MTY_GetPathPrefix(MTY_GetProcessPath());

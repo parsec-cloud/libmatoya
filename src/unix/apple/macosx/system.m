@@ -42,15 +42,14 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 
 	NSProcessInfo *pInfo = [NSProcessInfo processInfo];
 	NSOperatingSystemVersion version = [pInfo operatingSystemVersion];
-	NSString version_string = [pInfo operatingSystemVersionString];
+	NSString *version_string = [pInfo operatingSystemVersionString];
 
 	info.version.major = version.majorVersion;
 	info.version.minor = version.minorVersion;
 	info.version.patch = version.patchVersion;
 	info.valid_mask.version = true;
 
-	size_t l = strlen(version_string+1;
-	info.version_pretty = mty_tlocal_strcpy([version_string utf8String]);
+	info.version_pretty = mty_tlocal_strcpy([version_string UTF8String]);
 	info.valid_mask.version_pretty = true;
 
 	return info;

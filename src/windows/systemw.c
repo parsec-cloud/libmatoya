@@ -129,7 +129,7 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 			info.build_number = rtl_info.dwBuildNumber;
 			info.valid_mask.build_number = true;
 
-			info.version_pretty = MTY_SprintfDL("%u.%u (%u)", rtl_info.dwMajorVersion, rtl_info.dwMinorVersion, rtl_info.dwBuildNumber);
+			info.version_pretty = MTY_SprintfDL("%u.%u", rtl_info.dwMajorVersion, rtl_info.dwMinorVersion);
 			info.valid_mask.version_pretty = true;
 		}
 	}

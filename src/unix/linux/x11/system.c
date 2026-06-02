@@ -96,7 +96,7 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 				value++;
 			char* val_ptr = NULL;
 			char* digit_str = MTY_Strtok(value, "._-\"\n", &val_ptr);
-			for (int i = 0; i < (sizeof(info.version.digits) / sizeof(info.version.digits[0])); ++i) {
+			for (size_t i = 0; i < (sizeof(info.version.digits) / sizeof(info.version.digits[0])); ++i) {
 				if (!digit_str) break;
 				info.version.digits[i] = atoi(digit_str);
 				digit_str = MTY_Strtok(NULL, "._-\"\n", &val_ptr);

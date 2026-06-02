@@ -74,7 +74,9 @@ uint32_t MTY_GetPlatformNoWeb(void)
 MTY_OSInfo MTY_GetPlatformOSInfo(void)
 {
 	MTY_OSInfo info = {
-		.os = MTY_GetPlatformNoWeb(),
+		.os = MTY_OS_WEB,
+		.name = MTY_GetPlatformString(MTY_GetPlatformNoWeb()),
+		.valid_mask.name = true,
 	};
 	
 	return info;

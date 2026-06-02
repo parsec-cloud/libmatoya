@@ -103,6 +103,39 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
+MTY_OSInfo MTY_GetPlatformOSInfo(void)
+{
+	MTY_OSInfo info = {
+		.os = MTY_OS_WINDOWS,
+		.name = MTY_GetPlatformString(MTY_GetPlatform()),
+		.valid_mask.name = true,
+	};
+
+	HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+	if (ntdll) {
+		NTSTATUS (WINAPI *RtlGetVersion)(RTL_OSVERSIONINFOW *info) =
+			(void *) GetProcAddress(ntdll, "RtlGetVersion");
+
+		if (RtlGetVersion) {
+			RTL_OSVERSIONINFOW rtl_info = {0};
+			rtl_info.dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOW);
+
+			RtlGetVersion(&rtl_info);
+
+			info.version.major = rtl_info.dwMajorVersion;
+			info.version.minor = rtl_info.dwMinorVersion;
+			info.valid_mask.version = true;
+
+			info.build_number = rtl_info.dwBuildNumber;
+			info.valid_mask.build_number = true;
+
+			info.version_pretty = MTY_SprintfDL("%u.%u", rtl_info.dwMajorVersion, rtl_info.dwMinorVersion);
+			info.valid_mask.version_pretty = true;
+		}
+	}
+	return info;
+}
+
 void MTY_HandleProtocol(const char *uri, void *token)
 {
 	VOID *env = NULL;

@@ -59,7 +59,7 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 		if (!key)
 			goto next_line;
 
-		// We don't worry about quoted strings, a copy them verbatim, except in version numbers.
+		// We don't worry about quoted strings and copy them verbatim, except when parsing version numbers i.e. VERSION_ID
 		value = MTY_Strtok(NULL, "\n", &tok_ptr);
 		if (!value)
 			goto next_line;

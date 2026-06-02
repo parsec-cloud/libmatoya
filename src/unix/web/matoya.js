@@ -1081,6 +1081,7 @@ async function mty_thread_message(ev) {
 			break;
 		case 'wv-create':
 			MTY.webview = document.createElement('iframe');
+			MTY.webview.title = 'Parsec application';
 
 			MTY.webview.style.visibility = 'hidden';
 			MTY.webview.style.position = 'fixed';

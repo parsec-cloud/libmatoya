@@ -59,9 +59,8 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 		if (!key)
 			goto next_line;
 
-		// We don't worry about quoted strings and copy them verbatim, except when parsing version numbers i.e. VERSION_ID
-		value = MTY_Strtok(NULL, "\n", &tok_ptr);
-		if (!value)
+		value = MTY_Strtok(NULL, "\"\n", &tok_ptr);
+			if (!value)
 			goto next_line;
 
 		// "PRETTY_NAME" is preferred over "NAME"
@@ -91,9 +90,6 @@ MTY_OSInfo MTY_GetPlatformOSInfo(void)
 			// It still needs to be reported to the caller as set.
 			info.valid_mask.release_type = true;
 		} else if (!strcmp(key, "VERSION_ID")) {
-			// check for quoted string, skip ahead if need be
-			if (value[0] == '"')
-				value++;
 			char* val_ptr = NULL;
 			char* digit_str = MTY_Strtok(value, "._-\"\n", &val_ptr);
 			for (size_t i = 0; i < (sizeof(info.version.digits) / sizeof(info.version.digits[0])); ++i) {

@@ -841,6 +841,9 @@ async function MTY_Start(bin, container, userEnv) {
 	MTY.renderer = MTY.canvas.getContext('bitmaprenderer');
 	MTY.canvas.style.width = '100%';
 	MTY.canvas.style.height = '100%';
+	MTY.canvas.setAttribute('role', 'img');
+	MTY.canvas.setAttribute('aria-label', 'Parsec overlay and mouse cursor');
+
 	container.appendChild(MTY.canvas);
 	mty_update_canvas(MTY.canvas);
 

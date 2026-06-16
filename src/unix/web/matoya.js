@@ -19,6 +19,7 @@ if (typeof importScripts == 'function') {
 	window.MTY = {
 		wsIndex: 1,
 		wsObj: {},
+		copyTmp: new WeakMap(),
 		cursorId: 0,
 		threadId: 1,
 		cursorCache: {},
@@ -920,7 +921,7 @@ async function mty_thread_message(ev) {
 		case 'decode-image': {
 			const image = await mty_decode_image(msg.input);
 
-			this.tmp = image.data;
+			MTY.copyTmp.set(msg.sync, image.data);
 			msg.sab[0] = image.width;
 			msg.sab[1] = image.height;
 
@@ -937,8 +938,9 @@ async function mty_thread_message(ev) {
 			const val = window.localStorage[msg.key];
 
 			if (val) {
-				this.tmp = mty_b64_to_buf(val);
-				msg.sab[0] = this.tmp.byteLength;
+				const data = mty_b64_to_buf(val);
+				MTY.copyTmp.set(msg.sync, data);
+				msg.sab[0] = data.byteLength;
 
 			} else {
 				msg.sab[0] = 0;
@@ -971,8 +973,9 @@ async function mty_thread_message(ev) {
 			if (navigator.clipboard.readText) {
 				const text = await navigator.clipboard.readText();
 
-				this.tmp = mty_encode(text);
-				msg.sab[0] = this.tmp.byteLength;
+				const data = mty_encode(text);
+				MTY.copyTmp.set(msg.sync, data);
+				msg.sab[0] = data.byteLength;
 
 			} else {
 				msg.sab[0] = 0;
@@ -1003,7 +1006,7 @@ async function mty_thread_message(ev) {
 		case 'http': {
 			const res = await mty_http_request(msg.url, msg.method, msg.headers, msg.body);
 
-			this.tmp = res.data;
+			MTY.copyTmp.set(msg.sync, res.data);
 			msg.sab[0] = res.error ? 1 : 0;
 			msg.sab[1] = res.size;
 			msg.sab[2] = res.status;
@@ -1030,7 +1033,7 @@ async function mty_thread_message(ev) {
 					const buf = await mty_ws_read(ws, msg.timeout);
 
 					if (buf) {
-						this.tmp = buf;
+						MTY.copyTmp.set(msg.sync, buf);
 						msg.sab[0] = 0; // MTY_ASYNC_OK
 						msg.sab[1] = buf.length;
 
@@ -1077,9 +1080,9 @@ async function mty_thread_message(ev) {
 			delete MTY.audioCtx;
 			break;
 		case 'async-copy':
-			msg.sab8.set(this.tmp);
-			delete this.tmp;
-
+			const data = MTY.copyTmp.get(msg.sync);
+			msg.sab8.set(data);
+			MTY.copyTmp.delete(msg.sync);
 			mty_signal(msg.sync);
 			break;
 	}

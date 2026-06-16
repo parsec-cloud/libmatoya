@@ -981,7 +981,7 @@ async function mty_thread_message(ev) {
 			mty_signal(msg.sync);
 			break;
 		case 'set-clip':
-			navigator.clipboard.writeText(mty_str_to_js(msg.text));
+			navigator.clipboard.writeText(msg.text);
 			break;
 		case 'pointer-lock':
 			mty_set_pointer_lock(msg.enable);

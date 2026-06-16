@@ -782,7 +782,7 @@ const MTY_WEB_API = {
 		return buf;
 	},
 	web_set_clipboard: function (text) {
-		postMessage({type: 'set-clip', text});
+		postMessage({type: 'set-clip', text: mty_str_to_js(text)});
 	},
 	web_set_pointer_lock: function (enable) {
 		postMessage({type: 'pointer-lock', enable});

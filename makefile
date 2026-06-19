@@ -19,7 +19,7 @@ NAME = matoya
 !IFDEF STEAM
 WEBVIEW_OBJ = src\swebview.obj
 !ELSE
-WEBVIEW_OBJ = src\windows\webview.obj
+WEBVIEW_OBJ = src\windows\webview-win.obj
 !ENDIF
 
 OBJS = \
@@ -41,6 +41,7 @@ OBJS = \
 	src\thread.obj \
 	src\tlocal.obj \
 	src\version.obj \
+	src\webview.obj \
 	src\gfx\vk\vk.obj \
 	src\gfx\vk\vk-ctx.obj \
 	src\gfx\vk\vk-ui.obj \

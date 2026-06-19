@@ -889,6 +889,31 @@ const MTY_WEB_API = {
 		// NOTE: This will end up blocking the caller indefinitely.
 		throw 'run_and_yield halted execution';
 	},
+	web_webview_create: function(ctx) {
+		postMessage({type: 'wv-create', ctx});
+	},
+	web_webview_destroy: function() {
+		postMessage({type: 'wv-destroy'});
+	},
+	web_webview_navigate: function(csource, url) {
+		const source = mty_str_to_js(csource);
+		postMessage({type: 'wv-navigate', source, url});
+	},
+	web_webview_show: function(show) {
+		postMessage({type: 'wv-show', show});
+	},
+	web_webview_is_visible: function() {
+		postMessage({type: 'wv-is-visible', sync: MTY.sync, sab: MTY.sab});
+		mty_wait(MTY.sync);
+		return MTY.sab[0] != 0;
+	},
+	web_webview_send_text: function(cmessage) {
+		const message = mty_str_to_js(cmessage);
+		postMessage({type: 'wv-send-text', message});
+	},
+	web_webview_reload: function() {
+		postMessage({type: 'wv-reload'});
+	},
 };
 
 
@@ -1319,6 +1344,11 @@ onmessage = async (ev) => {
 			mty_free(cmem);
 			break;
 		}
+		case 'wv-event':
+			const buf = mty_alloc(1, msg.message.length + 1);
+			mty_str_to_c(msg.message, buf, msg.message.length + 1);
+			MTY.exports.mty_webview_handle_event(msg.ctx, buf);
+			break;
 	}
 };
 

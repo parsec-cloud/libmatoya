@@ -19,9 +19,14 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebMessage;
 import android.text.InputType;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ClipData;
@@ -32,9 +37,11 @@ import android.hardware.input.InputManager;
 import android.util.Log;
 import android.util.DisplayMetrics;
 import android.util.Base64;
+import android.widget.FrameLayout;
 import android.widget.Scroller;
 import android.os.Vibrator;
 import android.net.Uri;
+import java.nio.charset.StandardCharsets;
 
 public class Matoya extends SurfaceView implements
 	SurfaceHolder.Callback,
@@ -46,11 +53,13 @@ public class Matoya extends SurfaceView implements
 	ClipboardManager.OnPrimaryClipChangedListener
 {
 	Activity activity;
+	FrameLayout layout;
 	KeyCharacterMap kbmap;
 	PointerIcon cursor;
 	PointerIcon invisCursor;
 	GestureDetector detector;
 	ScaleGestureDetector sdetector;
+	WebView webview;
 	Scroller scroller;
 	Vibrator vibrator;
 	boolean hiddenCursor;
@@ -79,6 +88,7 @@ public class Matoya extends SurfaceView implements
 	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY,
 		float lT, float rT, float lTalt, float rTalt);
 	native void app_unhandled_touch(int action, float x, float y, int fingers);
+	native void webview_handle_event(long ctx, String str);
 
 	static {
 		System.loadLibrary("main");
@@ -106,7 +116,9 @@ public class Matoya extends SurfaceView implements
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.invisCursor = PointerIcon.create(bm, 0, 0);
 
-		activity.setContentView(this);
+		this.layout = new FrameLayout(this.activity);
+		this.layout.addView(this);
+		activity.setContentView(this.layout);
 
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.addPrimaryClipChangedListener(this);
@@ -582,6 +594,114 @@ public class Matoya extends SurfaceView implements
 		return this.hasPointerCapture();
 	}
 
+	// Webview
+
+	public void webviewCreate(final long ctx, final boolean debug)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				WebView webview = new WebView(self.activity);
+				webview.setBackgroundColor(Color.TRANSPARENT);
+				webview.getSettings().setDomStorageEnabled(true);
+				webview.getSettings().setJavaScriptEnabled(true);
+
+				if (debug)
+					webview.setWebContentsDebuggingEnabled(true);
+
+				webview.addJavascriptInterface(new Object() {
+					@JavascriptInterface
+					public void postMessage(String text) {
+						webview_handle_event(ctx, text);
+					}
+				}, "webview");
+
+				webview.setWebViewClient(new WebViewClient() {
+					@Override
+					public void onPageStarted(WebView webview, String url, Bitmap favicon) {
+						String script = String.join("\n",
+							"window.native = {",
+								"postMessage: (message) => webview.postMessage(message),",
+								"addEventListener: (listener) => window.addEventListener('message', listener),",
+							"}"
+						);
+						webview.evaluateJavascript(script, null);
+					}
+				});
+
+				self.layout.addView(webview);
+				self.webview = webview;
+			}
+		});
+	}
+
+	public void webviewDestroy()
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webview.destroy();
+				self.webview = null;
+			}
+		});
+	}
+
+	public void webviewNavigate(final String source, final boolean url)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				if (url) {
+					self.webview.loadUrl(source, null);
+
+				} else {
+					String encodedHtml = Base64.encodeToString(source.getBytes(StandardCharsets.US_ASCII), Base64.DEFAULT);
+					self.webview.loadData(encodedHtml, "text/html; charset=utf-8", "base64");
+				}
+			}
+		});
+	}
+
+	public void webviewShow(final boolean show)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webview.setVisibility(show ? View.VISIBLE : View.GONE);
+			}
+		});
+	}
+
+	public boolean webviewIsVisible()
+	{
+		return this.webview.getVisibility() == View.VISIBLE;
+	}
+
+	public void webviewSendText(final String msg)
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webview.postWebMessage(new WebMessage(msg), Uri.parse("*"));
+			}
+		});
+	}
+
+	public void webviewReload()
+	{
+		final Matoya self = this;
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				self.webview.reload();
+			}
+		});
+	}
 
 	// Misc
 

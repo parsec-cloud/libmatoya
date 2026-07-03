@@ -1836,10 +1836,11 @@ typedef enum {
 
 /// @brief File properties.
 typedef struct {
-	char *path;    ///< The base path to the file.
-	char *name;    ///< The file name.
-	uint64_t size; ///< The file size in bytes.
-	bool dir;      ///< The file is a directory.
+	char *path;    			///< The base path to the file.
+	char *name;    			///< The file name.
+	uint64_t size; 			///< The file size in bytes.
+	uint64_t modified_time; ///< the modified time in seconds.
+	bool dir;      			///< The file is a directory.
 } MTY_FileDesc;
 
 /// @brief A list of files.

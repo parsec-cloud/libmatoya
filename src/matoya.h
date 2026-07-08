@@ -2728,6 +2728,10 @@ MTY_ThreadDetach(MTY_ThreadFunc func, void *opaque);
 MTY_EXPORT int64_t
 MTY_ThreadGetID(MTY_Thread *ctx);
 
+/// @brief Returns the process ID of the current thread.
+MTY_EXPORT uint64_t
+MTY_GetCurrentProcessID();
+
 /// @brief Create an MTY_Mutex for synchronization.
 /// @details A mutex can be locked by only one thread at a time. Other threads trying
 ///   to take the same mutex will block until it becomes unlocked.

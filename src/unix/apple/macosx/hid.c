@@ -130,8 +130,8 @@ static CFMutableDictionaryRef hid_match_dict(int32_t usage_page, int32_t usage)
 	CFMutableDictionaryRef dict = CFDictionaryCreateMutable(kCFAllocatorDefault, kIOHIDOptionsTypeNone,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-	hid_dict_set_int(dict, CFSTR(kIOHIDDeviceUsagePageKey), usage_page);
-	hid_dict_set_int(dict, CFSTR(kIOHIDDeviceUsageKey), usage);
+	hid_dict_set_int(dict, CFSTR(kIOHIDPrimaryUsagePageKey), usage_page);
+	hid_dict_set_int(dict, CFSTR(kIOHIDPrimaryUsageKey), usage);
 
 	return dict;
 }

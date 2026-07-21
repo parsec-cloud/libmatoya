@@ -104,9 +104,6 @@ static void WINAPI ws_async(HINTERNET hInternet, DWORD_PTR dwContext, DWORD dwIn
 			// "The operation was canceled, usually because the handle on which the request was operating was closed before the operation completed."
 			else if (result->dwError == ERROR_WINHTTP_OPERATION_CANCELLED)
 				ctx->closed = true;
-			// "The server name cannot be resolved."
-			else if (result->dwError == ERROR_WINHTTP_NAME_NOT_RESOLVED)
-				ctx->closed = true;
 
 			if (!ctx->closed)
 				MTY_Log("WebSocket error: dwResult:%u, dwError:0x%X", result->dwResult, result->dwError);

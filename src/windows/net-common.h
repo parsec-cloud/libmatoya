@@ -11,6 +11,27 @@
 
 #define NET_WS_PING_INTERVAL 60000
 
+// TCP keep-alive settings for WebSockets. WinHTTP handles PING/PONG control frames
+// internally and never surfaces them, so probing the socket is the only way to detect
+// a peer that has silently gone away. Windows 10 and later fixes the probe count at 10,
+// making the worst case detection time TIME + 10 * INTERVAL
+#define NET_WS_KEEPALIVE_INTERVAL 1000
+#define NET_WS_KEEPALIVE_TIME     (NET_WS_KEEPALIVE_INTERVAL * 10)
+
+
+// Windows 10 Version 2004
+#ifndef WINHTTP_OPTION_TCP_KEEPALIVE
+	#define WINHTTP_OPTION_TCP_KEEPALIVE 152
+#endif
+
+// Matches 'struct tcp_keepalive' from mstcpip.h, which can not be included here
+// without dragging in the winsock2 headers. See SIO_KEEPALIVE_VALS
+struct net_tcp_keepalive {
+	ULONG onoff;
+	ULONG keepalivetime;
+	ULONG keepaliveinterval;
+};
+
 struct net_args {
 	bool secure;
 	uint16_t port;
@@ -144,6 +165,15 @@ static bool net_connect(const char *url, const char *method, const char *headers
 		WinHttpSetOption(*session, WINHTTP_OPTION_DECOMPRESSION, &opt, sizeof(DWORD));
 	}
 
+	// Dead peer detection for long lived WebSocket connections. This option is only
+	// available on Windows 10 Version 2004 and later, ignore failure on older systems
+	if (ws) {
+		struct net_tcp_keepalive ka = {1, NET_WS_KEEPALIVE_TIME, NET_WS_KEEPALIVE_INTERVAL};
+
+		if (!WinHttpSetOption(*session, WINHTTP_OPTION_TCP_KEEPALIVE, &ka, sizeof(ka)))
+			MTY_Log("'WinHttpSetOption' WINHTTP_OPTION_TCP_KEEPALIVE failed with error 0x%X", GetLastError());
+	}
+
 	// Set async callback
 	if (async_callback) {
 		if (WinHttpSetStatusCallback(*session, async_callback, WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0)) {
@@ -181,7 +211,8 @@ static bool net_connect(const char *url, const char *method, const char *headers
 			goto except;
 
 		opt = NET_WS_PING_INTERVAL;
-		WinHttpSetOption(session, WINHTTP_OPTION_WEB_SOCKET_KEEPALIVE_INTERVAL, &opt, sizeof(DWORD));
+		if (!WinHttpSetOption(session, WINHTTP_OPTION_WEB_SOCKET_KEEPALIVE_INTERVAL, &opt, sizeof(DWORD)))
+			MTY_Log("'WinHttpSetOption' WINHTTP_OPTION_WEB_SOCKET_KEEPALIVE_INTERVAL failed with error 0x%X", GetLastError());
 	}
 
 	// Write headers and body

@@ -204,15 +204,12 @@ static bool net_connect(const char *url, const char *method, const char *headers
 		goto except;
 	}
 
-	// WebSocket upgrade
+	// WebSocket upgrade. NET_WS_PING_INTERVAL is applied later in ws.c, the keep-alive
+	// interval belongs on the WebSocket handle rather than the session or request handle
 	if (ws) {
 		r = WinHttpSetOption(*request, WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET, NULL, 0);
 		if (!r)
 			goto except;
-
-		opt = NET_WS_PING_INTERVAL;
-		if (!WinHttpSetOption(session, WINHTTP_OPTION_WEB_SOCKET_KEEPALIVE_INTERVAL, &opt, sizeof(DWORD)))
-			MTY_Log("'WinHttpSetOption' WINHTTP_OPTION_WEB_SOCKET_KEEPALIVE_INTERVAL failed with error 0x%X", GetLastError());
 	}
 
 	// Write headers and body

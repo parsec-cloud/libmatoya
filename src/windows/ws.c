@@ -162,6 +162,13 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *url, const char *headers, const 
 		goto except;
 	}
 
+	// The keep-alive interval must be set on the WebSocket handle, the session and request
+	// handles are both rejected with ERROR_WINHTTP_INCORRECT_HANDLE_TYPE. The minimum
+	// accepted value is 15000, anything lower fails with ERROR_INVALID_PARAMETER
+	DWORD opt = NET_WS_PING_INTERVAL;
+	if (!WinHttpSetOption(ctx->ws, WINHTTP_OPTION_WEB_SOCKET_KEEPALIVE_INTERVAL, &opt, sizeof(DWORD)))
+		MTY_Log("'WinHttpSetOption' WINHTTP_OPTION_WEB_SOCKET_KEEPALIVE_INTERVAL failed with error 0x%X", GetLastError());
+
 	except:
 
 	if (request)

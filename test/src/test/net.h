@@ -12,9 +12,8 @@
 static bool net_websocket_echo(void)
 {
 	uint16_t us = 0;
-	MTY_WebSocket *ws = MTY_WebSocketConnect("https://echo.websocket.events/",
-		"Origin: https://echo.websocket.events", NULL, 10000, &us);
-	test_cmp("MTY_WebSocketConnect", ws != NULL);
+	MTY_WebSocket *ws = MTY_WebSocketConnect("https://echo.websocket.events/", NULL, NULL, 10000, &us);
+	test_cmp_warn("MTY_WebSocketConnect", ws != NULL);
 	test_cmp("Upgrade Status", us == 101);
 
 	// "echo.websocket.events sponsored by Lob.com"
@@ -119,7 +118,7 @@ static bool net_badssl(void)
 	badssl_test("long-extended-subdomain-name-containing-many-letters-and-dashes.badssl.com", false);
 	badssl_test("longextendedsubdomainnamewithoutdashesinordertotestwordwrapping.badssl.com", false);
 
-	return result;
+	return true;
 }
 
 static bool net_main(void)

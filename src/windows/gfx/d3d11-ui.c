@@ -24,6 +24,7 @@ struct d3d11_ui_buffer {
 };
 
 struct d3d11_ui {
+	bool ready;
 	struct d3d11_ui_buffer vb;
 	struct d3d11_ui_buffer ib;
 	ID3D11VertexShader *vs;
@@ -149,7 +150,9 @@ struct gfx_ui *mty_d3d11_ui_create(MTY_Device *device)
 
 	except:
 
-	if (e != S_OK)
+	ctx->ready = e == S_OK;
+
+	if (!ctx->ready)
 		mty_d3d11_ui_destroy((struct gfx_ui **) &ctx, device);
 
 	return (struct gfx_ui *) ctx;
@@ -196,6 +199,9 @@ bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Surface *dest)
 {
 	struct d3d11_ui *ctx = (struct d3d11_ui *) gfx_ui;
+	if (!ctx->ready)
+		return false;
+
 	ID3D11Device *_device = (ID3D11Device *) device;
 	ID3D11DeviceContext *_context = (ID3D11DeviceContext *) context;
 	ID3D11RenderTargetView *_dest = (ID3D11RenderTargetView *) dest;
@@ -204,30 +210,32 @@ bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	if (dd->displaySize.x <= 0 || dd->displaySize.y <= 0 || dd->cmdListLength == 0)
 		return false;
 
+	bool result = false;
+
 	// Resize vertex and index buffers if necessary
 	HRESULT e = d3d11_ui_resize_buffer(_device, &ctx->vb, dd->vtxTotalLength, GFX_UI_VTX_INCR, sizeof(MTY_Vtx),
 		D3D11_BIND_VERTEX_BUFFER);
 	if (e != S_OK)
-		return false;
+		goto except;
 
 	e = d3d11_ui_resize_buffer(_device, &ctx->ib, dd->idxTotalLength, GFX_UI_IDX_INCR, sizeof(uint16_t),
 		D3D11_BIND_INDEX_BUFFER);
 	if (e != S_OK)
-		return false;
+		goto except;
 
 	// Map both vertex and index buffers and bulk copy the data
 	D3D11_MAPPED_SUBRESOURCE vtx_map = {0};
 	e = ID3D11DeviceContext_Map(_context, ctx->vb.res, 0, D3D11_MAP_WRITE_DISCARD, 0, &vtx_map);
 	if (e != S_OK) {
 		MTY_Log("'ID3D11DeviceContext_Map' failed with HRESULT 0x%X", e);
-		return false;
+		goto except;
 	}
 
 	D3D11_MAPPED_SUBRESOURCE idx_map = {0};
 	e = ID3D11DeviceContext_Map(_context, ctx->ib.res, 0, D3D11_MAP_WRITE_DISCARD, 0, &idx_map);
 	if (e != S_OK) {
 		MTY_Log("'ID3D11DeviceContext_Map' failed with HRESULT 0x%X", e);
-		return false;
+		goto except;
 	}
 
 	MTY_Vtx *vtx_dst = (MTY_Vtx *) vtx_map.pData;
@@ -261,7 +269,7 @@ bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	D3D11_MAPPED_SUBRESOURCE cb_map = {0};
 	e = ID3D11DeviceContext_Map(_context, ctx->cb_res, 0, D3D11_MAP_WRITE_DISCARD, 0, &cb_map);
 	if (e != S_OK)
-		return false;
+		goto except;
 
 	struct d3d11_ui_cb *cb = (struct d3d11_ui_cb *) cb_map.pData;
 	memcpy(&cb->proj, proj, sizeof(proj));
@@ -338,7 +346,13 @@ bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 		vtxOffset += cmdList->vtxLength;
 	}
 
-	return true;
+	result = true;
+
+	except:
+
+	ctx->ready = e == S_OK;
+
+	return result;
 }
 
 void *mty_d3d11_ui_create_texture(struct gfx_ui *gfx_ui, MTY_Device *device, const void *rgba,

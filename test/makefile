@@ -1,4 +1,4 @@
-ARCH = %%Platform%%
+ARCH = $(VSCMD_ARG_TGT_ARCH)
 
 BIN = \
 	mty.exe
@@ -36,6 +36,10 @@ LIBS = \
 	winmm.lib \
 	ws2_32.lib \
 	xinput.lib
+
+!IFDEF ARM64EC
+CFLAGS = $(CFLAGS) /arm64EC
+!ENDIF
 
 test: clean clear
 	cl $(CFLAGS) /Fe:$(BIN) src\$@.c $(LIBS)

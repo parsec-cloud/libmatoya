@@ -235,6 +235,7 @@ MTY_FileList *MTY_GetFileList(const char *path, const char *filter)
 			struct stat st;
 			if (!is_dir && stat(jpath, &st) == 0)
 				fl->files[fl->len].size = st.st_size;
+			fl->files[fl->len].modified_time = st.st_mtime;
 
 			fl->len++;
 		}

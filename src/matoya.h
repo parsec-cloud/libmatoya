@@ -1836,10 +1836,11 @@ typedef enum {
 
 /// @brief File properties.
 typedef struct {
-	char *path;    ///< The base path to the file.
-	char *name;    ///< The file name.
-	uint64_t size; ///< The file size in bytes.
-	bool dir;      ///< The file is a directory.
+	char *path;    			///< The base path to the file.
+	char *name;    			///< The file name.
+	uint64_t size; 			///< The file size in bytes.
+	uint64_t modified_time; ///< the modified time in seconds.
+	bool dir;      			///< The file is a directory.
 } MTY_FileDesc;
 
 /// @brief A list of files.
@@ -2726,6 +2727,10 @@ MTY_ThreadDetach(MTY_ThreadFunc func, void *opaque);
 /// @param ctx An MTY_Thread.
 MTY_EXPORT int64_t
 MTY_ThreadGetID(MTY_Thread *ctx);
+
+/// @brief Returns the process ID of the current thread.
+MTY_EXPORT uint64_t
+MTY_GetCurrentProcessID();
 
 /// @brief Create an MTY_Mutex for synchronization.
 /// @details A mutex can be locked by only one thread at a time. Other threads trying

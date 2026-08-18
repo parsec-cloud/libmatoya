@@ -101,6 +101,9 @@ static void WINAPI ws_async(HINTERNET hInternet, DWORD_PTR dwContext, DWORD dwIn
 			// "The connection with the server has been reset or terminated, or an incompatible SSL protocol was encountered."
 			if (result->dwError == ERROR_WINHTTP_CONNECTION_ERROR)
 				ctx->closed = true;
+			// "The operation was canceled, usually because the handle on which the request was operating was closed before the operation completed."
+			else if (result->dwError == ERROR_WINHTTP_OPERATION_CANCELLED)
+				ctx->closed = true;
 
 			if (!ctx->closed)
 				MTY_Log("WebSocket error: dwResult:%u, dwError:0x%X", result->dwResult, result->dwError);

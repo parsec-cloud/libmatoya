@@ -3448,6 +3448,54 @@ MTY_GetPlatformNoWeb(void);
 MTY_EXPORT const char *
 MTY_GetPlatformString(uint32_t platform);
 
+/// @brief The release type of an OS.
+/// @details Relates to the linux concept of LTS release.
+typedef enum MTY_OSReleaseType {
+	MTY_OS_RELEASE_UNDEFINED = 0,
+	MTY_OS_RELEASE_STABLE,
+	MTY_OS_RELEASE_LTS,
+	MTY_OS_RELEASE_DEVELOPMENT,
+	MTY_OS_RELEASE_EXPERIMENT,
+} MTY_OSReleaseType;
+
+/// @brief More detailed information about the OS.
+/// @details Not all members are available on all platforms. The valid_mask can be checked to determine\n\n
+///   if the matching member contains valid data.
+typedef struct {
+	MTY_OS os;										// OS value for the current platform 
+	MTY_OSReleaseType release_type;					// Release Type for the current platform.
+	union {											//
+		uint32_t digits[4];							//
+		struct {									//
+			uint32_t major, minor, patch, rev; 		//
+		};											//
+	} version;										// Version number of the OS
+	uint64_t build_number;							//
+	char const *name; 								// String of the platform name. Normally matches values returned by MTY_GetPlatformString()
+	char const *name_pretty; 						// String of the platform name. More verbose than name and localized, should not be parsed for version numbers.
+	char const *id; 								// String identifier for the platform
+	char const *base_id; 							// String identifier for the platform, if id is derived from another base implementation.
+	char const *version_pretty; 					// ex: 10.0, 11.2, 20.04 - may include codenames, etc.  More verbose than name and localized, should not be parsed for version numbers.
+
+	struct {
+		bool name : 1;
+		bool name_pretty : 1;
+		bool id : 1;
+		bool base_id : 1;
+		bool version : 1;
+		bool version_pretty : 1;
+		bool build_number : 1;
+		bool release_type : 1;
+	} valid_mask;
+} MTY_OSInfo;
+
+/// @brief Get the current platform's OS and version as readable strings.
+/// @details This function returns more detailed information than MTY_GetPlatformString() if possible.
+/// @returns Returns a MTY_OSInfo structure. Readable values can be checked by querying valid_mask.\n\n
+///   The buffers are allocated in thread local storage and must not be freed.
+MTY_EXPORT MTY_OSInfo
+MTY_GetPlatformOSInfo(void);
+
 /// @brief Execute the default protocol handler for a given URI.
 /// @param uri The resource to be handled, i.e. `C:\tmp.txt` or `http://google.com`.
 /// @param token An optional `HANDLE` to a user's security token. This can be used

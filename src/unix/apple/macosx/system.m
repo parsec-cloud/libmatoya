@@ -32,6 +32,29 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
+MTY_OSInfo MTY_GetPlatformOSInfo(void)
+{
+	MTY_OSInfo info = {
+		.os = MTY_OS_MACOS,
+		.name = MTY_GetPlatformString(MTY_GetPlatform()),
+		.valid_mask.name = true,
+	};
+
+	NSProcessInfo *pInfo = [NSProcessInfo processInfo];
+	NSOperatingSystemVersion version = [pInfo operatingSystemVersion];
+	NSString *version_string = [pInfo operatingSystemVersionString];
+
+	info.version.major = version.majorVersion;
+	info.version.minor = version.minorVersion;
+	info.version.patch = version.patchVersion;
+	info.valid_mask.version = true;
+
+	info.version_pretty = mty_tlocal_strcpy([version_string UTF8String]);
+	info.valid_mask.version_pretty = true;
+
+	return info;
+}
+
 void MTY_HandleProtocol(const char *uri, void *token)
 {
 	NSString *nsuri = [NSString stringWithUTF8String:uri];

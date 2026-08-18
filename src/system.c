@@ -64,12 +64,10 @@ const char *MTY_GetPlatformString(uint32_t platform)
 		if (os != MTY_OS_UNKNOWN)
 			MTY_Strcat(final, 64, " ");
 
-		if (minor > 0) {
+		if (minor > 0)
 			MTY_Strcat(final, 64, MTY_SprintfDL("%u.%u", major, minor));
-
-		} else {
+		else
 			MTY_Strcat(final, 64, MTY_SprintfDL("%u", major));
-		}
 	}
 
 	return final;

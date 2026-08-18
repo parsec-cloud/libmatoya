@@ -324,17 +324,10 @@ function mty_add_input_events(thread) {
 			ev.preventDefault();
 	});
 
-	window.addEventListener('blur', (ev) => {
+	document.addEventListener('visibilitychange', (ev) => {
 		thread.postMessage({
 			type: 'focus',
-			focus: false,
-		});
-	});
-
-	window.addEventListener('focus', (ev) => {
-		thread.postMessage({
-			type: 'focus',
-			focus: true,
+			focus: document.visibilityState == 'visible',
 		});
 	});
 
@@ -848,6 +841,9 @@ async function MTY_Start(bin, container, userEnv) {
 	MTY.renderer = MTY.canvas.getContext('bitmaprenderer');
 	MTY.canvas.style.width = '100%';
 	MTY.canvas.style.height = '100%';
+	MTY.canvas.setAttribute('role', 'img');
+	MTY.canvas.setAttribute('aria-label', 'Parsec overlay and mouse cursor');
+
 	container.appendChild(MTY.canvas);
 	mty_update_canvas(MTY.canvas);
 
@@ -951,6 +947,10 @@ async function mty_thread_message(ev) {
 			window.localStorage[msg.key] = mty_buf_to_b64(msg.val);
 			mty_signal(msg.sync);
 			break;
+		case 'remove-ls':
+			window.localStorage.removeItem(msg.key);
+			mty_signal(msg.sync);
+			break;
 		case 'alert':
 			mty_alert(msg.title, msg.msg);
 			break;
@@ -981,7 +981,7 @@ async function mty_thread_message(ev) {
 			mty_signal(msg.sync);
 			break;
 		case 'set-clip':
-			navigator.clipboard.writeText(mty_str_to_js(msg.text));
+			navigator.clipboard.writeText(msg.text);
 			break;
 		case 'pointer-lock':
 			mty_set_pointer_lock(msg.enable);
@@ -997,7 +997,7 @@ async function mty_thread_message(ev) {
 			break;
 		case 'uri':
 			mty_set_action(() => {
-				window.open(mty_str_to_js(msg.uri), '_blank');
+				window.open(msg.uri, '_blank');
 			});
 			break;
 		case 'http': {
@@ -1081,6 +1081,64 @@ async function mty_thread_message(ev) {
 			delete this.tmp;
 
 			mty_signal(msg.sync);
+			break;
+		case 'wv-create':
+			MTY.webview = document.createElement('iframe');
+			MTY.webview.title = 'Parsec application';
+
+			MTY.webview.style.visibility = 'hidden';
+			MTY.webview.style.position = 'fixed';
+			MTY.webview.style.border = 'none';
+			MTY.webview.style.width = '100%';
+			MTY.webview.style.height = '100%';
+			MTY.webview.style.inset = '0';
+
+			window.addEventListener('message', function (message) {
+				MTY.mainThread.postMessage({type: 'wv-event', ctx: msg.ctx, message: message.data});
+			});
+
+			document.body.appendChild(MTY.webview);
+			break;
+		case 'wv-destroy':
+			document.body.removeChild(MTY.webview);
+			delete MTY.webview;
+			break;
+		case 'wv-navigate':
+			if (msg.url) {
+				MTY.webview.src = msg.source;
+
+				MTY.webview.onload = () => {
+					try {
+						const script = MTY.webview.contentWindow.document.createElement('script');
+						script.textContent = "window.parent.postMessage('R');window.MTY_NativeSendText = (text) => { window.parent.postMessage('T' + text); }";
+						MTY.webview.contentWindow.document.head.appendChild(script);
+						const userAgentScript = MTY.webview.contentWindow.document.createElement('script');
+						userAgentScript.textContent = "Object.defineProperty(window, 'MTY_GetPlatform', { value: () => 'web'});";
+						MTY.webview.contentWindow.document.head.appendChild(userAgentScript);
+						setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
+					} catch (e) {
+						console.error('Failed to inject script into iframe (cross-origin restriction):', e);
+						setTimeout(() => MTY.webview.style.visibility = 'visible', 250);
+					}
+				};
+			} else {
+				const blob = new Blob([msg.source], { type: 'text/html' });
+				MTY.webview.src = URL.createObjectURL(blob);
+			}
+			break;
+		case 'wv-show':
+			MTY.webview.style.visibility = msg.show ? 'visible' : 'hidden';
+			break;
+		case 'wv-is-visible':
+			msg.sab[0] = MTY.webview.style.visibility != 'visible';
+			mty_signal(msg.sync);
+			break;
+		case 'wv-send-text':
+			// wv-send-text sends native app messages back to the running UI
+			MTY.webview.contentWindow.MTY_NativeListener(msg.message);
+			break;
+		case 'wv-reload':
+			MTY.webview.contentWindow.location.reload();
 			break;
 	}
 }

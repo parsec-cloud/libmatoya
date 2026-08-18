@@ -46,6 +46,7 @@ static struct MTY_App {
 	bool check_scroller;
 	bool log_thread_running;
 	bool should_detach;
+	bool relative;
 
 	struct window_common cmn;
 	ANativeWindow *window;
@@ -367,17 +368,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1unhandled_1touch(JNIEnv
 
 	if (CTX.input != MTY_INPUT_MODE_TOUCHSCREEN) {
 		switch (action) {
-			case AMOTION_EVENT_ACTION_MOVE:
-				// While a long press is in effect, move events get reported here
-				// They do NOT come through in the onScroll gesture handler
-				if (CTX.long_button != MTY_BUTTON_NONE) {
-					MTY_Event evt = {0};
-					evt.type = MTY_EVENT_MOTION;
-					evt.motion.x = lrint(x);
-					evt.motion.y = lrint(y);
-					app_push_event(&CTX, &evt);
-				}
-				break;
 			case AMOTION_EVENT_ACTION_POINTER_DOWN:
 				// Taps with two fingers need to be handled manually
 				// They are not detected by the gesture recognizer
@@ -444,8 +434,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, job
 {
 	CTX.should_detach = false;
 
-	app_cancel_long_button(&CTX, lrint(abs_x), lrint(abs_y));
-
 	// Single finger scrolling in touchscreen mode OR two finger scrolling in
 	// trackpad mode moves to the touch location and produces a scroll event
 	if (CTX.input == MTY_INPUT_MODE_TOUCHSCREEN ||
@@ -456,8 +444,9 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, job
 		// Negative init values mean "don't move the cursor"
 		if (abs_x > 0.0f || abs_y > 0.0f) {
 			evt.type = MTY_EVENT_MOTION;
-			evt.motion.x = lrint(abs_x);
-			evt.motion.y = lrint(abs_y);
+			evt.motion.relative = CTX.relative;
+			evt.motion.x = CTX.relative ? -lrint(x) : lrint(abs_x);
+			evt.motion.y = CTX.relative ? -lrint(y) : lrint(abs_y);
 			app_push_event(&CTX, &evt);
 		}
 
@@ -471,10 +460,28 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scroll(JNIEnv *env, job
 	} else if (abs_x > 0.0f || abs_y > 0.0f) {
 		MTY_Event evt = {0};
 		evt.type = MTY_EVENT_MOTION;
-		evt.motion.x = lrint(abs_x);
-		evt.motion.y = lrint(abs_y);
+		evt.motion.relative = CTX.relative;
+		evt.motion.x = CTX.relative ? -lrint(x) : lrint(abs_x);
+		evt.motion.y = CTX.relative ? -lrint(y) : lrint(abs_y);
 		app_push_event(&CTX, &evt);
 	}
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1scale(JNIEnv *env, jobject obj,
+	jfloat scaleFactor, jfloat focus_x, jfloat focus_y, jboolean start, jboolean stop)
+{
+	CTX.should_detach = true;
+
+	MTY_Event evt = {0};
+	evt.type = MTY_EVENT_SCALE;
+	evt.scale.factor = scaleFactor;
+	evt.scale.focusX = focus_x;
+	evt.scale.focusY = focus_y;
+	evt.scale.state =
+		stop  ? MTY_SCALE_STATE_STOP  :
+		start ? MTY_SCALE_STATE_START :
+		MTY_SCALE_STATE_ONGOING;
+	app_push_event(&CTX, &evt);
 }
 
 
@@ -834,12 +841,14 @@ void MTY_AppGrabMouse(MTY_App *ctx, bool grab)
 
 bool MTY_AppGetRelativeMouse(MTY_App *ctx)
 {
-	return mty_jni_bool(MTY_GetJNIEnv(), ctx->obj, "getRelativeMouse", "()Z");
+	return ctx->relative;
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative)
 {
 	mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "setRelativeMouse", "(Z)V", relative);
+
+	ctx->relative = relative;
 }
 
 void MTY_AppSetRGBACursor(MTY_App *ctx, const void *image, uint32_t width, uint32_t height,

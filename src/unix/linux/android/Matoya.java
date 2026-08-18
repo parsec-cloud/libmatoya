@@ -11,6 +11,8 @@ import android.view.KeyEvent;
 import android.view.GestureDetector;
 import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.PointerIcon;
 import android.view.InputDevice;
 import android.view.InputEvent;
@@ -29,11 +31,13 @@ import android.content.ClipboardManager;
 import android.content.res.Configuration;
 import android.content.pm.ActivityInfo;
 import android.hardware.input.InputManager;
-import android.util.Log;
-import android.util.DisplayMetrics;
 import android.util.Base64;
-import android.widget.Scroller;
+import android.widget.FrameLayout;
+import android.widget.OverScroller;
+import android.os.Build;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.net.Uri;
 
 public class Matoya extends SurfaceView implements
@@ -51,7 +55,7 @@ public class Matoya extends SurfaceView implements
 	PointerIcon invisCursor;
 	GestureDetector detector;
 	ScaleGestureDetector sdetector;
-	Scroller scroller;
+	OverScroller scroller;
 	Vibrator vibrator;
 	boolean hiddenCursor;
 	boolean defaultCursor;
@@ -75,6 +79,7 @@ public class Matoya extends SurfaceView implements
 	native void app_mouse_motion(boolean relative, float x, float y);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_generic_scroll(float x, float y);
+	native void app_scale(float scaleFactor, float focusX, float focusY, boolean begin, boolean end);
 	native void app_button(int deviceId, boolean pressed, int code, boolean axis_triggers);
 	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY,
 		float lT, float rT, float lTalt, float rTalt);
@@ -90,14 +95,18 @@ public class Matoya extends SurfaceView implements
 		this.activity = activity;
 
 		this.kbmap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
-		this.vibrator = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+			this.vibrator = activity.getSystemService(VibratorManager.class).getDefaultVibrator();
+		} else {
+			this.vibrator = activity.getSystemService(Vibrator.class);
+		}
+
 		this.detector = new GestureDetector(activity, this);
 		this.sdetector = new ScaleGestureDetector(activity, this);
-		this.scroller = new Scroller(activity);
+		this.scroller = new OverScroller(activity);
 
-		DisplayMetrics dm = new DisplayMetrics();
-		this.activity.getWindowManager().getDefaultDisplay().getMetrics(dm);
-		this.displayDensity = dm.density;
+		this.displayDensity = activity.getResources().getDisplayMetrics().density;
 
 		String b64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAAAH0lEQVR42mNk" +
 			"oBAwjhowasCoAaMGjBowasCoAcPNAACOMAAhOO/A7wAAAABJRU5ErkJggg==";
@@ -106,7 +115,34 @@ public class Matoya extends SurfaceView implements
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.invisCursor = PointerIcon.create(bm, 0, 0);
 
-		activity.setContentView(this);
+		FrameLayout root = new FrameLayout(activity);
+		root.addView(this);
+		root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+			@Override
+			public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+				int top, left, right, bottom;
+
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+					android.graphics.Insets in = insets.getInsets(
+						WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+					top = in.top;
+					left = in.left;
+					right = in.right;
+					bottom = in.bottom;
+
+				} else {
+					top = insets.getSystemWindowInsetTop();
+					left = insets.getSystemWindowInsetLeft();
+					right = insets.getSystemWindowInsetRight();
+					bottom = insets.getSystemWindowInsetBottom();
+				}
+
+				v.setPadding(left, top, right, bottom);
+				return insets;
+			}
+		});
+
+		activity.setContentView(root);
 
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.addPrimaryClipChangedListener(this);
@@ -117,6 +153,8 @@ public class Matoya extends SurfaceView implements
 		this.getHolder().addCallback(this);
 		this.detector.setOnDoubleTapListener(this);
 		this.detector.setContextClickListener(this);
+		this.sdetector.setQuickScaleEnabled(false);
+		this.sdetector.setStylusScaleEnabled(false);
 		this.setFilterTouchesWhenObscured(true);
 		this.setFocusableInTouchMode(true);
 		this.setFocusable(true);
@@ -288,11 +326,7 @@ public class Matoya extends SurfaceView implements
 
 	@Override
 	public boolean onDown(MotionEvent event) {
-		if (isMouseEvent(event))
-			return false;
-
-		this.scroller.forceFinished(true);
-		return true;
+		return false;
 	}
 
 	@Override
@@ -313,8 +347,15 @@ public class Matoya extends SurfaceView implements
 		if (isMouseEvent(event))
 			return;
 
+		// While a long press gesture is in progress, other events will not fire until
+		// the finger is release. We manually cancel it to force the detector to start
+		// processing touch events again as soon as possible.
+		MotionEvent cancel = MotionEvent.obtain(event);
+		cancel.setAction(MotionEvent.ACTION_CANCEL);
+		this.detector.onTouchEvent(cancel);
+
 		if (app_long_press(event.getX(0), event.getY(0)))
-			this.vibrator.vibrate(10);
+			this.vibrator.vibrate(VibrationEffect.createOneShot(10, VibrationEffect.DEFAULT_AMPLITUDE));
 	}
 
 	@Override
@@ -410,23 +451,34 @@ public class Matoya extends SurfaceView implements
 		return this.onGenericMotionEvent(event);
 	}
 
+	private void processScale(ScaleGestureDetector sdetector, boolean start, boolean stop) {
+		float scale = sdetector.getScaleFactor();
+		float focusX = sdetector.getFocusX();
+		float focusY = sdetector.getFocusY();
+
+		app_scale(scale, focusX, focusY, start, stop);
+	}
+
 	@Override
-	public boolean onScale(ScaleGestureDetector detector) {
+	public boolean onScale(ScaleGestureDetector sdetector) {
+		processScale(sdetector, false, false);
 		return true;
 	}
 
 	@Override
 	public boolean onScaleBegin(ScaleGestureDetector sdetector) {
+		processScale(sdetector, true, false);
 		return true;
 	}
 
 	@Override
 	public void onScaleEnd(ScaleGestureDetector sdetector) {
+		processScale(sdetector, false, true);
 	}
 
 
 	/** NDK (Called from C) */
-
+	
 
 	// Fullscreen
 
@@ -578,10 +630,6 @@ public class Matoya extends SurfaceView implements
 		});
 	}
 
-	public boolean getRelativeMouse() {
-		return this.hasPointerCapture();
-	}
-
 
 	// Misc
 
@@ -625,16 +673,14 @@ public class Matoya extends SurfaceView implements
 	}
 
 	public int keyboardHeight() {
-		InputMethodManager imm = (InputMethodManager) this.activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R)
+			return -1;
 
-		try {
-			java.lang.reflect.Method method = imm.getClass().getMethod("getInputMethodWindowVisibleHeight");
-			return (int) method.invoke(imm);
+		WindowInsets insets = this.getRootWindowInsets();
+		if (insets == null)
+			return -1;
 
-		} catch (Exception e) {
-		}
-
-		return -1;
+		return insets.getInsets(WindowInsets.Type.ime()).bottom;
 	}
 
 	public boolean keyboardIsShowing() {
@@ -644,13 +690,26 @@ public class Matoya extends SurfaceView implements
 	}
 
 	public void showKeyboard(boolean show) {
-		InputMethodManager imm = (InputMethodManager) this.activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			WindowInsetsController controller = this.activity.getWindow().getInsetsController();
+			if (controller != null) {
+				if (show) {
+					controller.show(WindowInsets.Type.ime());
 
-		if (show) {
-			imm.showSoftInput(this, 0, null);
+				} else {
+					controller.hide(WindowInsets.Type.ime());
+				}
+			}
 
 		} else {
-			imm.hideSoftInputFromWindow(this.getWindowToken(), 0, null);
+			InputMethodManager imm = this.activity.getSystemService(InputMethodManager.class);
+
+			if (show) {
+				imm.showSoftInput(this, 0);
+
+			} else {
+				imm.hideSoftInputFromWindow(this.getWindowToken(), 0);
+			}
 		}
 
 		this.kbShowing = show;

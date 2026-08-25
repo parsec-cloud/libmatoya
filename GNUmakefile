@@ -191,6 +191,7 @@ MIN_VER = 10.15
 OBJS := $(OBJS) \
 	src/hid/hid.o \
 	src/unix/apple/image.o \
+	src/unix/apple/macosx/dtls.o \
 	src/unix/apple/macosx/hid.o \
 	src/unix/apple/macosx/gfx/metal-ctx.o
 
@@ -202,6 +203,10 @@ ifeq ($(ARCH), x86_64)
 FLAGS := $(FLAGS) -maes -mpclmul
 endif
 
+# macOS overrides this with a LibreSSL backed implementation above
+OBJS := $(OBJS) \
+	src/unix/apple/dtls.o
+
 endif
 
 OBJS := $(OBJS) \
@@ -209,7 +214,6 @@ OBJS := $(OBJS) \
 	src/unix/apple/audio.o \
 	src/unix/apple/base64.o \
 	src/unix/apple/crypto.o \
-	src/unix/apple/dtls.o \
 	src/unix/apple/request.o \
 	src/unix/apple/webview.o \
 	src/unix/apple/ws.o \

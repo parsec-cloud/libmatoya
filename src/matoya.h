@@ -3553,7 +3553,7 @@ MTY_GetJNIEnv(void);
 //- #mbrief DTLS protocol wrapper.
 //- #mdetails This module performs no IO and acts as a DTLS engine that requires you
 //-   to feed it input and in turn will output data suitable for sending over a network.
-//- #msupport Windows Linux
+//- #msupport Windows macOS Linux
 
 #define MTY_FINGERPRINT_MAX 112 ///< Maximum size of the string set by MTY_CertGetFingerprint.
 
@@ -3573,13 +3573,13 @@ typedef bool (*MTY_DTLSWriteFunc)(const void *buf, size_t size, void *opaque);
 ///   negotiation.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_Cert must be destroyed with MTY_CertDestroy.
-//- #support Windows Linux
+//- #support Windows macOS Linux
 MTY_EXPORT MTY_Cert *
 MTY_CertCreate(void);
 
 /// @brief Destroy an MTY_Cert.
 /// @param cert Passed by reference and set to NULL after being destroyed.
-//- #support Windows Linux
+//- #support Windows macOS Linux
 MTY_EXPORT void
 MTY_CertDestroy(MTY_Cert **cert);
 
@@ -3589,7 +3589,7 @@ MTY_CertDestroy(MTY_Cert **cert);
 /// @param fingerprint Output buffer to receive the fingerprint. This buffer can be
 ///   of size MTY_FINGERPRINT_MAX.
 /// @param size Size in bytes of `fingerprint`.
-//- #support Windows Linux
+//- #support Windows macOS Linux
 MTY_EXPORT void
 MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size);
 

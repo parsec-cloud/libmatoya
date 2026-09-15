@@ -115,3 +115,8 @@ bool MTY_GetRunOnStartup(const char *name)
 void MTY_SetRunOnStartup(const char *name, const char *path, const char *args)
 {
 }
+
+uint64_t MTY_GetCurrentProcessID()
+{
+	return (uint64_t)getpid();
+}

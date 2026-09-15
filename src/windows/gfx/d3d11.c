@@ -33,6 +33,8 @@ struct d3d11 {
 	MTY_ColorFormat format;
 	struct d3d11_res staging[D3D11_NUM_STAGING];
 	struct gfx_uniforms ub;
+	float tx;
+	float ty;
 
 	ID3D11VertexShader *vs;
 	ID3D11PixelShader *ps;
@@ -76,9 +78,14 @@ struct gfx *mty_d3d11_create(MTY_Device *device, uint8_t layer)
 		 1.0f,  1.0f   // texcoord3
 	};
 
+	ctx->tx = 1.0f;
+	ctx->ty = 1.0f;
+
 	D3D11_BUFFER_DESC bd = {0};
 	bd.ByteWidth = sizeof(vertex_data);
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bd.Usage = D3D11_USAGE_DYNAMIC;
+	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
 	D3D11_SUBRESOURCE_DATA srd = {0};
 	srd.pSysMem = vertex_data;
@@ -302,6 +309,24 @@ static bool d3d11_refresh_resource(struct gfx *gfx, MTY_Device *_device, MTY_Con
 	return r;
 }
 
+static uint8_t d3d11_plane_formats(DXGI_FORMAT format, DXGI_FORMAT *planes)
+{
+	switch (format) {
+		case DXGI_FORMAT_NV12:
+			planes[0] = DXGI_FORMAT_R8_UNORM;
+			planes[1] = DXGI_FORMAT_R8G8_UNORM;
+			return 2;
+		case DXGI_FORMAT_P010:
+		case DXGI_FORMAT_P016:
+			planes[0] = DXGI_FORMAT_R16_UNORM;
+			planes[1] = DXGI_FORMAT_R16G16_UNORM;
+			return 2;
+		default:
+			planes[0] = format;
+			return 1;
+	}
+}
+
 static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_Context *context, MTY_ColorFormat fmt,
 	uint8_t plane, const uint8_t *image, uint32_t full_w, uint32_t w, uint32_t h, uint8_t bpp)
 {
@@ -314,23 +339,13 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 	HANDLE *shared_handle = (HANDLE *) image;
 	ID3D11Resource *res_d3d = NULL;
 	ID3D11Texture2D *texture = NULL;
+	uint32_t out = 0;
 
-	for (uint32_t x = 0; x < 3 ; x++) {
+	for (uint32_t x = 0; x < 3 && out < D3D11_NUM_STAGING; x++) {
 		if (!shared_handle[x])
 			continue;
 
-		struct d3d11_res *res = &ctx->staging[x];
-
 		ID3D11Device *device = (ID3D11Device *) _device;
-
-		if (res->srv)
-			ID3D11ShaderResourceView_Release(res->srv);
-
-		if (res->resource)
-			ID3D11Resource_Release(res->resource);
-
-		res->srv = NULL;
-		res->resource = NULL;
 
 		HRESULT e = ID3D11Device_OpenSharedResource(device, shared_handle[x], &IID_IDXGIResource, &res_d3d);
 		if (e != S_OK) {
@@ -350,31 +365,54 @@ static bool d3d11_map_shared_resource(struct gfx *gfx, MTY_Device *_device, MTY_
 			res_d3d = NULL;
 		}
 
-		e = ID3D11Texture2D_QueryInterface(texture, &IID_ID3D11Resource, &res->resource);
-		if (e != S_OK) {
-			MTY_Log("'ID3D11Texture2D_QueryInterface' failed with HRESULT 0x%X", e);
-			goto except;
-		}
-
 		D3D11_TEXTURE2D_DESC desc = {0};
 		ID3D11Texture2D_GetDesc(texture, &desc);
 
-		D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {0};
-		srvd.Format = desc.Format;
-		srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		srvd.Texture2D.MipLevels = 1;
+		DXGI_FORMAT formats[3] = {0};
+		uint8_t planes = d3d11_plane_formats(desc.Format, formats);
 
-		e = ID3D11Device_CreateShaderResourceView(device, res->resource, &srvd, &res->srv);
-		if (e != S_OK) {
-			MTY_Log("'ID3D11Device_CreateShaderResourceView' failed for index %d with HRESULT 0x%X", x, e);
-			goto except;
+		for (uint8_t y = 0; y < planes && out < D3D11_NUM_STAGING; y++, out++) {
+			struct d3d11_res *res = &ctx->staging[out];
+
+			if (res->srv)
+				ID3D11ShaderResourceView_Release(res->srv);
+
+			if (res->resource)
+				ID3D11Resource_Release(res->resource);
+
+			res->srv = NULL;
+			res->resource = NULL;
+
+			e = ID3D11Texture2D_QueryInterface(texture, &IID_ID3D11Resource, &res->resource);
+			if (e != S_OK) {
+				MTY_Log("'ID3D11Texture2D_QueryInterface' failed with HRESULT 0x%X", e);
+				goto except;
+			}
+
+			D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {0};
+			srvd.Format = formats[y];
+			srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+			srvd.Texture2D.MipLevels = 1;
+
+			e = ID3D11Device_CreateShaderResourceView(device, res->resource, &srvd, &res->srv);
+			if (e != S_OK) {
+				MTY_Log("'ID3D11Device_CreateShaderResourceView' failed for index %d with HRESULT 0x%X", out, e);
+				goto except;
+			}
+
+			if (planes > 1) {
+				res->width = y > 0 ? desc.Width / 2 : desc.Width;
+				res->height = y > 0 ? desc.Height / 2 : desc.Height;
+
+			} else {
+				bool use_half_width = (desc.Format == DXGI_FORMAT_R16G16_UNORM || desc.Format == DXGI_FORMAT_R8G8_UNORM);
+				res->width = use_half_width ? (desc.Width / 2) : desc.Width;
+				res->height = desc.Height;
+			}
+
+			res->format = formats[y];
+			res->was_hardware = true;
 		}
-
-		bool use_half_width = (desc.Format == DXGI_FORMAT_R16G16_UNORM || desc.Format == DXGI_FORMAT_R8G8_UNORM);
-		res->width = use_half_width ? (desc.Width / 2) : desc.Width;
-		res->height = desc.Height;
-		res->format = desc.Format;
-		res->was_hardware = true;
 
 		if (texture) {
 			ID3D11Texture2D_Release(texture);
@@ -464,6 +502,37 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	} else {
 		const float blend_factor[4] = {0, 0, 0, 0};
 		ID3D11DeviceContext_OMSetBlendState(_context, ctx->bs, blend_factor, 0xFFFFFFFF);
+	}
+
+	float tx = 1.0f;
+	float ty = 1.0f;
+
+	if (desc->hardware && ctx->staging[0].width > 0 && ctx->staging[0].height > 0) {
+		tx = (float) desc->cropWidth / (float) ctx->staging[0].width;
+		ty = (float) desc->cropHeight / (float) ctx->staging[0].height;
+	}
+
+	if (tx != ctx->tx || ty != ctx->ty) {
+		float vertex_data[] = {
+			-1.0f, -1.0f,  0.0f,   ty,
+			-1.0f,  1.0f,  0.0f, 0.0f,
+			 1.0f,  1.0f,    tx, 0.0f,
+			 1.0f, -1.0f,    tx,   ty,
+		};
+
+		D3D11_MAPPED_SUBRESOURCE vbm = {0};
+		HRESULT e = ID3D11DeviceContext_Map(_context, (ID3D11Resource *) ctx->vb, 0, D3D11_MAP_WRITE_DISCARD, 0, &vbm);
+		if (e != S_OK) {
+			MTY_Log("'ID3D11DeviceContext_Map' failed with HRESULT 0x%X", e);
+			return false;
+		}
+
+		memcpy(vbm.pData, vertex_data, sizeof(vertex_data));
+
+		ID3D11DeviceContext_Unmap(_context, (ID3D11Resource *) ctx->vb, 0);
+
+		ctx->tx = tx;
+		ctx->ty = ty;
 	}
 
 	// Vertex shader

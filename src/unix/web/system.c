@@ -123,6 +123,11 @@ void *MTY_GetJNIEnv(void)
 	return NULL;
 }
 
+uint64_t MTY_GetCurrentProcessID()
+{
+	// Web doesn't really have the concept of processes.
+	return 1; 
+}
 
 // Exports
 

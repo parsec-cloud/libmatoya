@@ -127,6 +127,10 @@ void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, cons
 	MTY_RenderDesc mutated = *desc;
 	gfx_ctx_get_size(cmn, &mutated.viewWidth, &mutated.viewHeight);
 
+	MTY_Size size = MTY_WindowGetSize(app, window);
+	mutated.displayWidth = size.w;
+	mutated.displayHeight = size.h;
+
 	MTY_Device *device = gfx_ctx_get_device(cmn);
 
 	if (gfx_begin(cmn, desc->layer, device))
@@ -564,6 +568,10 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		PEVENT(MTY_EVENT_SCROLL, evt,
 			"x: %d, y: %d, pixels: %u",
 			evt->scroll.x, evt->scroll.y, evt->scroll.pixels);
+
+		PEVENT(MTY_EVENT_SCALE, evt,
+			"factor: %f, focusX: %f, focusY: %f",
+			evt->scale.factor, evt->scale.focusX, evt->scale.focusY);
 
 		PEVENT(MTY_EVENT_FOCUS, evt,
 			"focus: %u",

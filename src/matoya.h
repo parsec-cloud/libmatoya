@@ -954,6 +954,11 @@ MTY_AppIsSoftKeyboardShowing(MTY_App *ctx);
 MTY_EXPORT void
 MTY_AppShowSoftKeyboard(MTY_App *ctx, bool show);
 
+/// @brief Check if the key pressed is a modifier key.
+/// @param key Key to test.
+MTY_EXPORT bool
+MTY_KeyIsModifier(MTY_Key key);
+
 /// @brief Get the device's orientation.
 /// @param ctx The MTY_App.
 //- #support Android

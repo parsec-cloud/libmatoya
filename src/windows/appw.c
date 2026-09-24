@@ -680,7 +680,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			evt.key.pressed = !(lparam >> 31);
 			evt.key.key = lparam >> 16 & 0xFF;
 			evt.key.vkey = (uint32_t) wparam;
-			evt.key.repeated  = (lparam & 0x40000000) != 0;
+			evt.key.repeated = evt.key.pressed && (lparam & 0x40000000) != 0;
 			if (lparam >> 24 & 0x01)
 				evt.key.key |= 0x0100;
 

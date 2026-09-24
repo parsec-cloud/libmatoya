@@ -820,6 +820,7 @@ static void window_keyboard_event(struct window *ctx, uint16_t key_code, NSEvent
 		.key.vkey = key_code,
 		.key.mod = keymap_modifier_flags_to_keymod(flags),
 		.key.pressed = pressed,
+		.key.repeated = repeat,
 	};
 
 	mty_app_kb_to_hotkey(ctx->app, &evt, MTY_EVENT_HOTKEY);

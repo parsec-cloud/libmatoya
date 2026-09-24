@@ -419,6 +419,23 @@ static MTY_Mod app_get_keymod(void)
 		APP_KB_LWIN | APP_KB_RWIN;
 }
 
+static bool app_key_is_mod(MTY_Key key)
+{
+	switch (key) {
+		case MTY_KEY_LSHIFT:
+		case MTY_KEY_RSHIFT:
+		case MTY_KEY_LCTRL:
+		case MTY_KEY_RCTRL:
+		case MTY_KEY_LALT:
+		case MTY_KEY_RALT:
+		case MTY_KEY_LWIN:
+		case MTY_KEY_RWIN:
+			return true;
+		default:
+			return false;
+	}
+}
+
 static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	if (nCode == HC_ACTION && APP_KB_HWND) {
@@ -669,6 +686,16 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			// Print Screen needs a synthesized WM_KEYDOWN
 			if (!evt.key.pressed && evt.key.key == MTY_KEY_PRINT_SCREEN)
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
+			else if (evt.key.pressed && (lparam & 0x40000000) && app_key_is_mod(evt.key.key)) {
+				// Since Windows does not have a modifier flag change event like macOS
+				// we need to ignore processing repeated keydown events
+				evt.type = MTY_EVENT_NONE;
+				creturn = true;
+				r = 0;
+				break;
+			}
+
+
 			break;
 		case WM_MOUSEMOVE:
 			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {

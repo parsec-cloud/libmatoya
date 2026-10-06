@@ -321,6 +321,12 @@ static uint8_t d3d11_plane_formats(DXGI_FORMAT format, DXGI_FORMAT *planes)
 			planes[0] = DXGI_FORMAT_R16_UNORM;
 			planes[1] = DXGI_FORMAT_R16G16_UNORM;
 			return 2;
+		case DXGI_FORMAT_AYUV:
+			planes[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+			return 1;
+		case DXGI_FORMAT_Y410:
+			planes[0] = DXGI_FORMAT_R10G10B10A2_UNORM;
+			return 1;
 		default:
 			planes[0] = format;
 			return 1;
@@ -566,7 +572,8 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		.levels[1] = desc->levels[1],
 		.planes = FMT_INFO[ctx->format].planes,
 		.rotation = desc->rotation,
-		.conversion = FMT_CONVERSION(ctx->format, desc->fullRangeYUV, desc->multiplyYUV),
+		.conversion = FMT_CONVERSION(ctx->format, desc->fullRangeYUV, desc->multiplyYUV) |
+			(ctx->format == MTY_COLOR_FORMAT_AYUV && ctx->staging[0].format == DXGI_FORMAT_R8G8B8A8_UNORM ? 0x10 : 0),
 	};
 
 	if (memcmp(&ctx->ub, &cb, sizeof(struct gfx_uniforms))) {

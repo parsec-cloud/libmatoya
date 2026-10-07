@@ -93,6 +93,9 @@ inline float4 sample_rgba(uint planes, uint conversion, float2 uv)
 		return yuv_to_rgba(conversion, y, u, v);
 
 	} else if (conversion & 0x8) {
+		if (conversion & 0x10)
+			pixel0.rb = pixel0.br;
+
 		// AYUV
 		float y = pixel0.r;
 		float u = pixel0.g;

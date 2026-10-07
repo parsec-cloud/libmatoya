@@ -57,6 +57,7 @@ struct MTY_App {
 	bool hide_cursor;
 	bool ghk_disabled;
 	bool filter_move;
+	MTY_Mod mods_down;
 	uint64_t prev_state;
 	uint64_t state;
 	uint32_t timeout;
@@ -419,6 +420,22 @@ static MTY_Mod app_get_keymod(void)
 		APP_KB_LWIN | APP_KB_RWIN;
 }
 
+static MTY_Mod app_key_to_lr_mod(MTY_Key key)
+{
+	switch (key) {
+		case MTY_KEY_LSHIFT: return MTY_MOD_LSHIFT;
+		case MTY_KEY_RSHIFT: return MTY_MOD_RSHIFT;
+		case MTY_KEY_LCTRL:  return MTY_MOD_LCTRL;
+		case MTY_KEY_RCTRL:  return MTY_MOD_RCTRL;
+		case MTY_KEY_LALT:   return MTY_MOD_LALT;
+		case MTY_KEY_RALT:   return MTY_MOD_RALT;
+		case MTY_KEY_LWIN:   return MTY_MOD_LWIN;
+		case MTY_KEY_RWIN:   return MTY_MOD_RWIN;
+	}
+
+	return MTY_MOD_NONE;
+}
+
 static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	if (nCode == HC_ACTION && APP_KB_HWND) {
@@ -641,6 +658,12 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			evt.type = MTY_EVENT_FOCUS;
 			app->state++;
+
+			// Clear state as we may miss key up event.
+			// May lead to incorrectly stating modifier key is not repeated for one cycle, which is acceptable.
+			// The other case, where we incorrectly state a key is repeated when it's not is worse.
+			if (!evt.focus)
+				app->mods_down = MTY_MOD_NONE;
 			break;
 		case WM_QUERYENDSESSION:
 		case WM_ENDSESSION:
@@ -663,9 +686,23 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			evt.key.pressed = !(lparam >> 31);
 			evt.key.key = lparam >> 16 & 0xFF;
 			evt.key.vkey = (uint32_t) wparam;
-			evt.key.repeated = evt.key.pressed && (lparam & 0x40000000) != 0;
 			if (lparam >> 24 & 0x01)
 				evt.key.key |= 0x0100;
+
+
+			MTY_Mod mod = app_key_to_lr_mod(evt.key.key);
+			if (mod == MTY_MOD_NONE) {
+				evt.key.repeated = evt.key.pressed && (lparam & 0x40000000) != 0;
+			} else {
+				// Previous key state for modifier keys do not distinguish between Left and Right.
+				// The state is shared between left and right.
+				// Example:
+				// 1. Initial LCTRL key down: lparam & 0x40000000 == 0;
+				// 2. LCTRL held: lparam & 0x40000000 == 1;
+				// 3. Initial RCTRL key down: lparam & 0x40000000 == 1; INCORRECT
+				evt.key.repeated = evt.key.pressed && (app->mods_down & mod);
+				app->mods_down = evt.key.pressed ? app->mods_down | mod : app->mods_down & ~mod;
+			}
 
 			// Print Screen needs a synthesized WM_KEYDOWN
 			if (!evt.key.pressed && evt.key.key == MTY_KEY_PRINT_SCREEN)

@@ -574,6 +574,7 @@ typedef struct {
 	MTY_Mod mod;   ///< Modifiers in effect.
 	uint32_t vkey; ///< The OS specific virtual code. Windows, macOS, and Linux only.
 	bool pressed;  ///< State of the key.
+	bool repeated; ///< If pressed, indicates if the key press has been repeated.
 } MTY_KeyEvent;
 
 /// @brief Scroll event.
@@ -952,6 +953,11 @@ MTY_AppIsSoftKeyboardShowing(MTY_App *ctx);
 //- #support Android
 MTY_EXPORT void
 MTY_AppShowSoftKeyboard(MTY_App *ctx, bool show);
+
+/// @brief Check if the key pressed is a modifier key.
+/// @param key Key to test.
+MTY_EXPORT bool
+MTY_KeyIsModifier(MTY_Key key);
 
 /// @brief Get the device's orientation.
 /// @param ctx The MTY_App.

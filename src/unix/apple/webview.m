@@ -4,6 +4,77 @@
 
 #include "webview.h"
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_TV
+
+// tvOS has no WebKit
+
+struct webview *mty_webview_create(MTY_App *app, MTY_Window window, const char *dir,
+	bool debug, WEBVIEW_READY ready_func, WEBVIEW_TEXT text_func, WEBVIEW_KEY key_func)
+{
+	return NULL;
+}
+
+void mty_webview_destroy(struct webview **webview)
+{
+}
+
+void mty_webview_navigate(struct webview *ctx, const char *source, bool url)
+{
+}
+
+void mty_webview_show(struct webview *ctx, bool show)
+{
+}
+
+bool mty_webview_is_visible(struct webview *ctx)
+{
+	return false;
+}
+
+void mty_webview_send_text(struct webview *ctx, const char *msg)
+{
+}
+
+void mty_webview_reload(struct webview *ctx)
+{
+}
+
+void mty_webview_set_input_passthrough(struct webview *ctx, bool passthrough)
+{
+}
+
+bool mty_webview_event(struct webview *ctx, MTY_Event *evt)
+{
+	return false;
+}
+
+void mty_webview_run(struct webview *ctx)
+{
+}
+
+void mty_webview_render(struct webview *ctx)
+{
+}
+
+bool mty_webview_is_focussed(struct webview *ctx)
+{
+	return false;
+}
+
+bool mty_webview_is_steam(void)
+{
+	return false;
+}
+
+bool mty_webview_is_available(void)
+{
+	return false;
+}
+
+#else
+
 #include <WebKit/WebKit.h>
 
 #include "objc.h"
@@ -368,3 +439,5 @@ bool mty_webview_is_available(void)
 {
 	return mty_webview_supported();
 }
+
+#endif

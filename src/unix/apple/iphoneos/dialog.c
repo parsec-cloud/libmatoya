@@ -12,3 +12,8 @@ bool MTY_HasDialogs(void)
 void MTY_ShowMessageBox(const char *title, const char *fmt, ...)
 {
 }
+
+const char *MTY_OpenFile(const char *title, MTY_App *app, MTY_Window window)
+{
+	return NULL;
+}

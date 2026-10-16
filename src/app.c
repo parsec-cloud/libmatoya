@@ -630,3 +630,20 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		}
 	}
 }
+
+bool MTY_KeyIsModifier(MTY_Key key)
+{
+	switch (key) {
+		case MTY_KEY_LSHIFT:
+		case MTY_KEY_RSHIFT:
+		case MTY_KEY_LCTRL:
+		case MTY_KEY_RCTRL:
+		case MTY_KEY_LALT:
+		case MTY_KEY_RALT:
+		case MTY_KEY_LWIN:
+		case MTY_KEY_RWIN:
+			return true;
+		default:
+			return false;
+	}
+}

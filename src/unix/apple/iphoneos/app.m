@@ -30,6 +30,18 @@ int mty_main(int argc, char **argv);
 
 #define APP_MAX_CONTROLLERS 16
 
+// Siri Remote buttons, reported as key events
+enum app_remote_key {
+	APP_REMOTE_UP,
+	APP_REMOTE_DOWN,
+	APP_REMOTE_LEFT,
+	APP_REMOTE_RIGHT,
+	APP_REMOTE_SELECT,
+	APP_REMOTE_BACK,
+	APP_REMOTE_PLAY,
+	APP_REMOTE_MAX,
+};
+
 struct window {
 	UIWindow *uiw;
 	UIViewController *vc;
@@ -52,6 +64,8 @@ struct MTY_App {
 	float timeout;
 	struct window *windows[MTY_WINDOW_MAX];
 	GCController *controllers[APP_MAX_CONTROLLERS];
+	GCController *remote;
+	bool remote_keys[APP_REMOTE_MAX];
 	id connect_observer;
 	id disconnect_observer;
 };
@@ -122,6 +136,31 @@ static MTY_Key app_press_to_key(UIPress *press)
 	return MTY_KEY_NONE;
 }
 
+static void app_key_event(MTY_App *ctx, MTY_Key key, bool pressed)
+{
+	MTY_Window window = -1;
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX && window < 0; x++)
+		if (ctx->windows[x])
+			window = x;
+
+	if (window < 0)
+		return;
+
+	MTY_Event evt = {
+		.type = MTY_EVENT_KEY,
+		.window = window,
+		.key.key = key,
+		.key.pressed = pressed,
+	};
+
+	mty_app_kb_to_hotkey(ctx, &evt, MTY_EVENT_HOTKEY);
+
+	if (evt.type != MTY_EVENT_NONE)
+		ctx->event_func(&evt, ctx->opaque);
+}
+
+// Hardware keyboards. Game controllers and the Siri Remote don't arrive here: the root
+// view controller is a GCEventViewController, so their input goes through GameController.
 static bool vc_press_event(UIViewController *self, NSSet<UIPress *> *presses, bool pressed)
 {
 	struct window *ctx = OBJC_CTX();
@@ -131,21 +170,11 @@ static bool vc_press_event(UIViewController *self, NSSet<UIPress *> *presses, bo
 	bool handled = false;
 
 	for (UIPress *press in presses) {
-		MTY_Event evt = {
-			.type = MTY_EVENT_KEY,
-			.window = ctx->window,
-			.key.key = app_press_to_key(press),
-			.key.pressed = pressed,
-		};
-
-		if (evt.key.key == MTY_KEY_NONE)
+		MTY_Key key = app_press_to_key(press);
+		if (key == MTY_KEY_NONE)
 			continue;
 
-		mty_app_kb_to_hotkey(ctx->app, &evt, MTY_EVENT_HOTKEY);
-
-		if (evt.type != MTY_EVENT_NONE)
-			ctx->app->event_func(&evt, ctx->app->opaque);
-
+		app_key_event(ctx->app, key, pressed);
 		handled = true;
 	}
 
@@ -154,12 +183,9 @@ static bool vc_press_event(UIViewController *self, NSSet<UIPress *> *presses, bo
 
 static void vc_super_presses(UIViewController *self, SEL cmd, NSSet<UIPress *> *presses, UIPressesEvent *event)
 {
-	struct objc_super s = {self, [UIViewController class]};
+	struct objc_super s = {self, [GCEventViewController class]};
 	((void (*)(struct objc_super *, SEL, NSSet *, UIPressesEvent *)) objc_msgSendSuper)(&s, cmd, presses, event);
 }
-
-// XXX Swallowing Menu means it never returns to the tvOS home screen. A shipping app
-// must let Menu through (super) at its top level, which needs an app-level policy.
 
 static void vc_pressesBegan_withEvent(UIViewController *self, SEL _cmd, NSSet<UIPress *> *presses, UIPressesEvent *event)
 {
@@ -185,7 +211,9 @@ static Class vc_class(void)
 	if (cls)
 		return cls;
 
-	cls = OBJC_ALLOCATE("UIViewController", VC_CLASS_NAME);
+	// GCEventViewController: controller and Siri Remote input is delivered only through
+	// GameController (controllerUserInteractionEnabled = NO), not also as UIKit presses
+	cls = OBJC_ALLOCATE("GCEventViewController", VC_CLASS_NAME);
 
 	OBJC_OVERRIDE(cls, @selector(pressesBegan:withEvent:), vc_pressesBegan_withEvent);
 	OBJC_OVERRIDE(cls, @selector(pressesEnded:withEvent:), vc_pressesEnded_withEvent);
@@ -225,11 +253,133 @@ static void app_controller_state(MTY_App *ctx, GCController *gc)
 		ctx->event_func(&evt, ctx->opaque);
 }
 
+// Buttons bound to a tvOS gesture (on Xbox controllers, the View button) are held back
+// until the system rules the gesture out, which arrives 100-200ms late and breaks button
+// combinations. Take them for the app. The Home/Xbox button is not one of these: tvOS
+// always keeps it.
+static void app_own_gesture_buttons(GCController *gc)
+{
+	if (@available(tvOS 14.0, iOS 14.0, *)) {
+		for (GCControllerElement *e in gc.physicalInputProfile.allElements) {
+			if (e.boundToSystemGesture)
+				e.preferredSystemGestureState = GCSystemGestureStateDisabled;
+		}
+	}
+}
+
+// Siri Remote (GameController micro / directional gamepad)
+
+static const MTY_Key APP_REMOTE_KEYS[APP_REMOTE_MAX] = {
+	[APP_REMOTE_UP]     = MTY_KEY_UP,
+	[APP_REMOTE_DOWN]   = MTY_KEY_DOWN,
+	[APP_REMOTE_LEFT]   = MTY_KEY_LEFT,
+	[APP_REMOTE_RIGHT]  = MTY_KEY_RIGHT,
+	[APP_REMOTE_SELECT] = MTY_KEY_ENTER,
+	[APP_REMOTE_BACK]   = MTY_KEY_ESCAPE,
+	[APP_REMOTE_PLAY]   = MTY_KEY_SPACE,
+};
+
+// XXX The Back button never returns to the tvOS home screen while GameController owns
+// the remote. A shipping app needs a policy for letting it through at its top level.
+static void app_remote_state(MTY_App *ctx, GCController *gc)
+{
+	GCMicroGamepad *mg = gc.microGamepad;
+	if (gc != ctx->remote || !mg)
+		return;
+
+	GCControllerDirectionPad *cardinal = nil;
+	GCControllerButtonInput *center = nil;
+
+	if (@available(tvOS 14.5, iOS 14.5, *))
+		cardinal = (GCControllerDirectionPad *) gc.physicalInputProfile.dpads[GCInputDirectionalCardinalDpad];
+
+	if (@available(tvOS 15.0, iOS 15.0, *))
+		center = (GCControllerButtonInput *) gc.physicalInputProfile.buttons[GCInputDirectionalCenterButton];
+
+	bool state[APP_REMOTE_MAX] = {0};
+
+	if (cardinal) {
+		// 2nd generation remote: the outer ring is a 4-way dpad, the inner ring selects
+		state[APP_REMOTE_UP] = cardinal.up.pressed;
+		state[APP_REMOTE_DOWN] = cardinal.down.pressed;
+		state[APP_REMOTE_LEFT] = cardinal.left.pressed;
+		state[APP_REMOTE_RIGHT] = cardinal.right.pressed;
+
+		bool ring = state[APP_REMOTE_UP] || state[APP_REMOTE_DOWN] || state[APP_REMOTE_LEFT] || state[APP_REMOTE_RIGHT];
+		state[APP_REMOTE_SELECT] = center ? center.pressed : mg.buttonA.pressed && !ring;
+
+	} else {
+		// 1st generation remote: a touch surface only, clicking it selects
+		state[APP_REMOTE_SELECT] = mg.buttonA.pressed;
+	}
+
+	state[APP_REMOTE_BACK] = mg.buttonMenu.pressed;
+	state[APP_REMOTE_PLAY] = mg.buttonX.pressed;
+
+	for (uint32_t x = 0; x < APP_REMOTE_MAX; x++) {
+		// Releases always go through so nothing stays held while in the background
+		bool pressed = state[x] && ctx->active;
+
+		if (pressed != ctx->remote_keys[x]) {
+			ctx->remote_keys[x] = pressed;
+			app_key_event(ctx, APP_REMOTE_KEYS[x], pressed);
+		}
+	}
+}
+
+static void app_remote_connect(MTY_App *ctx, GCController *gc)
+{
+	if (ctx->remote || !gc.microGamepad)
+		return;
+
+	ctx->remote = gc;
+
+	// The controller retains these blocks, so reach it through the profile instead of capturing it.
+	// Before tvOS 16 the micro gamepad handler still fires for ring presses, which also press
+	// the touch surface, and app_remote_state reads the ring from the physical input profile.
+	if (@available(tvOS 16.0, iOS 16.0, *)) {
+		gc.physicalInputProfile.valueDidChangeHandler = ^(GCPhysicalInputProfile *profile, GCControllerElement *element) {
+			app_remote_state(ctx, (GCController *) profile.device);
+		};
+
+	} else {
+		gc.microGamepad.valueChangedHandler = ^(GCMicroGamepad *gamepad, GCControllerElement *element) {
+			app_remote_state(ctx, gamepad.controller);
+		};
+	}
+}
+
+static void app_remote_disconnect(MTY_App *ctx, GCController *gc)
+{
+	if (gc != ctx->remote)
+		return;
+
+	if (@available(tvOS 16.0, iOS 16.0, *))
+		gc.physicalInputProfile.valueDidChangeHandler = nil;
+
+	gc.microGamepad.valueChangedHandler = nil;
+	ctx->remote = nil;
+
+	for (uint32_t x = 0; x < APP_REMOTE_MAX; x++) {
+		if (ctx->remote_keys[x]) {
+			ctx->remote_keys[x] = false;
+			app_key_event(ctx, APP_REMOTE_KEYS[x], false);
+		}
+	}
+}
+
 static void app_controller_connect(MTY_App *ctx, GCController *gc)
 {
-	// The Siri Remote only has a micro gamepad profile, its input arrives as presses
-	if (!gc.extendedGamepad || app_controller_id(ctx, gc) != UINT32_MAX)
+	// The Siri Remote only has a micro gamepad profile, its buttons become key events
+	if (!gc.extendedGamepad) {
+		app_remote_connect(ctx, gc);
 		return;
+	}
+
+	if (app_controller_id(ctx, gc) != UINT32_MAX)
+		return;
+
+	app_own_gesture_buttons(gc);
 
 	for (uint32_t x = 0; x < APP_MAX_CONTROLLERS; x++) {
 		if (!ctx->controllers[x]) {
@@ -252,6 +402,8 @@ static void app_controller_connect(MTY_App *ctx, GCController *gc)
 
 static void app_controller_disconnect(MTY_App *ctx, GCController *gc)
 {
+	app_remote_disconnect(ctx, gc);
+
 	uint32_t id = app_controller_id(ctx, gc);
 	if (id == UINT32_MAX)
 		return;
@@ -396,6 +548,9 @@ void MTY_AppDestroy(MTY_App **app)
 		ctx->controllers[x].extendedGamepad.valueChangedHandler = nil;
 		ctx->controllers[x] = nil;
 	}
+
+	if (ctx->remote)
+		app_remote_disconnect(ctx, ctx->remote);
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_HashDestroy(&ctx->deduper, MTY_Free);
@@ -631,6 +786,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_Frame *fr
 	// A UIWindow always fills its scene, the requested frame does not apply
 	ctx->uiw = [[UIWindow alloc] initWithWindowScene:APP_GLOBAL.scene];
 	ctx->vc = [OBJC_NEW(vc_class(), ctx) init];
+	((GCEventViewController *) ctx->vc).controllerUserInteractionEnabled = NO;
 	ctx->vc.view.backgroundColor = [UIColor blackColor];
 	ctx->uiw.rootViewController = ctx->vc;
 

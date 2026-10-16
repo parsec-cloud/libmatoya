@@ -704,9 +704,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app->mods_down = evt.key.pressed ? app->mods_down | mod : app->mods_down & ~mod;
 			}
 
-			// Print Screen needs a synthesized WM_KEYDOWN
+			// Print Screen needs a synthesized WM_KEYDOWN, clear the transition (31) and previous state (30) bits
+			// so it is reported as a new press rather than a repeat
 			if (!evt.key.pressed && evt.key.key == MTY_KEY_PRINT_SCREEN)
-				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
+				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x3FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
 			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {

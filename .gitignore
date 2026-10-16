@@ -11,6 +11,8 @@
 
 /test/mty*
 /test/json
+/test/tvos/build
+xcuserdata/
 
 **/gfx/shaders/*.h
 **/gfx/*/shaders/*.h

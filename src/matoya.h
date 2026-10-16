@@ -574,7 +574,9 @@ typedef struct {
 	MTY_Mod mod;   ///< Modifiers in effect.
 	uint32_t vkey; ///< The OS specific virtual code. Windows, macOS, and Linux only.
 	bool pressed;  ///< State of the key.
-	bool repeated; ///< If pressed, indicates if the key press has been repeated.
+	bool repeated; ///< If pressed, indicates if the key press has been repeated. Windows and macOS only.
+	               ///<   On Windows, always false for keys intercepted while keyboard grabbing is enabled
+	               ///<   (Escape, Tab while Alt is held, Application, and Print Screen keys).
 } MTY_KeyEvent;
 
 /// @brief Scroll event.

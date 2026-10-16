@@ -457,6 +457,8 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 			if (p->vkCode == VK_RWIN)
 				APP_KB_RWIN = up ? MTY_MOD_NONE : MTY_MOD_RWIN;
 
+			// KBDLLHOOKSTRUCT has no previous key state, so bit 30 is never set and intercepted non-modifier
+			// keys are always reported as not repeated, even while held (Win keys are tracked via mods_down)
 			LPARAM wproc_lparam = 0;
 			wproc_lparam |= (p->scanCode & 0xFF) << 16;
 			wproc_lparam |= (p->flags & LLKHF_EXTENDED) ? (1 << 24) : 0;

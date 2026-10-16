@@ -27,51 +27,76 @@
 
 // AESNI, SSE2
 
-static void aes_key_expansion(const uint8_t *key, __m128i *k)
+// Expanded round keys: AES-128 uses 11 (10 rounds), AES-256 uses 15 (14 rounds)
+struct aes_keys {
+	__m128i k[15];
+	uint8_t rounds;
+};
+
+static __m128i aes_expand_step(__m128i prev, __m128i keygen)
+{
+	__m128i tmp = _mm_xor_si128(prev, _mm_slli_si128(prev, 4));
+	tmp = _mm_xor_si128(tmp, _mm_slli_si128(tmp, 4));
+	tmp = _mm_xor_si128(tmp, _mm_slli_si128(tmp, 4));
+
+	return _mm_xor_si128(tmp, keygen);
+}
+
+static void aes_key_expansion_128(const uint8_t *key, __m128i *k)
 {
 	k[0] = _mm_loadu_si128((const __m128i *) key);
 
-	for (uint8_t x = 0; x < 10; x++) {
-		__m128i keygen = _mm_setzero_si128();
+	// _mm_aeskeygenassist_si128 requires an immediate round constant on x86
+	#define AES128_STEP(i, rcon) \
+		k[i + 1] = aes_expand_step(k[i], _mm_shuffle_epi32(_mm_aeskeygenassist_si128(k[i], rcon), _MM_SHUFFLE(3, 3, 3, 3)))
 
-		switch (x) {
-			case 0: keygen = _mm_aeskeygenassist_si128(k[x], 0x01); break;
-			case 1: keygen = _mm_aeskeygenassist_si128(k[x], 0x02); break;
-			case 2: keygen = _mm_aeskeygenassist_si128(k[x], 0x04); break;
-			case 3: keygen = _mm_aeskeygenassist_si128(k[x], 0x08); break;
-			case 4: keygen = _mm_aeskeygenassist_si128(k[x], 0x10); break;
-			case 5: keygen = _mm_aeskeygenassist_si128(k[x], 0x20); break;
-			case 6: keygen = _mm_aeskeygenassist_si128(k[x], 0x40); break;
-			case 7: keygen = _mm_aeskeygenassist_si128(k[x], 0x80); break;
-			case 8: keygen = _mm_aeskeygenassist_si128(k[x], 0x1B); break;
-			case 9: keygen = _mm_aeskeygenassist_si128(k[x], 0x36); break;
-		}
+	AES128_STEP(0, 0x01);
+	AES128_STEP(1, 0x02);
+	AES128_STEP(2, 0x04);
+	AES128_STEP(3, 0x08);
+	AES128_STEP(4, 0x10);
+	AES128_STEP(5, 0x20);
+	AES128_STEP(6, 0x40);
+	AES128_STEP(7, 0x80);
+	AES128_STEP(8, 0x1B);
+	AES128_STEP(9, 0x36);
 
-		keygen = _mm_shuffle_epi32(keygen, _MM_SHUFFLE(3, 3, 3, 3));
-
-		__m128i tmp = _mm_xor_si128(k[x], _mm_slli_si128(k[x], 4));
-		tmp = _mm_xor_si128(tmp, _mm_slli_si128(tmp, 4));
-		tmp = _mm_xor_si128(tmp, _mm_slli_si128(tmp, 4));
-
-		k[x + 1] = _mm_xor_si128(tmp, keygen);
-	}
+	#undef AES128_STEP
 }
 
-static __m128i aes(const __m128i *k, __m128i plain)
+static void aes_key_expansion_256(const uint8_t *key, __m128i *k)
 {
+	k[0] = _mm_loadu_si128((const __m128i *) key);
+	k[1] = _mm_loadu_si128((const __m128i *) (key + 16));
+
+	// Even round keys use RotWord+SubWord with the round constant (word 3), odd round
+	// keys use SubWord only (word 2) -- FIPS-197 key expansion with Nk = 8
+	#define AES256_EVEN(i, rcon) \
+		k[i] = aes_expand_step(k[i - 2], _mm_shuffle_epi32(_mm_aeskeygenassist_si128(k[i - 1], rcon), _MM_SHUFFLE(3, 3, 3, 3)))
+	#define AES256_ODD(i) \
+		k[i] = aes_expand_step(k[i - 2], _mm_shuffle_epi32(_mm_aeskeygenassist_si128(k[i - 1], 0x00), _MM_SHUFFLE(2, 2, 2, 2)))
+
+	AES256_EVEN(2, 0x01);  AES256_ODD(3);
+	AES256_EVEN(4, 0x02);  AES256_ODD(5);
+	AES256_EVEN(6, 0x04);  AES256_ODD(7);
+	AES256_EVEN(8, 0x08);  AES256_ODD(9);
+	AES256_EVEN(10, 0x10); AES256_ODD(11);
+	AES256_EVEN(12, 0x20); AES256_ODD(13);
+	AES256_EVEN(14, 0x40);
+
+	#undef AES256_EVEN
+	#undef AES256_ODD
+}
+
+static __m128i aes(const struct aes_keys *keys, __m128i plain)
+{
+	const __m128i *k = keys->k;
 	__m128i t = _mm_xor_si128(plain, k[0]);
 
-	t = _mm_aesenc_si128(t, k[1]);
-	t = _mm_aesenc_si128(t, k[2]);
-	t = _mm_aesenc_si128(t, k[3]);
-	t = _mm_aesenc_si128(t, k[4]);
-	t = _mm_aesenc_si128(t, k[5]);
-	t = _mm_aesenc_si128(t, k[6]);
-	t = _mm_aesenc_si128(t, k[7]);
-	t = _mm_aesenc_si128(t, k[8]);
-	t = _mm_aesenc_si128(t, k[9]);
+	for (uint8_t x = 1; x < keys->rounds; x++)
+		t = _mm_aesenc_si128(t, k[x]);
 
-	return _mm_aesenclast_si128(t, k[10]);
+	return _mm_aesenclast_si128(t, k[keys->rounds]);
 }
 
 
@@ -229,7 +254,7 @@ static __m128i gcm_ghash16(__m128i H, __m128i in, __m128i ghash)
 	return gcm_gfmul(ghash, H);
 }
 
-static __m128i aes_gcm(const __m128i *k, const __m128i *H, __m128i iv,
+static __m128i aes_gcm(const struct aes_keys *k, const __m128i *H, __m128i iv,
 	const P128 *x, P128 *y, const P128 *crypt, size_t size)
 {
 	__m128i ghash = _mm_setzero_si128();
@@ -309,7 +334,7 @@ static __m128i aes_gcm(const __m128i *k, const __m128i *H, __m128i iv,
 	return ghash;
 }
 
-static void aes_gcm_full(const __m128i *k, const __m128i *H, const P128 *nonce, const P128 *crypt,
+static void aes_gcm_full(const struct aes_keys *k, const __m128i *H, const P128 *nonce, const P128 *crypt,
 	const P128 *in, P128 *out, size_t size, P128 *tag)
 {
 	// Set up the IV with 12 bytes from the nonce and the 4 byte counter
@@ -333,20 +358,27 @@ static void aes_gcm_full(const __m128i *k, const __m128i *H, const P128 *nonce, 
 // Public
 
 struct MTY_AESGCM {
-	__m128i k[11];
+	struct aes_keys k;
 	__m128i H[4];
 };
 
 MTY_AESGCM *MTY_AESGCMCreate(const void *key, size_t keySize)
 {
-	if (keySize != 16)
+	if (keySize != 16 && keySize != 32)
 		return NULL;
 
-	MTY_AESGCM *ctx = MTY_AllocAligned(sizeof(MTY_AESGCM), keySize);
+	MTY_AESGCM *ctx = MTY_AllocAligned(sizeof(MTY_AESGCM), 16);
 
-	aes_key_expansion(key, ctx->k);
+	if (keySize == 32) {
+		aes_key_expansion_256(key, ctx->k.k);
+		ctx->k.rounds = 14;
 
-	__m128i H = aes(ctx->k, _mm_setzero_si128());
+	} else {
+		aes_key_expansion_128(key, ctx->k.k);
+		ctx->k.rounds = 10;
+	}
+
+	__m128i H = aes(&ctx->k, _mm_setzero_si128());
 
 	ctx->H[0] = SWAP64(H);
 	ctx->H[1] = gcm_gfmul(ctx->H[0], ctx->H[0]);
@@ -372,7 +404,7 @@ void MTY_AESGCMDestroy(MTY_AESGCM **aesgcm)
 bool MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, size_t size,
 	void *tag, void *cipherText)
 {
-	aes_gcm_full(ctx->k, ctx->H, nonce, cipherText, plainText, cipherText, size, tag);
+	aes_gcm_full(&ctx->k, ctx->H, nonce, cipherText, plainText, cipherText, size, tag);
 
 	return true;
 }
@@ -381,7 +413,7 @@ bool MTY_AESGCMDecrypt(MTY_AESGCM *ctx, const void *nonce, const void *cipherTex
 	const void *tag, void *plainText)
 {
 	P128 tag128;
-	aes_gcm_full(ctx->k, ctx->H, nonce, cipherText, cipherText, plainText, size, &tag128);
+	aes_gcm_full(&ctx->k, ctx->H, nonce, cipherText, cipherText, plainText, size, &tag128);
 
 	const P128 *itag = tag;
 

@@ -66,6 +66,8 @@ struct MTY_App {
 	GCController *controllers[APP_MAX_CONTROLLERS];
 	GCController *remote;
 	bool remote_keys[APP_REMOTE_MAX];
+	UITextField *text_field;
+	bool kb_showing;
 	id connect_observer;
 	id disconnect_observer;
 };
@@ -164,7 +166,7 @@ static void app_key_event(MTY_App *ctx, MTY_Key key, bool pressed)
 static bool vc_press_event(UIViewController *self, NSSet<UIPress *> *presses, bool pressed)
 {
 	struct window *ctx = OBJC_CTX();
-	if (!ctx)
+	if (!ctx || ctx->app->kb_showing)
 		return false;
 
 	bool handled = false;
@@ -225,6 +227,145 @@ static Class vc_class(void)
 }
 
 
+// Soft keyboard
+//
+// The system keyboard is full screen and edits its own text field, so the result is
+// delivered when it closes: the text as MTY_EVENT_TEXT followed by an Enter press to
+// commit it, or an Escape press if it was dismissed with nothing entered. While it is
+// up, UIKit owns the remote and controllers and the app sees them as idle.
+
+static void app_controller_state(MTY_App *ctx, GCController *gc);
+static void app_remote_state(MTY_App *ctx, GCController *gc);
+
+static MTY_Window app_first_window(MTY_App *ctx)
+{
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+		if (ctx->windows[x])
+			return x;
+
+	return -1;
+}
+
+static void app_kb_set_owner(MTY_App *ctx, bool kb)
+{
+	ctx->kb_showing = kb;
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+		if (ctx->windows[x])
+			((GCEventViewController *) ctx->windows[x]->vc).controllerUserInteractionEnabled = kb;
+
+	// Release anything held when the keyboard takes over, resync when it gives input back
+	for (uint32_t x = 0; x < APP_MAX_CONTROLLERS; x++)
+		if (ctx->controllers[x])
+			app_controller_state(ctx, ctx->controllers[x]);
+
+	if (ctx->remote)
+		app_remote_state(ctx, ctx->remote);
+}
+
+static void app_kb_tap(MTY_App *ctx, MTY_Key key)
+{
+	app_key_event(ctx, key, true);
+
+	// The UI samples key state once per frame, so the release can't come right away
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+		if (APP_GLOBAL.app == ctx)
+			app_key_event(ctx, key, false);
+	});
+}
+
+static void app_kb_send_text(MTY_App *ctx, NSString *text)
+{
+	MTY_Window window = app_first_window(ctx);
+	if (window < 0)
+		return;
+
+	NSRange range = NSMakeRange(0, text.length);
+	[text enumerateSubstringsInRange:range options:NSStringEnumerationByComposedCharacterSequences
+		usingBlock:^(NSString *sub, NSRange r, NSRange er, BOOL *stop) {
+			const char *utf8 = sub.UTF8String;
+
+			MTY_Event evt = {0};
+			evt.type = MTY_EVENT_TEXT;
+			evt.window = window;
+
+			if (utf8 && strlen(utf8) < sizeof(evt.text)) {
+				snprintf(evt.text, sizeof(evt.text), "%s", utf8);
+				ctx->event_func(&evt, ctx->opaque);
+			}
+		}];
+}
+
+static void app_kb_did_end(MTY_App *ctx)
+{
+	// Closed by the app (MTY_AppShowSoftKeyboard), nothing to deliver
+	if (!ctx->kb_showing)
+		return;
+
+	NSString *text = ctx->text_field.text;
+	ctx->text_field.text = @"";
+
+	app_kb_set_owner(ctx, false);
+
+	if (text.length > 0) {
+		app_kb_send_text(ctx, text);
+		app_kb_tap(ctx, MTY_KEY_ENTER);
+
+	} else {
+		app_kb_tap(ctx, MTY_KEY_ESCAPE);
+	}
+}
+
+static void app_kb_show(MTY_App *ctx, bool show)
+{
+	if (show == ctx->kb_showing)
+		return;
+
+	if (!show) {
+		app_kb_set_owner(ctx, false);
+		[ctx->text_field resignFirstResponder];
+		return;
+	}
+
+	MTY_Window window = app_first_window(ctx);
+	if (window < 0)
+		return;
+
+	if (!ctx->text_field) {
+		if (@available(tvOS 14.0, iOS 14.0, *)) {
+			// Never visible itself, the system presents the keyboard with its own copy
+			UITextField *field = [[UITextField alloc] initWithFrame:CGRectMake(0, 0, 1, 1)];
+			field.alpha = 0;
+			field.autocorrectionType = UITextAutocorrectionTypeNo;
+			field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+			field.spellCheckingType = UITextSpellCheckingTypeNo;
+			field.returnKeyType = UIReturnKeyDone;
+
+			[field addAction:[UIAction actionWithHandler:^(UIAction *action) {
+				app_kb_did_end(ctx);
+			}] forControlEvents:UIControlEventEditingDidEnd];
+
+			ctx->text_field = field;
+
+		} else {
+			return;
+		}
+	}
+
+	UIView *view = ctx->windows[window]->vc.view;
+	if (ctx->text_field.superview != view)
+		[view addSubview:ctx->text_field];
+
+	ctx->text_field.text = @"";
+	app_kb_set_owner(ctx, true);
+
+	if (![ctx->text_field becomeFirstResponder]) {
+		MTY_Log("Soft keyboard text field could not become first responder");
+		app_kb_set_owner(ctx, false);
+	}
+}
+
+
 // Game controllers (GameController.framework)
 
 static uint32_t app_controller_id(MTY_App *ctx, GCController *gc)
@@ -247,6 +388,14 @@ static void app_controller_state(MTY_App *ctx, GCController *gc)
 	evt.controller.id = id;
 
 	gcmap_extended_gamepad(gc.extendedGamepad, &evt.controller);
+
+	// The soft keyboard owns controller input while it's up, report the controller as idle
+	if (ctx->kb_showing) {
+		memset(evt.controller.buttons, 0, sizeof(evt.controller.buttons));
+
+		for (uint8_t x = 0; x < evt.controller.numAxes; x++)
+			evt.controller.axes[x].value = 0;
+	}
 
 	// Prevent gamepad input while in the background, dedupe
 	if (ctx->active && mty_hid_dedupe(ctx->deduper, &evt.controller))
@@ -317,8 +466,9 @@ static void app_remote_state(MTY_App *ctx, GCController *gc)
 	state[APP_REMOTE_PLAY] = mg.buttonX.pressed;
 
 	for (uint32_t x = 0; x < APP_REMOTE_MAX; x++) {
-		// Releases always go through so nothing stays held while in the background
-		bool pressed = state[x] && ctx->active;
+		// Releases always go through so nothing stays held while in the background, or
+		// while the soft keyboard owns the remote
+		bool pressed = state[x] && ctx->active && !ctx->kb_showing;
 
 		if (pressed != ctx->remote_keys[x]) {
 			ctx->remote_keys[x] = pressed;
@@ -536,6 +686,11 @@ void MTY_AppDestroy(MTY_App **app)
 
 	MTY_App *ctx = *app;
 
+	// Before the windows go, so ending the edit doesn't deliver anything
+	ctx->kb_showing = false;
+	[ctx->text_field removeFromSuperview];
+	ctx->text_field = nil;
+
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(ctx, x);
 
@@ -706,11 +861,20 @@ void MTY_AppEnableGlobalHotkeys(MTY_App *ctx, bool enable)
 
 bool MTY_AppIsSoftKeyboardShowing(MTY_App *ctx)
 {
-	return false;
+	return ctx->kb_showing;
 }
 
 void MTY_AppShowSoftKeyboard(MTY_App *ctx, bool show)
 {
+	if ([NSThread isMainThread]) {
+		app_kb_show(ctx, show);
+
+	} else {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (APP_GLOBAL.app == ctx)
+				app_kb_show(ctx, show);
+		});
+	}
 }
 
 MTY_Orientation MTY_AppGetOrientation(MTY_App *ctx)

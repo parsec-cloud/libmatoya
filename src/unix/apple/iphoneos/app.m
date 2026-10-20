@@ -404,7 +404,7 @@ static void app_controller_state(MTY_App *ctx, GCController *gc)
 
 // Buttons bound to a tvOS gesture (on Xbox controllers, the View button) are held back
 // until the system rules the gesture out, which arrives 100-200ms late and breaks button
-// combinations. Take them for the app. The Home/Xbox button is not one of these: tvOS
+// combinations. Take them for the app. The guide button is not one of these: tvOS
 // always keeps it.
 static void app_own_gesture_buttons(GCController *gc)
 {

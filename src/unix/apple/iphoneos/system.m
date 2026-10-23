@@ -4,6 +4,8 @@
 
 #include "matoya.h"
 
+#include <TargetConditionals.h>
+
 const char *MTY_GetSOExtension(void)
 {
 	return "dylib";
@@ -11,7 +13,11 @@ const char *MTY_GetSOExtension(void)
 
 uint32_t MTY_GetPlatform(void)
 {
-	return MTY_OS_UNKNOWN;
+	#if TARGET_OS_TV
+		return MTY_OS_TVOS;
+	#else
+		return MTY_OS_IOS;
+	#endif
 }
 
 uint32_t MTY_GetPlatformNoWeb(void)
@@ -22,11 +28,11 @@ uint32_t MTY_GetPlatformNoWeb(void)
 MTY_OSInfo MTY_GetPlatformOSInfo(void)
 {
 	MTY_OSInfo info = {
-		.os = MTY_OS_IOS,
+		.os = MTY_GetPlatform(),
 		.name = MTY_GetPlatformString(MTY_GetPlatform()),
 		.valid_mask.name = true,
 	};
-	
+
 	return info;
 }
 
@@ -47,4 +53,9 @@ bool MTY_StartInProcess(const char *path, char * const *argv, const char *dir)
 bool MTY_RestartProcess(char * const *argv)
 {
 	return MTY_StartInProcess(NULL, argv, NULL);
+}
+
+void *MTY_GetJNIEnv(void)
+{
+	return NULL;
 }

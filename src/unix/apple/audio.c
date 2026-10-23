@@ -4,8 +4,14 @@
 
 #include "matoya.h"
 
+#include <TargetConditionals.h>
 #include <AudioToolbox/AudioToolbox.h>
-#include <CoreAudio/CoreAudio.h>
+
+// Device enumeration uses the HAL, which only exists on macOS. Elsewhere the
+// audio queue always plays to the system's current route.
+#if TARGET_OS_OSX
+	#include <CoreAudio/CoreAudio.h>
+#endif
 
 #include "audio-common.h"
 
@@ -27,6 +33,7 @@ static void audio_queue_callback(void *opaque, AudioQueueRef q, AudioQueueBuffer
 	buf->mAudioDataByteSize = 0;
 }
 
+#if TARGET_OS_OSX
 static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPropertyScope prop_scope,
 	AudioObjectPropertyElement prop_element, char **out_uid, CFStringRef *out_uid_cf)
 {
@@ -65,11 +72,14 @@ static OSStatus audio_object_get_device_uid(AudioObjectID device, AudioObjectPro
 
 	return e;
 }
+#endif
 
 static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 {
-	AudioObjectID *selected_device = NULL;
 	CFStringRef selected_device_uid = NULL;
+
+	#if TARGET_OS_OSX
+	AudioObjectID *selected_device = NULL;
 
 	// Enumerate all output devices and identify the given device
 	AudioObjectID *device_ids = NULL;
@@ -135,6 +145,10 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 		e = kAudioHardwareBadDeviceError;
 		goto except;
 	}
+
+	#else
+	OSStatus e = kAudioServicesNoError;
+	#endif
 
 	// Initialize the selected device
 
@@ -203,7 +217,9 @@ static OSStatus audio_device_create(MTY_Audio *ctx, const char *deviceID)
 	if (selected_device_uid)
 		CFRelease(selected_device_uid);
 
+	#if TARGET_OS_OSX
 	free(device_ids);
+	#endif
 
 	return e;
 }

@@ -196,7 +196,10 @@ OBJS := $(OBJS) \
 
 else
 MIN_VER = 13.0
-FLAGS := $(FLAGS) -fembed-bitcode
+
+OBJS := $(OBJS) \
+	src/unix/apple/image.o \
+	src/unix/apple/$(TARGET)/gfx/metal-ctx.o
 
 ifeq ($(ARCH), x86_64)
 FLAGS := $(FLAGS) -maes -mpclmul

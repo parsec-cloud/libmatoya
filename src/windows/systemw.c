@@ -391,3 +391,8 @@ void *MTY_GetJNIEnv(void)
 {
 	return NULL;
 }
+
+uint64_t MTY_GetCurrentProcessID()
+{
+	return (uint64_t)GetCurrentProcessId();
+}

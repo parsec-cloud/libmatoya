@@ -259,6 +259,7 @@ MTY_FileList *MTY_GetFileList(const char *path, const char *filter)
 			fl->files[fl->len].path = MTY_Strdup(MTY_JoinPath(pathd, name));
 			fl->files[fl->len].dir = is_dir;
 			fl->files[fl->len].size = (uint64_t) ent.nFileSizeHigh << 32 | ent.nFileSizeLow;
+			fl->files[fl->len].modified_time = (uint64_t) ent.ftLastWriteTime.dwHighDateTime << 32 | ent.ftLastWriteTime.dwLowDateTime;
 			fl->len++;
 
 		} else {

@@ -28,6 +28,16 @@ static int (*png_set_interlace_handling_ptr)(png_structrp png_ptr);
 static void (*png_read_update_info_ptr)(png_structrp png_ptr, png_inforp info_ptr);
 static void (*png_read_row_ptr)(png_structrp png_ptr, png_bytep row, png_bytep display_row);
 static jmp_buf *(*png_set_longjmp_fn_ptr)(png_structrp png_ptr, png_longjmp_ptr longjmp_fn, size_t jmp_buf_size);
+static png_structp (*png_create_write_struct_ptr)(png_const_charp user_png_ver,
+	png_voidp error_ptr, png_error_ptr error_fn, png_error_ptr warn_fn);
+static void (*png_destroy_write_struct_ptr)(png_structpp png_ptr_ptr, png_infopp info_ptr_ptr);
+static void (*png_set_write_fn_ptr)(png_structrp png_ptr, png_voidp io_ptr, png_rw_ptr write_data_fn,
+	png_flush_ptr output_flush_fn);
+static void (*png_set_IHDR_ptr)(png_const_structrp png_ptr, png_inforp info_ptr, png_uint_32 width, png_uint_32 height,
+	int bit_depth, int color_type, int interlace_method, int compression_method, int filter_method);
+static void (*png_write_info_ptr)(png_structrp png_ptr, png_const_inforp info_ptr);
+static void (*png_write_row_ptr)(png_structrp png_ptr, png_const_bytep row);
+static void (*png_write_end_ptr)(png_structrp png_ptr, png_inforp info_ptr);
 
 #define png_sig_cmp png_sig_cmp_ptr
 #define png_create_read_struct png_create_read_struct_ptr
@@ -44,6 +54,13 @@ static jmp_buf *(*png_set_longjmp_fn_ptr)(png_structrp png_ptr, png_longjmp_ptr 
 #define png_read_update_info png_read_update_info_ptr
 #define png_read_row png_read_row_ptr
 #define png_set_longjmp_fn png_set_longjmp_fn_ptr
+#define png_create_write_struct png_create_write_struct_ptr
+#define png_destroy_write_struct png_destroy_write_struct_ptr
+#define png_set_write_fn png_set_write_fn_ptr
+#define png_set_IHDR png_set_IHDR_ptr
+#define png_write_info png_write_info_ptr
+#define png_write_row png_write_row_ptr
+#define png_write_end png_write_end_ptr
 
 
 // Runtime open
@@ -101,6 +118,13 @@ static bool libpng_global_init(void)
 		LOAD_SYM(LIBPNG_SO, png_read_update_info);
 		LOAD_SYM(LIBPNG_SO, png_read_row);
 		LOAD_SYM(LIBPNG_SO, png_set_longjmp_fn);
+		LOAD_SYM(LIBPNG_SO, png_create_write_struct);
+		LOAD_SYM(LIBPNG_SO, png_destroy_write_struct);
+		LOAD_SYM(LIBPNG_SO, png_set_write_fn);
+		LOAD_SYM(LIBPNG_SO, png_set_IHDR);
+		LOAD_SYM(LIBPNG_SO, png_write_info);
+		LOAD_SYM(LIBPNG_SO, png_write_row);
+		LOAD_SYM(LIBPNG_SO, png_write_end);
 
 		except:
 

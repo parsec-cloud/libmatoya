@@ -176,12 +176,81 @@ static void *decompress_png(const void *input, size_t size, uint32_t *width, uin
 }
 
 
+struct png_out {
+	uint8_t *buf;
+	size_t size;
+	size_t cap;
+};
+
+static void compress_png_io(png_structp png_ptr, png_bytep data, size_t size)
+{
+	struct png_out *out = png_get_io_ptr(png_ptr);
+
+	if (out->size + size > out->cap) {
+		out->cap = (out->size + size) * 2;
+		out->buf = MTY_Realloc(out->buf, out->cap, 1);
+	}
+
+	memcpy(out->buf + out->size, data, size);
+	out->size += size;
+}
+
+static void compress_png_flush(png_structp png_ptr)
+{
+}
+
+static void *compress_png(const void *input, uint32_t width, uint32_t height, size_t *output_size)
+{
+	if (!libpng_global_init())
+		return NULL;
+
+	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (!png_ptr)
+		return NULL;
+
+	png_infop info_ptr = png_create_info_struct(png_ptr);
+
+	// Allocated before setjmp so it survives a longjmp back here
+	struct png_out *out = MTY_Alloc(1, sizeof(struct png_out));
+	void *image = NULL;
+
+	// Set error handling -- libpng will call abort() by default!
+	if (setjmp(png_jmpbuf(png_ptr)))
+		goto except;
+
+	png_set_write_fn(png_ptr, out, compress_png_io, compress_png_flush);
+	png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
+		PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+	png_write_info(png_ptr, info_ptr);
+
+	for (uint32_t y = 0; y < height; y++)
+		png_write_row(png_ptr, (png_const_bytep) input + (size_t) y * width * 4);
+
+	png_write_end(png_ptr, NULL);
+
+	image = out->buf;
+	*output_size = out->size;
+	out->buf = NULL;
+
+	except:
+
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+	MTY_Free(out->buf);
+	MTY_Free(out);
+
+	return image;
+}
+
+
 // Public
 
 void *MTY_CompressImage(MTY_ImageCompression method, const void *input, uint32_t width,
 	uint32_t height, size_t *outputSize)
 {
 	*outputSize = 0;
+
+	if (method == MTY_IMAGE_COMPRESSION_PNG)
+		return compress_png(input, width, height, outputSize);
 
 	return NULL;
 }
